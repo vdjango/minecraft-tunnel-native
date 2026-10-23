@@ -1,0 +1,193 @@
+{
+  "passed": false,
+  "platform": "Windows-10-10.0.26100-SP0",
+  "measured_seconds_per_mode": 30.0,
+  "scope": "Loopback native node and two independent native bridges; echo application",
+  "payload_bytes": 65536,
+  "bulk_streams": 4,
+  "window_blocks_per_stream": 16,
+  "player_logs": "E:\\code\\minecraft-tunnel-native\\validation-artifacts\\player-pair-windows-20261023\\players-37ruffhr",
+  "modes": {
+    "p2p": {
+      "a_create_room_ms": {
+        "samples": 5,
+        "p50": 4.521,
+        "p95": 5.506,
+        "p99": 5.506,
+        "maximum": 63.788
+      },
+      "b_join_room_ms": {
+        "samples": 5,
+        "p50": 12.565,
+        "p95": 13.477,
+        "p99": 13.477,
+        "maximum": 23.732
+      },
+      "first_connection_echo_ms": {
+        "samples": 5,
+        "p50": 1.3,
+        "p95": 1.312,
+        "p99": 1.312,
+        "maximum": 1.561
+      },
+      "idle_rtt_ms": {
+        "samples": 150,
+        "p50": 0.763,
+        "p95": 0.992,
+        "p99": 1.18,
+        "maximum": 4.068
+      },
+      "saturated_rtt_ms": {
+        "samples": 756,
+        "p50": 39.544,
+        "p95": 57.883,
+        "p99": 66.066,
+        "maximum": 74.891
+      },
+      "elapsed_seconds": 30.144,
+      "one_direction_mib_per_second": 20.7,
+      "echo_roundtrip_verified_mib": 624.0,
+      "streams": [
+        {
+          "stream": 0,
+          "verified_bytes": 170917888,
+          "receive_gap_ms": {
+            "samples": 2608,
+            "p50": 1.416,
+            "p95": 38.324,
+            "p99": 46.228,
+            "maximum": 63.525
+          },
+          "gaps_over_100ms": 0,
+          "gaps_over_250ms": 0,
+          "gaps_over_1000ms": 0
+        },
+        {
+          "stream": 1,
+          "verified_bytes": 166199296,
+          "receive_gap_ms": {
+            "samples": 2536,
+            "p50": 1.466,
+            "p95": 39.479,
+            "p99": 49.025,
+            "maximum": 58.42
+          },
+          "gaps_over_100ms": 0,
+          "gaps_over_250ms": 0,
+          "gaps_over_1000ms": 0
+        },
+        {
+          "stream": 2,
+          "verified_bytes": 160890880,
+          "receive_gap_ms": {
+            "samples": 2455,
+            "p50": 1.528,
+            "p95": 39.546,
+            "p99": 49.819,
+            "maximum": 62.953
+          },
+          "gaps_over_100ms": 0,
+          "gaps_over_250ms": 0,
+          "gaps_over_1000ms": 0
+        },
+        {
+          "stream": 3,
+          "verified_bytes": 156303360,
+          "receive_gap_ms": {
+            "samples": 2385,
+            "p50": 2.091,
+            "p95": 40.061,
+            "p99": 50.959,
+            "maximum": 61.656
+          },
+          "gaps_over_100ms": 0,
+          "gaps_over_250ms": 0,
+          "gaps_over_1000ms": 0
+        }
+      ]
+    }
+  },
+  "sha256": {
+    "buggcraft-core": "9539a4b74206b7251d209a1b1f0790a3a084593c8da7bbb0b815498d81c023b0",
+    "buggcraft-bridge": "f32ca166501d29876a7b2e03a7b7363ac887062fcb0cf2d51ad064289978324a"
+  },
+  "a_node_add_ms": 20.507,
+  "b_node_add_ms": 12.004,
+  "direct_tcp": {
+    "idle_rtt_ms": {
+      "samples": 150,
+      "p50": 0.264,
+      "p95": 0.372,
+      "p99": 0.494,
+      "maximum": 6.231
+    },
+    "saturated_rtt_ms": {
+      "samples": 13208,
+      "p50": 1.627,
+      "p95": 2.078,
+      "p99": 2.562,
+      "maximum": 6.712
+    },
+    "elapsed_seconds": 30.06,
+    "one_direction_mib_per_second": 293.02,
+    "echo_roundtrip_verified_mib": 8808.188,
+    "streams": [
+      {
+        "stream": 0,
+        "verified_bytes": 2309029888,
+        "receive_gap_ms": {
+          "samples": 35233,
+          "p50": 0.843,
+          "p95": 1.108,
+          "p99": 1.383,
+          "maximum": 7.555
+        },
+        "gaps_over_100ms": 0,
+        "gaps_over_250ms": 0,
+        "gaps_over_1000ms": 0
+      },
+      {
+        "stream": 1,
+        "verified_bytes": 2309029888,
+        "receive_gap_ms": {
+          "samples": 35233,
+          "p50": 0.855,
+          "p95": 1.133,
+          "p99": 1.412,
+          "maximum": 7.562
+        },
+        "gaps_over_100ms": 0,
+        "gaps_over_250ms": 0,
+        "gaps_over_1000ms": 0
+      },
+      {
+        "stream": 2,
+        "verified_bytes": 2309029888,
+        "receive_gap_ms": {
+          "samples": 35233,
+          "p50": 0.834,
+          "p95": 1.087,
+          "p99": 1.355,
+          "maximum": 7.282
+        },
+        "gaps_over_100ms": 0,
+        "gaps_over_250ms": 0,
+        "gaps_over_1000ms": 0
+      },
+      {
+        "stream": 3,
+        "verified_bytes": 2308964352,
+        "receive_gap_ms": {
+          "samples": 35232,
+          "p50": 0.874,
+          "p95": 1.175,
+          "p99": 1.451,
+          "maximum": 8.418
+        },
+        "gaps_over_100ms": 0,
+        "gaps_over_250ms": 0,
+        "gaps_over_1000ms": 0
+      }
+    ]
+  }
+}

@@ -1,0 +1,540 @@
+{
+  "passed": true,
+  "nodes": 32,
+  "failed_nodes": 4,
+  "survivors": 28,
+  "convergence_seconds": 2.355,
+  "observation_seconds": 65.247,
+  "lease_seconds": 30,
+  "fanout_per_node": 3,
+  "snapshot_payload_kib_s": 269.082,
+  "exchanges_per_second": 83.911,
+  "totals": {
+    "exchanges_started": 5475,
+    "exchanges_failed": 597,
+    "snapshot_received_bytes": 17978255
+  },
+  "samples": [
+    {
+      "elapsed": 1.002,
+      "started_per_second": 80.842,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 2.023,
+      "started_per_second": 79.296,
+      "max_inflight": 2,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 3.026,
+      "started_per_second": 86.807,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 4.028,
+      "started_per_second": 83.798,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 5.03,
+      "started_per_second": 86.8,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 6.033,
+      "started_per_second": 86.785,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 7.036,
+      "started_per_second": 80.768,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 8.039,
+      "started_per_second": 95.669,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 9.041,
+      "started_per_second": 71.86,
+      "max_inflight": 1,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 10.049,
+      "started_per_second": 77.369,
+      "max_inflight": 2,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 11.057,
+      "started_per_second": 98.229,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 12.07,
+      "started_per_second": 82.929,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 13.077,
+      "started_per_second": 77.435,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 14.08,
+      "started_per_second": 86.788,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 15.082,
+      "started_per_second": 83.824,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 16.087,
+      "started_per_second": 92.505,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 17.09,
+      "started_per_second": 83.79,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 18.097,
+      "started_per_second": 80.413,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 19.1,
+      "started_per_second": 83.762,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 20.102,
+      "started_per_second": 83.81,
+      "max_inflight": 2,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 21.105,
+      "started_per_second": 80.758,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 22.108,
+      "started_per_second": 83.761,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 23.117,
+      "started_per_second": 89.205,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 24.119,
+      "started_per_second": 80.823,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 25.122,
+      "started_per_second": 86.745,
+      "max_inflight": 1,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 26.123,
+      "started_per_second": 83.892,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 27.125,
+      "started_per_second": 83.82,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 32,
+      "max_live": 32
+    },
+    {
+      "elapsed": 28.127,
+      "started_per_second": 83.885,
+      "max_inflight": 2,
+      "max_pooled": 3,
+      "min_live": 30,
+      "max_live": 30
+    },
+    {
+      "elapsed": 29.13,
+      "started_per_second": 83.758,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 30,
+      "max_live": 30
+    },
+    {
+      "elapsed": 30.131,
+      "started_per_second": 83.871,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 31.134,
+      "started_per_second": 77.823,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 32.138,
+      "started_per_second": 86.65,
+      "max_inflight": 2,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 33.14,
+      "started_per_second": 86.801,
+      "max_inflight": 1,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 34.141,
+      "started_per_second": 86.892,
+      "max_inflight": 2,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 35.147,
+      "started_per_second": 80.538,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 36.152,
+      "started_per_second": 95.482,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 37.154,
+      "started_per_second": 80.871,
+      "max_inflight": 1,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 38.159,
+      "started_per_second": 89.574,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 39.161,
+      "started_per_second": 77.837,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 40.164,
+      "started_per_second": 89.699,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 41.166,
+      "started_per_second": 80.88,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 42.168,
+      "started_per_second": 77.846,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 43.169,
+      "started_per_second": 86.867,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 44.172,
+      "started_per_second": 80.771,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 45.179,
+      "started_per_second": 80.414,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 46.181,
+      "started_per_second": 86.875,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 47.184,
+      "started_per_second": 89.69,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 48.187,
+      "started_per_second": 80.757,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 49.19,
+      "started_per_second": 74.808,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 50.195,
+      "started_per_second": 83.524,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 51.202,
+      "started_per_second": 83.489,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 52.208,
+      "started_per_second": 80.498,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 53.211,
+      "started_per_second": 74.77,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 54.214,
+      "started_per_second": 92.706,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 55.216,
+      "started_per_second": 77.851,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 56.218,
+      "started_per_second": 83.865,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 57.219,
+      "started_per_second": 83.861,
+      "max_inflight": 0,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 58.221,
+      "started_per_second": 83.833,
+      "max_inflight": 1,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 59.225,
+      "started_per_second": 89.665,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 60.228,
+      "started_per_second": 83.767,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 61.23,
+      "started_per_second": 86.768,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 62.237,
+      "started_per_second": 77.519,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 63.239,
+      "started_per_second": 86.793,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 64.241,
+      "started_per_second": 83.787,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    },
+    {
+      "elapsed": 65.246,
+      "started_per_second": 86.623,
+      "max_inflight": 3,
+      "max_pooled": 3,
+      "min_live": 28,
+      "max_live": 28
+    }
+  ],
+  "scope": "Real native SSH nodes on one host; directory control-plane test, no game payload"
+}

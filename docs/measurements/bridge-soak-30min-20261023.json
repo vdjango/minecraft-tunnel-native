@@ -1,0 +1,68 @@
+{
+  "passed": true,
+  "duration_seconds": 1800.0,
+  "measured_load_seconds": 1800.217,
+  "clients": 3,
+  "bulk_streams_per_client": 3,
+  "path": "native-relay",
+  "game_protocol": false,
+  "bulk_rate_per_stream": 0.0,
+  "payload_echoed_gib": 186.314,
+  "payload_echoed_average_mib_s": 105.992,
+  "total_forwarded_payload_gib": 372.629,
+  "probe_rtt_p99_max_ms": 7.795,
+  "probe_rtt_max_ms": 26.208,
+  "bulk_max_gap_ms": 30.574,
+  "bulk_gaps_over_100_ms": 0,
+  "bulk_gaps_over_250_ms": 0,
+  "churn_connections": 3306,
+  "interval_throughput_min_mib_s": 101.85,
+  "interval_throughput_max_mib_s": 108.58,
+  "native_rss_warmup_median_mib": 71.871,
+  "native_rss_final_minute_median_mib": 73.031,
+  "native_rss_peak_mib": 73.61,
+  "test_tree_rss_peak_mib": 129.12,
+  "sampled_test_tree_cpu_seconds": 4622.65,
+  "resource_sample_count": 360,
+  "progress_interval_count": 59,
+  "player_log_files": 13,
+  "player_log_folders": 11,
+  "player_log_mib": 26.683,
+  "malformed_log_rows": 0,
+  "journal_health": {
+    "log_dropped": 0,
+    "log_write_errors": 0
+  },
+  "bridge_closure_flags": {
+    "clean_short": 4585,
+    "clean_long": 17,
+    "eof_not_confirmed_short": 2027,
+    "eof_not_confirmed_long": 7
+  },
+  "compression_totals": {
+    "raw_bytes": 400268022032,
+    "wire_bytes": 262234014344,
+    "compressed_blocks": 2112143
+  },
+  "max_backpressure_ms": 1.166,
+  "events": {
+    "game_path": 6636,
+    "stream_closed": 9954,
+    "compression_summary": 6636,
+    "stream_sample": 43169,
+    "player_connected": 4,
+    "endpoint_online": 4,
+    "endpoint_stopped": 4,
+    "connected": 4,
+    "stream_open": 3318,
+    "stream_eof": 6636,
+    "sample": 7180,
+    "disconnected": 4,
+    "backpressure_start": 36,
+    "backpressure_end": 36
+  },
+  "binary_sha256": {
+    "buggcraft-core": "432af0c9c490d4bea21d8eb9162220b7cf8434f1d109ec1572ad5799a1fc5bf5",
+    "buggcraft-bridge": "a91dcf60575db0f170dab9d0c1c85515d898166c4ea83630e95576be0695dcd8"
+  }
+}

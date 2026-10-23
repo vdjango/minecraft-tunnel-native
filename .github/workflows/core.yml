@@ -1,0 +1,72 @@
+name: Native core and bridge
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  protocol:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022, macos-14, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Ubuntu build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build
+      - name: Windows OpenSSL
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: vcpkg install openssl:x64-windows
+      - name: macOS OpenSSL
+        if: runner.os == 'macOS'
+        run: brew install openssl@3
+      - run: python scripts/fetch_deps.py
+      - name: Configure Ubuntu
+        if: runner.os == 'Linux'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Configure Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
+      - name: Configure macOS
+        if: runner.os == 'macOS'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)"
+      - run: cmake --build build --config Release --parallel 2
+      - run: ctest --test-dir build --build-config Release --output-on-failure
+      - run: cmake --install build --config Release --prefix package
+      - run: python -m pip install -r requirements.txt
+      - name: Windows protocol checks
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:PATH = "$pwd/package/bin;" + $env:PATH
+          $env:BUGGCRAFT_NATIVE_CORE = "$pwd/package/bin/buggcraft-core.exe"
+          $env:BUGGCRAFT_BRIDGE_EXECUTABLE = "$pwd/package/bin/buggcraft-bridge.exe"
+          $env:BUGGCRAFT_BRIDGE_LIBRARY = "$pwd/package/bin/buggcraft_bridge.dll"
+          $env:BUGGCRAFT_BRIDGE_PACKAGE = "$pwd/package"
+          python -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_federation_budget tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/check_compatibility.py
+      - name: Unix protocol checks
+        if: runner.os != 'Windows'
+        run: |
+          export BUGGCRAFT_NATIVE_CORE="$PWD/package/bin/buggcraft-core"
+          export BUGGCRAFT_BRIDGE_EXECUTABLE="$PWD/package/bin/buggcraft-bridge"
+          export BUGGCRAFT_BRIDGE_PACKAGE="$PWD/package"
+          if [ "$(uname)" = "Darwin" ]; then
+            export BUGGCRAFT_BRIDGE_LIBRARY="$PWD/package/lib/libbuggcraft_bridge.dylib"
+          else
+            export BUGGCRAFT_BRIDGE_LIBRARY="$PWD/package/lib/libbuggcraft_bridge.so"
+          fi
+          python -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_federation_budget tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v
+          python scripts/check_compatibility.py
+      - name: Publish complete native runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: buggcraft-native-${{ matrix.os }}
+          path: package/
+          if-no-files-found: error

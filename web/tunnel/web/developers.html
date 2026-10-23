@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Buggcraft 联机网络接入指南：标准 JSON-RPC 桥接、房间、P2P 与中转。">
+  <title>开发文档 · Buggcraft</title>
+  <script src="/theme.js"></script><link rel="stylesheet" href="/portal.css">
+  <link rel="stylesheet" href="/developers.css"><link rel="stylesheet" href="/theme.css">
+</head>
+<body class="console docs-page">
+  <div class="ambient" aria-hidden="true"></div>
+  <header class="shell topbar">
+    <a class="brand" href="/"><span class="mark">B<span>·</span></span><span>BUGGCRAFT<small>DEVELOPER GUIDE</small></span></a>
+    <nav aria-label="网站导航"><a href="/">节点首页 ↗</a></nav>
+  </header>
+  <main class="shell docs-main"><div class="docs-layout">
+    <aside class="docs-sidebar" aria-label="文档导航"><div class="docs-side-inner">
+      <div class="docs-side-title">开发文档 <small>V1</small></div>
+      <nav class="docs-toc" aria-label="章节目录">
+        <a href="#overview">接入方式</a><a href="#quickstart">开始接入</a><a href="#directory-api">节点和房间</a>
+        <a href="#rooms-api">连接方式</a><a href="#friends-api">账号与好友</a><a href="#examples">语言示例</a><a href="#security-api">安全与测试</a>
+      </nav>
+      <div class="docs-side-files"><span>协议与参考代码</span><a href="#protocol">完整协议说明</a><a href="#examples">各语言接入示例</a></div>
+    </div></aside>
+    <div class="docs-content">
+      <section class="docs-hero" aria-labelledby="guide-title">
+        <div class="eyebrow">LAUNCHER INTEGRATION</div><h1 id="guide-title">把联机带进<br>你的启动器。</h1>
+        <p>通过标准 JSON-RPC 2.0 接口添加节点、查询房间并连接游戏。启动器只需管理一个本地桥接进程，不必实现 ICE 打洞或中继协议。</p>
+        <div class="docs-hero-actions"><a class="primary" href="#quickstart">开始接入 <span aria-hidden="true">↗</span></a><a class="secondary" href="#protocol">阅读完整协议</a></div>
+        <div class="docs-meta"><span>HTTPS · 公开状态</span><span>JSON-RPC 2.0 · UTF-8</span><span>P2P 优先 · 中继回退</span></div>
+      </section>
+
+      <section id="overview" class="docs-section">
+        <div class="docs-section-heading"><span>01 / OVERVIEW</span><h2>一个桥接层，覆盖不同连接环境</h2><p>推荐通过启动器随附或安装的 Buggcraft bridge 子进程接入。进程负责节点身份、房间信令、P2P 与中继切换。</p></div>
+        <div class="docs-paths">
+          <article class="docs-path"><div class="docs-path-icon">STATUS</div><h3>读取公开状态</h3><p>无需账号即可显示节点在线状态、容量和公开房间。</p><a href="#directory-api">查看目录接口 →</a></article>
+          <article class="docs-path"><div class="docs-path-icon">ROOMS</div><h3>加入游戏房间</h3><p>导入接入码后搜索房间。游戏连接默认尝试 P2P，失败时经节点中转。</p><a href="#rooms-api">查看连接流程 →</a></article>
+          <article class="docs-path"><div class="docs-path-icon">FRIENDS</div><h3>使用账号与好友</h3><p>个人启动器接入码用于识别登录账号；匿名接入可玩联机，但没有好友功能。</p><a href="#friends-api">查看账号说明 →</a></article>
+        </div>
+      </section>
+
+      <section id="quickstart" class="docs-section">
+        <div class="docs-section-heading"><span>02 / QUICK START</span><h2>用 JSON-RPC 启动桥接进程</h2><p>每行发送一个 JSON-RPC 2.0 请求，每个请求对应一行响应。先初始化协议，再添加节点，之后创建或加入房间。</p></div>
+        <ol class="docs-steps">
+          <li><strong>下载并启动桥接程序</strong><p>从 <a href="https://github.com/vdjango/buggcraft/actions/workflows/bridge.yml">Package bridge</a> 下载对应系统的产物，解压后随启动器保留完整目录。通过子进程启动 <code>buggcraft-bridge.exe</code>（Windows）或 <code>buggcraft-bridge</code>（Linux/macOS），重定向输入输出；不需要 Python 环境或语言专用 SDK。</p></li>
+          <li><strong>初始化并导入节点</strong><p>调用 <code>bridge.initialize</code>，再用 <code>node.add</code> 导入用户从可信节点取得的接入码。桥接进程负责凭据，不要把凭据写入日志。</p></li>
+          <li><strong>连接房间</strong><p>用 <code>room.list</code> 读取公开目录。当前桥接加入接口需要邀请码：让用户输入后调用 <code>room.join</code>；<code>room.host</code> 创建邀请码房间。加入者可以选择 P2P 优先或仅中继。</p></li>
+          <li><strong>启动游戏并清理会话</strong><p>把返回的 <code>127.0.0.1:端口</code> 交给 Minecraft。退出时调用 <code>room.close</code>；进程关闭时会清理剩余会话。</p></li>
+        </ol>
+        <div class="docs-code"><span>启动可执行文件 · 参数不包含任何接入码</span><pre><code>buggcraft-bridge.exe
+# Linux / macOS: ./buggcraft-bridge
+# 构建信息: buggcraft-bridge --version</code></pre></div>
+        <div class="docs-code"><span>请求示例 · node.add 与 room.join</span><pre><code>{"jsonrpc":"2.0","id":1,"method":"bridge.initialize","params":{"protocol":1}}
+{"jsonrpc":"2.0","id":2,"method":"node.add","params":{"code":"buggnode1-&lt;用户接入码&gt;"}}
+{"jsonrpc":"2.0","id":3,"method":"room.join","params":{"node":"&lt;返回的节点句柄&gt;","invite":"bugg1-&lt;房间邀请码&gt;","transport":"auto"}}</code></pre></div>
+        <div class="docs-note"><strong>桥接接口的版本边界</strong><p>标准报文采用 JSON-RPC 2.0；方法名、参数、限制和错误码由 Buggcraft 的 v1 profile 定义。不支持 batch 或状态通知，可用 <code>session.list</code> 刷新状态。运行时保留完整发行目录，当前产物未提供受信任签名或 Apple 公证。<a href="https://github.com/vdjango/buggcraft/blob/main/docs/technical/bridge-integration.md">查看桥接发行与接入说明</a>。</p></div>
+      </section>
+
+      <section id="directory-api" class="docs-section">
+        <div class="docs-section-heading"><span>03 / DIRECTORY</span><h2>查询节点与房间</h2><p>公开状态走 HTTPS。桥接接口提供有凭据的目录操作；游戏数据不经过目录查询接口。</p></div>
+        <div class="docs-table-wrap"><table class="docs-table"><caption>目录能力</caption><thead><tr><th scope="col">接口</th><th scope="col">用途</th></tr></thead><tbody>
+          <tr><td><code>GET /api/status</code></td><td>读取节点公开状态、地区、接纳提示、在线人数和注册开关。</td></tr>
+          <tr><td><code>node.add</code></td><td>验证并导入接入码，返回进程内使用的不透明节点句柄。</td></tr>
+          <tr><td><code>node.selected / node.routes</code>（原生桥）</td><td>读取综合延迟、负载及剩余名额选出的入口和备用线路。</td></tr>
+          <tr><td><code>bridge.events</code>（原生桥）</td><td>读取并消费线路切换提示，使用非弹窗提示告知用户。</td></tr>
+          <tr><td><code>room.list</code></td><td>分页获取公开房间；传入 offset，最多返回 50 项。</td></tr>
+          <tr><td><code>session.list</code></td><td>读取本进程活动会话及当前连接状态。</td></tr>
+          <tr><td><code>account_lookup</code>（原生 SSH）</td><td>个人身份可按用户名或账号 ID 查询；不属于当前 JSON-RPC 方法，匿名凭据没有好友查询权限。</td></tr>
+        </tbody></table></div>
+        <div class="docs-split"><article class="docs-info-card"><h3>限流与错误</h3><p>单行输入上限 8 KiB；错误使用 JSON-RPC 标准错误结构。超时、节点不可达或凭据失效时提示用户，并采用有上限的退避重试。</p></article><article class="docs-info-card"><h3>节点故障</h3><p>其他联邦入口可以继续提供目录。房间归属节点不可用时房主需重建房间；已经建立的 Minecraft TCP 会话不会自动迁移到另一台服务器。</p></article></div>
+      </section>
+
+      <section id="rooms-api" class="docs-section">
+        <div class="docs-section-heading"><span>04 / GAME CONNECTION</span><h2>同一房间可以混合使用 P2P 和中继</h2><p>路径由每位加入者分别选择和协商。一个访客 P2P 失败或主动选中继，不会让房间里的其他访客改变路径。</p></div>
+        <div class="docs-flow" aria-label="游戏连接流程"><div><span>LAUNCHER</span><strong>标准 JSON-RPC</strong><small>启动或退出会话</small></div><b aria-hidden="true">→</b><div><span>LOCAL BRIDGE</span><strong>按访客选路径</strong><small>P2P 优先 / 中继</small></div><b aria-hidden="true">→</b><div><span>MINECRAFT</span><strong>127.0.0.1:端口</strong><small>原版 TCP 接口</small></div></div>
+        <div class="docs-table-wrap"><table class="docs-table"><caption>房间接口 v1</caption><thead><tr><th scope="col">方法</th><th scope="col">参数与结果</th></tr></thead><tbody>
+          <tr><td><code>room.host</code></td><td><code>node</code>、<code>game_port</code>、<code>transport</code>；返回会话 ID、邀请码和房间状态。</td></tr>
+          <tr><td><code>room.join</code></td><td><code>node</code>、<code>invite</code>、<code>transport</code>；返回会话 ID、本地回环地址和连接状态。</td></tr>
+          <tr><td><code>room.close</code></td><td>使用会话 ID 关闭监听、P2P 连接、中继连接与后台任务。</td></tr>
+          <tr><td><code>session.list</code></td><td>返回本进程中的活动会话、角色与当前传输状态。</td></tr>
+        </tbody></table></div>
+        <div class="docs-split"><article class="docs-info-card"><h3>连接方式</h3><p><code>transport:auto</code>（默认）会先尝试 WebRTC ICE / DTLS / SCTP 直连，连不上时该玩家自动走 SSH 中继。<code>transport:relay</code> 会跳过 P2P，仅使用中继。</p></article><article class="docs-info-card"><h3>网络边界</h3><p>P2P 需要双方网络允许 ICE 建连；对称 NAT、防火墙、UDP 阻断等环境可能只能中继。当前节点提供 STUN 地址发现和流量中继，不提供 TURN 服务，也不能保证所有网络都可直连。</p></article></div>
+        <div class="docs-note"><strong>隐私与路径选择</strong><p>P2P 建连会让通信双方获知彼此的网络候选地址。若用户不愿向房间对端提供自己的网络地址，选“仅通过节点中转”。中继能隐藏玩家之间的直接地址，但中继节点仍会看到连接端点和转发流量。</p></div>
+      </section>
+
+      <section id="friends-api" class="docs-section">
+        <div class="docs-section-heading"><span>05 / ACCOUNTS &amp; FRIENDS</span><h2>登录账号与匿名联机分开</h2><p>匿名接入可以添加节点和加入房间，但不显示好友入口。好友需要账号身份、对方同意以及可达的联邦目录。</p></div>
+        <div class="docs-flow" aria-label="个人身份接入步骤"><div><span>01</span><strong>节点网页登录</strong><small>注册或登录</small></div><b aria-hidden="true">→</b><div><span>02</span><strong>领取个人启动器接入码</strong><small>主动导入启动器</small></div><b aria-hidden="true">→</b><div><span>03</span><strong>搜索并添加好友</strong><small>双方确认</small></div></div>
+        <div class="docs-split"><article class="docs-info-card"><h3>跨节点用户名搜索</h3><p>联邦节点同步公开用户名、账号 ID 和公钥。用户名目录不包含密码；查询结果不代表已经获得好友或房间权限。</p></article><article class="docs-info-card"><h3>登录与备份</h3><p>跨节点登录需要用户启用并配置加密身份备份。没有备份时，账号登录仍依赖注册节点在线；仅同步用户名不能恢复账号。</p></article></div>
+        <div class="docs-code"><span>高级接入：SSH 目录协议示例，需要个人身份授权；当前不属于 bridge 的 JSON-RPC 方法</span><pre><code>{"op":"account_lookup","identifier":"alex"}</code></pre></div>
+        <div class="docs-note"><strong>个人启动器接入码是授权凭据</strong><p>有效期最长 7 天。持有该码的设备可代表账号操作；使用系统安全存储保护接入码，不要写入日志、崩溃报告或同步到公开配置文件。</p></div>
+      </section>
+
+      <section id="examples" class="docs-section">
+        <div class="docs-section-heading"><span>06 / CODE EXAMPLES</span><h2>各语言复用同一个接口</h2><p>下列为应用内调用片段；接入码、邀请码和游戏启动函数由你的启动器提供。C/C++ 例子中的 BridgeProcess 是启动器自身的双向进程管道封装，Java 例子使用 Jackson，C# 使用 System.Text.Json。协议请求的格式和顺序相同。</p></div>
+        <div class="docs-samples">
+          <details class="docs-sample" open><summary><span>Python</span><small>subprocess + JSON</small></summary><pre><code>import json, subprocess
+p = subprocess.Popen([bridge_path], stdin=subprocess.PIPE,
+                     stdout=subprocess.PIPE, text=True, encoding="utf-8")
+def rpc(i, method, params):
+    p.stdin.write(json.dumps({"jsonrpc":"2.0", "id":i,
+        "method":method, "params":params}) + "\n")
+    p.stdin.flush(); reply = json.loads(p.stdout.readline())
+    if "error" in reply: raise RuntimeError(reply["error"]["message"])
+    return reply["result"]
+rpc(1, "bridge.initialize", {"protocol":1})
+node = rpc(2, "node.add", {"code": access_code})["node"]
+room = rpc(3, "room.join", {"node":node, "invite":invite, "transport":"auto"})
+launch_minecraft(room["address"])
+rpc(4, "room.close", {"session":room["session"]})</code></pre></details>
+          <details class="docs-sample"><summary><span>C / C++</span><small>OS pipes + nlohmann/json</small></summary><pre><code>// Use CreateProcess pipes (Windows) or pipe/posix_spawn (Unix) for the bridge process.
+// Keep stderr separate; write_line/read_line exchange one UTF-8 JSON frame each.
+#include &lt;nlohmann/json.hpp&gt;
+using json = nlohmann::json;
+json rpc(BridgeProcess&amp; bridge, int id, const char* method, json params) {
+  json request={{"jsonrpc","2.0"},{"id",id},{"method",method},{"params",params}};
+  bridge.write_line(request.dump());
+  auto response=json::parse(bridge.read_line(8192));
+  if (response.contains("error")) throw std::runtime_error(response["error"]["message"].get&lt;std::string&gt;());
+  return response.at("result");
+}
+auto init=rpc(bridge,1,"bridge.initialize",{{"protocol",1}});
+auto node=rpc(bridge,2,"node.add",{{"code",access_code}}).at("node");
+auto room=rpc(bridge,3,"room.join",{{"node",node},{"invite",invite},{"transport","auto"}});
+launch_minecraft(room.at("address").get&lt;std::string&gt;());
+rpc(bridge,4,"room.close",{{"session",room.at("session")}});</code></pre></details>
+          <details class="docs-sample"><summary><span>Java</span><small>ProcessBuilder + Jackson</small></summary><pre><code>var process = new ProcessBuilder(bridgePath).start();
+var in = new java.io.BufferedWriter(new java.io.OutputStreamWriter(process.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8));
+var out = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream(), java.nio.charset.StandardCharsets.UTF_8));
+var json = new com.fasterxml.jackson.databind.ObjectMapper();
+var sequence = new java.util.concurrent.atomic.AtomicInteger();
+java.util.function.BiFunction&lt;String, java.util.Map&lt;String,Object&gt;, com.fasterxml.jackson.databind.JsonNode&gt; rpc = (method, params) -&gt; {
+  try {
+    var q=java.util.Map.of("jsonrpc","2.0", "id",sequence.incrementAndGet(), "method",method, "params",params);
+    in.write(json.writeValueAsString(q)); in.newLine(); in.flush();
+    var reply=json.readTree(out.readLine());
+    if (reply.has("error")) throw new RuntimeException(reply.get("error").toString());
+    return reply.get("result");
+  } catch (java.io.IOException e) { throw new RuntimeException(e); }
+};
+rpc.apply("bridge.initialize", java.util.Map.of("protocol",1));
+var node=rpc.apply("node.add", java.util.Map.of("code",accessCode)).get("node").asText();
+var room=rpc.apply("room.join", java.util.Map.of("node",node, "invite",invite, "transport","auto"));
+launchMinecraft(room.get("address").asText());
+rpc.apply("room.close", java.util.Map.of("session",room.get("session").asText()));</code></pre></details>
+          <details class="docs-sample"><summary><span>C#</span><small>Process + System.Text.Json</small></summary><pre><code>var start = new System.Diagnostics.ProcessStartInfo(bridgePath) {
+    RedirectStandardInput=true, RedirectStandardOutput=true, UseShellExecute=false, CreateNoWindow=true };
+using var bridge = System.Diagnostics.Process.Start(start)!;
+async System.Threading.Tasks.Task&lt;System.Text.Json.JsonElement&gt; Rpc(int id, string method, object parameters) {
+  var q=System.Text.Json.JsonSerializer.Serialize(new { jsonrpc="2.0", id, method, @params=parameters });
+  await bridge.StandardInput.WriteLineAsync(q); await bridge.StandardInput.FlushAsync();
+  using var doc=System.Text.Json.JsonDocument.Parse((await bridge.StandardOutput.ReadLineAsync())!);
+  var root=doc.RootElement; if (root.TryGetProperty("error",out var error)) throw new Exception(error.ToString());
+  return root.GetProperty("result").Clone();
+}
+await Rpc(1,"bridge.initialize",new { protocol=1 });
+var node=(await Rpc(2,"node.add",new { code=accessCode })).GetProperty("node").GetString();
+var room=await Rpc(3,"room.join",new { node, invite, transport="auto" });
+LaunchMinecraft(room.GetProperty("address").GetString());
+await Rpc(4,"room.close",new { session=room.GetProperty("session").GetString() });</code></pre></details>
+        </div>
+        <div class="docs-callout"><strong>测试请使用自己部署的节点</strong><p>连接能否直达取决于两端网络、路由器、防火墙及 UDP 状态。请分别测试 P2P 成功、UDP 被阻断后中继、手动仅中继、断线清理和多名玩家混合路径。</p><a href="#protocol">阅读协议细节 →</a></div>
+      </section>
+
+      <section id="security-api" class="docs-section">
+        <div class="docs-section-heading"><span>07 / RELEASE CHECK</span><h2>上线前逐项验证</h2><p>请在自己部署的节点上完成端到端测试，并明确告诉用户连接状态和路径。</p></div>
+        <ul class="docs-checklist">
+          <li>验证 SSH 节点公钥和 HTTPS 证书；身份不匹配时中止连接。</li>
+          <li>接入码放入操作系统安全存储；日志隐藏 token、邀请码和签名私钥。</li>
+          <li>本地游戏地址仅监听回环接口；房间退出后释放端口与后台任务。</li>
+          <li>测试 P2P 自动连接、P2P 失败回退、仅中继和同房间混合连接。</li>
+          <li>测试容量上限、邀请码错误、节点失联、登录过期、匿名用户权限和好友双方确认。</li>
+          <li>说明中继不会使房间会话自动迁移；节点恢复或更换后需重新加入。</li>
+        </ul>
+      </section>
+      <section id="protocol" class="docs-section"><div class="docs-section-heading"><span>08 / PROTOCOL REFERENCE</span><h2>完整协议参考</h2><p>与仓库中的协议文档同步，可直接在本页查阅。</p></div><pre class="protocol-reference">{{PROTOCOL}}</pre></section>
+      <footer class="docs-footer"><span>BUGGCRAFT / LAUNCHER GUIDE</span><a href="#guide-title">回到开头 ↑</a></footer>
+    </div>
+  </div></main>
+</body>
+</html>

@@ -1,0 +1,21 @@
+set(runtime_directories "@NATIVE_RUNTIME_DIRS@")
+set(runtime_executables "$<TARGET_FILE:buggcraft-core>")
+set(runtime_libraries)
+if(@BUGGCRAFT_BRIDGE@)
+  list(APPEND runtime_executables "$<TARGET_FILE:buggcraft-bridge>")
+  list(APPEND runtime_libraries "$<TARGET_FILE:buggcraft-bridge-library>")
+endif()
+file(GET_RUNTIME_DEPENDENCIES
+  EXECUTABLES ${runtime_executables}
+  LIBRARIES ${runtime_libraries}
+  RESOLVED_DEPENDENCIES_VAR dependencies
+  UNRESOLVED_DEPENDENCIES_VAR missing
+  DIRECTORIES "$<TARGET_FILE_DIR:ssh>" "@CMAKE_CURRENT_BINARY_DIR@" ${runtime_directories}
+  PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-"
+  POST_EXCLUDE_REGEXES "[/\\][Ww][Ii][Nn][Dd][Oo][Ww][Ss][/\\]")
+if(missing)
+  message(FATAL_ERROR "Missing native runtime libraries: ${missing}")
+endif()
+foreach(dependency IN LISTS dependencies)
+  file(INSTALL "${dependency}" DESTINATION "${CMAKE_INSTALL_PREFIX}/bin" TYPE SHARED_LIBRARY)
+endforeach()

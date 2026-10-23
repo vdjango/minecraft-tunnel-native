@@ -1,0 +1,66 @@
+{
+  "python": {
+    "wall_seconds": {
+      "median": 23.6938,
+      "minimum": 19.4003,
+      "maximum": 31.3503
+    },
+    "server_cpu_seconds": {
+      "median": 11.81,
+      "minimum": 11.72,
+      "maximum": 11.9
+    },
+    "payload_egress_mib_s": {
+      "median": 86.44,
+      "minimum": 65.33,
+      "maximum": 105.57
+    },
+    "peak_server_rss_mib": {
+      "median": 150.27,
+      "minimum": 131.62,
+      "maximum": 214.03
+    },
+    "rtt_median_ms": {
+      "median": 0.604,
+      "minimum": 0.577,
+      "maximum": 0.671
+    },
+    "rtt_p95_ms": {
+      "median": 0.817,
+      "minimum": 0.721,
+      "maximum": 0.852
+    }
+  },
+  "native": {
+    "wall_seconds": {
+      "median": 11.7077,
+      "minimum": 11.6448,
+      "maximum": 11.8878
+    },
+    "server_cpu_seconds": {
+      "median": 8.19,
+      "minimum": 7.98,
+      "maximum": 9.23
+    },
+    "payload_egress_mib_s": {
+      "median": 174.93,
+      "minimum": 172.28,
+      "maximum": 175.87
+    },
+    "peak_server_rss_mib": {
+      "median": 122.49,
+      "minimum": 122.05,
+      "maximum": 122.77
+    },
+    "rtt_median_ms": {
+      "median": 0.333,
+      "minimum": 0.319,
+      "maximum": 0.342
+    },
+    "rtt_p95_ms": {
+      "median": 0.407,
+      "minimum": 0.372,
+      "maximum": 0.465
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "state": "blocked_by_windows_application_control",
+  "error": 4551,
+  "scope": "Execution of newly built Windows bridge and native unit binary",
+  "build": "Release build succeeded",
+  "ubuntu_fix_verified": true,
+  "old_game_validation_passed": true,
+  "binary_sha256": {
+    "buggcraft-core.exe": "9539a4b74206b7251d209a1b1f0790a3a084593c8da7bbb0b815498d81c023b0",
+    "buggcraft-bridge.exe": "d29abede02da2c8903c6893d7bd216d43b21aef9dc4b226cf3dafbc1c516c92e",
+    "buggcraft-native-tests.exe": "1a04a813599f5a19650d7da7de400bb6eb13dc4053e738b4a15db2523b5293aa"
+  },
+  "evidence": [
+    "validation-artifacts/player-pair-ctest.log",
+    "validation-artifacts/player-pair-regression.log"
+  ]
+}

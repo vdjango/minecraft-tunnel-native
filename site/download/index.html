@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="下载 Buggcraft Minecraft 启动器、Windows 运行包和故障信息收集工具。">
+  <title>下载 Buggcraft</title>
+  <style>
+    :root{color-scheme:light;--bg:#f5f7fa;--panel:#ffffff;--line:#dce3eb;--text:#182538;--muted:#66768a;--accent:#1769cf}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 "Segoe UI","Microsoft YaHei UI",sans-serif}.wrap{width:min(1020px,calc(100% - 36px));margin:auto}
+    header{background:#ffffff;border-bottom:1px solid var(--line)}nav{height:68px;display:flex;align-items:center;justify-content:space-between}.brand{font-size:20px;font-weight:750;text-decoration:none}nav a:last-child{color:var(--muted);text-decoration:none}
+    main{padding:70px 0 84px}h1{margin:0;font-size:42px;line-height:1.15} .lead{max-width:690px;margin:14px 0 34px;color:var(--muted);font-size:18px}.release{padding:26px 28px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:none;margin-top:16px}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:28px;flex-wrap:wrap}.eyebrow{margin:0;color:var(--accent);font-size:13px;font-weight:700}.release h2{margin:4px 0;font-size:23px}.detail{margin:0;color:var(--muted)}.button{display:inline-flex;align-items:center;min-height:46px;padding:9px 17px;border-radius:5px;background:var(--accent);color:#ffffff;font-weight:750;text-decoration:none;white-space:nowrap}
+    .links{display:flex;gap:22px;flex-wrap:wrap;margin-top:18px}.links a{color:var(--accent);text-underline-offset:4px}.note{margin:18px 0 0;padding-top:17px;border-top:1px solid var(--line);color:var(--muted);font-size:14px}.status{font-size:13px;color:var(--muted);margin-top:10px}.meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px;color:var(--muted);font-size:13px;overflow-wrap:anywhere}.meta strong{display:block;color:var(--text);font-weight:600}
+    footer{border-top:1px solid var(--line);padding:22px 0;color:var(--muted);font-size:13px}.foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.foot a{color:var(--accent);text-decoration:none}
+    a:focus-visible{outline:2px solid var(--accent);outline-offset:5px}.button:hover{background:#1259b2}
+    @media(max-width:640px){main{padding:48px 0 56px}h1{font-size:35px}.release{padding:20px}.top{align-items:flex-start;flex-direction:column;gap:16px}.meta{grid-template-columns:1fr}.lead{font-size:16px}}
+  </style>
+</head>
+<body>
+  <header><nav class="wrap"><a class="brand" href="https://bugg.icu">Buggcraft</a><a href="https://github.com/vdjango/buggcraft">源码与问题反馈 →</a></nav></header>
+  <main class="wrap">
+    <p class="eyebrow">BUGGCRAFT · WINDOWS X64</p><h1>下载启动器</h1>
+    <p class="lead">轻量安装程序会在首次启动时下载经过 SHA-256 校验的运行组件。也可以下载完整运行包，在网络受限的电脑上离线安装。</p>
+    <section class="release" aria-labelledby="setup-title"><div class="top">
+      <div><p class="eyebrow">推荐 · 联网安装</p><h2 id="setup-title">Buggcraft 安装程序</h2><p class="detail">Windows 10/11 x64 · 约 370 KB</p></div>
+      <a class="button" href="/Buggcraft-Setup.exe">下载安装程序</a>
+    </div><p class="note">首次启动需联网下载约 107 MB 运行组件。当前安装包尚未签名，Windows 可能显示 SmartScreen 提示；不要关闭系统防护。下载被拦截发生在程序启动前，因此不会生成应用日志。</p></section>
+    <section class="release" aria-labelledby="offline-title"><div class="top">
+      <div><p class="eyebrow">离线安装</p><h2 id="offline-title">完整 Windows 运行包</h2><p class="detail" id="runtime-size">正在读取版本信息…</p></div>
+      <a class="button" id="runtime-link" href="/Buggcraft-runtime-windows-x64.zip">下载完整运行包</a>
+    </div><div class="meta"><span>版本<strong id="version">读取中</strong></span><span>SHA-256<strong id="sha256">读取中</strong></span><span>系统<strong>Windows 10/11 · 64 位</strong></span></div></section>
+    <section class="release"><div class="top"><div><p class="eyebrow">故障排查</p><h2>收集启动日志</h2><p class="detail">将脚本与安装程序放在同一目录后运行，检查并移除 ZIP 中的个人信息再发送。</p></div><a class="text-link" href="/collect-launcher-diagnostics.ps1">下载日志收集脚本 →</a></div><p class="status">启动器在运行后会在本地保存日志；SmartScreen 在启动前拦截时，应用本身无法记录被拦截事件。</p></section>
+  </main>
+  <footer><div class="wrap foot"><span><a href="https://bugg.icu">Buggcraft</a> · 开源 Minecraft 启动器</span><span><a href="https://node.bugg.icu">社区节点</a> · <a href="https://github.com/vdjango/buggcraft/releases">GitHub Releases</a></span></div></footer>
+  <script>
+    fetch('/release.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json()}).then(data=>{
+      document.querySelector('#runtime-link').href='/'+encodeURIComponent(data.version)+'/'+encodeURIComponent(data.archive);
+      document.querySelector('#runtime-size').textContent='Windows 10/11 x64 · '+(data.size/1000000).toFixed(1)+' MB';
+      document.querySelector('#version').textContent=data.version;
+      document.querySelector('#sha256').textContent=data.sha256;
+    }).catch(()=>{document.querySelector('#runtime-size').textContent='版本信息暂不可用，请稍后刷新。';document.querySelector('#version').textContent='暂不可用';document.querySelector('#sha256').textContent='暂不可用'});
+  </script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+{
+  "started": "2026-10-23 01:18:27",
+  "version": "1.21.8",
+  "node": "Ubuntu 24.04 native C++",
+  "transport": "relay",
+  "passed": true,
+  "clients": [
+    {
+      "name": "GuiHost",
+      "rejoined": false
+    },
+    {
+      "name": "GuiGuest1",
+      "rejoined": false
+    },
+    {
+      "name": "GuiGuest2",
+      "rejoined": false
+    },
+    {
+      "name": "GuiGuest3",
+      "rejoined": true
+    }
+  ],
+  "compression": [
+    "CompressionListener",
+    "CompressionListener",
+    "CompressionListener",
+    "CompressionListener"
+  ],
+  "operations": {
+    "started": "2026-10-22T17:19:15.597Z",
+    "operations": {
+      "GuiHost": [
+        "stone",
+        "air",
+        "dirt"
+      ],
+      "GuiGuest1": [
+        "stone",
+        "air",
+        "dirt"
+      ],
+      "GuiGuest2": [
+        "stone",
+        "air",
+        "dirt"
+      ],
+      "GuiGuest3": [
+        "stone",
+        "air",
+        "dirt"
+      ]
+    },
+    "movementUpdates": {
+      "GuiHost": 13,
+      "GuiGuest1": 12,
+      "GuiGuest2": 13,
+      "GuiGuest3": 12
+    },
+    "passed": true,
+    "completed": "2026-10-22T17:20:17.484Z"
+  },
+  "cross_client_chat_sync": true,
+  "real_client_rejoin": true,
+  "node_payload_counters": {
+    "bytes": 481277
+  },
+  "compression_measurement": {
+    "raw_bytes": 515041,
+    "framed_bytes": 483468,
+    "reduction_percent": 6.13,
+    "scope": "Both endpoint directions; excludes SSH/TCP and administrative test tunnel overhead"
+  },
+  "completed": "2026-10-23 01:21:03"
+}
