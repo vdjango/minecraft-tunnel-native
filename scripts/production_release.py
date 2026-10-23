@@ -10,6 +10,7 @@ import hashlib
 import json
 from pathlib import Path
 import shlex
+import subprocess
 import tarfile
 import textwrap
 
@@ -39,10 +40,15 @@ def save(name, value):
     (ARTIFACT / name).write_text(json.dumps(value, indent=2, ensure_ascii=True) + '\n', encoding='utf-8')
 
 
-def prepare():
+def prepare(runtime):
+    if not runtime.startswith('/') or '..' in runtime.split('/'):
+        raise ValueError('Use an absolute remote CMake install directory')
+    revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    if subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).strip():
+        raise RuntimeError('Commit the release source before packaging')
     with connect('node1') as client:
         command(client, 'tar -czf /tmp/buggcraft-native-runtime-production.tar.gz '
-                '-C /tmp/buggcraft-native-production-runtime bin/buggcraft-core lib/libssh.so '
+                '-C ' + shlex.quote(runtime) + ' bin/buggcraft-core lib/libssh.so '
                 'lib/libssh.so.4 lib/libssh.so.4.12.0 share')
         with client.open_sftp() as sftp:
             sftp.get('/tmp/buggcraft-native-runtime-production.tar.gz', str(ARTIFACT / 'runtime.tar.gz'))
@@ -53,16 +59,19 @@ def prepare():
                        None if '__pycache__' in info.name or info.name.endswith('.pyc') or info.name.startswith('compatibility/src') else info)
         for name in ('requirements.txt', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'PROTOCOL_STANDARD.md'):
             output.add(ROOT / name, arcname=name)
-        with tarfile.open(ARTIFACT / 'runtime.tar.gz') as runtime:
-            for item in runtime:
-                output.addfile(item, runtime.extractfile(item) if item.isfile() else None)
+        with tarfile.open(ARTIFACT / 'runtime.tar.gz') as runtime_archive:
+            for item in runtime_archive:
+                output.addfile(item, runtime_archive.extractfile(item) if item.isfile() else None)
     digest = hashlib.sha256(bundle.read_bytes()).hexdigest()
-    save('release-manifest.json', dict(tag=TAG, release=RELEASE, archive_sha256=digest,
-         contents='src web portal, site, pinned requirements, Linux native core, libssh, licenses'))
+    manifest = dict(tag=TAG, release=RELEASE, archive_sha256=digest, source_revision=revision,
+         remote_runtime=runtime,
+         contents='src web portal, site, pinned requirements, Linux native core, libssh, licenses')
+    save('release-manifest.json', manifest)
     with tarfile.open(ARTIFACT / 'validation-source.tar.gz', 'w:gz') as output:
         for name in ('web', 'compatibility', 'scripts/check_compatibility.py', 'PROTOCOL_STANDARD.md'):
             output.add(ROOT / name, arcname=name, filter=lambda info:
-                       None if '__pycache__' in info.name or info.name.endswith('.pyc') else info)
+                       None if '__pycache__' in info.name or info.name.endswith('.pyc')
+                       or info.name.startswith('compatibility/src') else info)
 
     def stage(node):
         with connect(node) as client:
@@ -82,6 +91,7 @@ def prepare():
                         if item.issym() or item.islnk():
                             assert not pathlib.Path(item.linkname).is_absolute()
                     source.extractall(release, filter='data')
+                (release/'release-manifest.json').write_text({json.dumps(manifest)!r}+'\\n')
                 subprocess.run(['python3','-m','venv',str(release/'.venv')],check=True)
                 result=subprocess.run([str(release/'.venv/bin/pip'),'install','--no-index',
                     '--find-links=/opt/buggcraft-wheelhouse','-r',str(release/'requirements.txt')],
@@ -143,7 +153,7 @@ def activate(node):
             def health():
                 return json.loads(urllib.request.urlopen(url,context=ssl._create_unverified_context(),timeout=4).read())
             initial=health()
-            assert initial.get('players',0)==0 and initial.get('rooms',0)==0, 'Players or rooms active; defer rollout'
+            assert all(initial.get(key,0)==0 for key in ('players','rooms','streams')), 'Players, rooms or streams active; defer rollout'
             backup=pathlib.Path('/var/backups/buggcraft-native-'+{TAG!r})
             backup.mkdir(mode=0o700,exist_ok=False)
             unit=pathlib.Path('/etc/systemd/system/buggcraft-node.service')
@@ -206,8 +216,10 @@ if __name__ == '__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('phase',choices=['prepare','activate'])
     parser.add_argument('--node',choices=['node1','node2'])
+    parser.add_argument('--runtime',default='/tmp/buggcraft-native-production-runtime',
+                        help='Absolute CMake install directory on the trusted build server')
     args=parser.parse_args()
-    if args.phase=='prepare': prepare()
+    if args.phase=='prepare': prepare(args.runtime)
     else:
         if not args.node: parser.error('--node required for sequential activation')
         activate(args.node)
