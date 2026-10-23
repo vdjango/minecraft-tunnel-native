@@ -7,7 +7,7 @@ sudo apt install ./buggcraft-node_*_amd64.deb
 sudo buggcraft-node setup
 ```
 
-安装包来自 [Actions 成功构建](https://github.com/vdjango/minecraft-tunnel-native/actions/workflows/core.yml) 的 `buggcraft-node-ubuntu24.04-amd64` 产物，包含 `.deb` 和 SHA-256 文件。下载并解压后可用 `sha256sum -c 文件名.deb.sha256` 核对完整性；这不替代下载来源的可信性。当前没有在线 APT 软件源。
+安装包来自 [GitHub Release](https://github.com/vdjango/minecraft-tunnel-native/releases/latest)，下载 `.deb` 和同名 `.deb.sha256`，可用 `sha256sum -c 文件名.deb.sha256` 核对完整性；这不替代下载来源的可信性。当前没有在线 APT 软件源。开发版本可在 [Actions 成功构建](https://github.com/vdjango/minecraft-tunnel-native/actions/workflows/core.yml) 的 `buggcraft-node-ubuntu24.04-amd64` 产物中获取。
 
 软件安装到 `/usr/lib/buggcraft-node`，以专用 `buggcraft-node` 用户运行。C++、Web 和私有 Python 依赖一起提供，安装时不运行 pip。首次设置链接仅在初始化期间存在，数据目录为 `0700`，链接文件为 `0600`。已有配置不会重新进入初始化。
 
