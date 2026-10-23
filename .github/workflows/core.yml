@@ -66,7 +66,7 @@ jobs:
           $env:BUGGCRAFT_BRIDGE_EXECUTABLE = "$pwd/package/bin/buggcraft-bridge.exe"
           $env:BUGGCRAFT_BRIDGE_LIBRARY = "$pwd/package/bin/buggcraft_bridge.dll"
           $env:BUGGCRAFT_BRIDGE_PACKAGE = "$pwd/package"
-          python -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_federation_budget tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v
+          python -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_federation_budget tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/check_compatibility.py
       - name: Unix protocol checks
@@ -80,7 +80,7 @@ jobs:
           else
             export BUGGCRAFT_BRIDGE_LIBRARY="$PWD/package/lib/libbuggcraft_bridge.so"
           fi
-          python -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_federation_budget tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v
+          python -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_federation_budget tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v
           python scripts/check_compatibility.py
       - name: Publish complete native runtime
         uses: actions/upload-artifact@v4

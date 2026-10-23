@@ -6,6 +6,7 @@
 #include "progress.hpp"
 #include "modpack.hpp"
 #include "game_chat.hpp"
+#include "peer_heartbeat.hpp"
 #include <rtc/rtc.hpp>
 #include <atomic>
 #include <deque>
@@ -20,6 +21,7 @@ struct Stream {
     NetSocket socket = invalid_socket;
     ssh_channel channel = nullptr;
     std::shared_ptr<rtc::DataChannel> data;
+    std::weak_ptr<rtc::PeerConnection> peer;
     Ring to_socket{262144}, to_wire{131100};
     std::unique_ptr<Codec> codec;
     bool connecting=false, local_eof=false, remote_eof=false;
@@ -64,7 +66,15 @@ class Session:public std::enable_shared_from_this<Session> {
     std::deque<std::function<void()>> commands_;
     std::vector<std::shared_ptr<Stream>> streams_;
     std::unordered_map<std::string,std::shared_ptr<rtc::PeerConnection>> peers_;
-    std::vector<std::shared_ptr<rtc::DataChannel>> probes_;
+    struct PeerWatch {
+        std::weak_ptr<rtc::PeerConnection> peer;
+        std::shared_ptr<rtc::DataChannel> channel;
+        PeerHeartbeat heartbeat;
+        std::string player;
+        bool dead=false, legacy_logged=false;
+        Clock::time_point next_sample=Clock::now()+std::chrono::seconds(30);
+    };
+    std::vector<std::shared_ptr<PeerWatch>> probes_;
     std::shared_ptr<rtc::PeerConnection> client_peer_;
     ssh_channel signal_=nullptr, chat_=nullptr;
     unsigned chat_stage_=0;
@@ -82,8 +92,10 @@ class Session:public std::enable_shared_from_this<Session> {
     std::promise<Json> ready_;
     bool ready_sent_=false,peer_available_=false,zstd_=false;
     int raw_forward_=0,zstd_forward_=0,mods_forward_=0;
-    uint16_t next_channel_=3;
     Clock::time_point peer_deadline_;
+    Clock::time_point peer_retry_{};
+    bool peer_negotiating_=false;
+    unsigned peer_retries_=0;
     Clock::time_point next_presence_=Clock::now();
     Clock::time_point next_announce_=Clock::now();
     struct ControlRequest {
@@ -106,9 +118,13 @@ class Session:public std::enable_shared_from_this<Session> {
     void next_route();
     void tick();
     void start_peer();
+    void start_client_peer();
+    void advance_peers();
+    void watch_peer(const std::shared_ptr<rtc::PeerConnection>&,const std::shared_ptr<rtc::DataChannel>&,std::string player);
+    void fail_peer(const std::shared_ptr<rtc::PeerConnection>&,const std::string& reason,const std::string& player={});
     void receive_signal(const Json&);
     std::shared_ptr<rtc::PeerConnection> create_peer(const std::string& key,bool client,std::string player={});
-    void add_data(const std::shared_ptr<rtc::DataChannel>&,NetSocket socket=invalid_socket,std::string player={});
+    void add_data(const std::shared_ptr<rtc::DataChannel>&,NetSocket socket=invalid_socket,std::string player={},std::shared_ptr<rtc::PeerConnection> peer={});
     void accept_game();
     void accept_forward();
     void pump(Stream&);

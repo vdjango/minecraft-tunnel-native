@@ -118,7 +118,16 @@ void Session::setup_with_fallback(){
 void Session::accept_game(){
     auto socket=accept(listener_,nullptr,nullptr);if(socket==invalid_socket)return;nonblocking(socket);tune_tcp(socket);
     if(streams_.size()>=8){close_socket(socket);log("stream_rejected",{{"session",identity},{"player",player_},{"reason","stream-limit"}});return;}
-    if(direct_&&client_peer_&&next_channel_<=65533){rtc::DataChannelInit init;init.id=next_channel_;next_channel_=static_cast<uint16_t>(next_channel_+2);try{add_data(client_peer_->createDataChannel("game",init),socket);}catch(...){close_socket(socket);}return;}
+    if(direct_&&client_peer_){
+        // Let SCTP allocate and reuse negotiated stream IDs after channel reset.
+        // A monotonically increasing ID exhausts the peer after 511 game/status connections.
+        std::shared_ptr<rtc::DataChannel> channel;
+        try{channel=client_peer_->createDataChannel("game");}
+        catch(const std::exception& error){log("peer_stream_fallback",{{"session",identity},{"player",player_},{"reason","data-channel-create"},{"detail",error.what()}});}
+        catch(...){log("peer_stream_fallback",{{"session",identity},{"player",player_},{"reason","data-channel-create"}});}
+        if(channel){add_data(channel,socket,{},client_peer_);return;}
+        // Keep established P2P streams; only this new socket falls back to relay.
+    }
     auto stream=std::make_shared<Stream>();stream->socket=socket;stream->player=player_;stream->session=identity;
     try{
         stream->channel=ssh_channel_new(ssh_->get());if(!stream->channel)throw std::bad_alloc();
@@ -138,10 +147,17 @@ void Session::accept_forward(){
 void Session::flush(ssh_channel channel,std::string& value){if(!channel||value.empty())return;int count=ssh_channel_write(channel,value.data(),static_cast<uint32_t>(std::min<size_t>(value.size(),65536)));if(count>0)value.erase(0,static_cast<size_t>(count));else if(count==SSH_ERROR)throw std::runtime_error("Control channel write failed");}
 void Session::read_controls(){
     char buffer[4096];
-    if(signal_){
+    if(signal_)try{
         flush(signal_,signal_output_);int count=ssh_channel_read_nonblocking(signal_,buffer,sizeof(buffer),0);
         if(count>0){signal_input_.append(buffer,static_cast<size_t>(count));if(signal_input_.size()>32768)throw std::runtime_error("Peer signal limit");size_t newline;while((newline=signal_input_.find('\n'))!=std::string::npos){auto line=signal_input_.substr(0,newline);signal_input_.erase(0,newline+1);try{receive_signal(Json::parse(line));}catch(...){log("peer_signal_rejected",{{"session",identity}});if(role=="client")become_ready();}}}
-        else if(count==SSH_ERROR||ssh_channel_is_eof(signal_)){direct_=false;peer_started_=false;free_channel(signal_);if(client_peer_)client_peer_->close();become_ready();log("peer_fallback",{{"session",identity},{"reason","signaling-closed"}});}
+        else if(count==SSH_ERROR||ssh_channel_is_eof(signal_))throw std::runtime_error("Peer signaling closed");
+    }catch(...){
+        // A signaling subsystem failure is not an SSH transport failure.
+        // Keep room/chat/relay channels and every unrelated player's streams.
+        direct_=false;peer_started_=false;peer_negotiating_=false;peer_retry_={};
+        free_channel(signal_);signal_input_.clear();signal_output_.clear();
+        if(client_peer_)fail_peer(client_peer_,"signaling-closed");
+        become_ready();log("peer_signal_closed",{{"session",identity},{"ssh_preserved",true}});
     }
     if(chat_&&chat_stage_==2)try{
         flush(chat_,chat_output_);int count=ssh_channel_read_nonblocking(chat_,buffer,sizeof(buffer),0);
@@ -172,7 +188,7 @@ void Session::tick(){
         announce_world(static_cast<int>(listen_port_.load()),settings_.value("title",std::string("Buggcraft Room")));
     }
     if(role=="host")accept_forward();else if(online_)accept_game();
-    if(!online_&&Clock::now()>peer_deadline_){if(client_peer_)client_peer_->close();direct_=false;log("peer_fallback",{{"session",identity},{"reason","negotiation-timeout"}});become_ready();}
+    advance_peers();
     for(auto& stream:streams_)if(!stream->dead){
         const auto before_sent=stream->sent, before_received=stream->received;
         const auto before_wire=stream->to_wire.size(), before_inflight=stream->inflight;
@@ -181,7 +197,6 @@ void Session::tick(){
                       stream->received!=before_received);
     }
     std::erase_if(streams_,[](auto& stream){return stream->dead;});
-    std::erase_if(probes_,[](const auto& channel){return channel->isClosed();});
 }
 void Session::run(){
     std::vector<PollFd> descriptors;descriptors.reserve(131);
@@ -234,6 +249,7 @@ void Session::cleanup(){
     requests_.clear();
     for(auto& [key,peer]:peers_){peer->resetCallbacks();peer->close();}peers_.clear();if(client_peer_){client_peer_->resetCallbacks();client_peer_->close();client_peer_.reset();}
     probes_.clear();free_channel(signal_);free_channel(chat_);peer_started_=false;direct_=false;zstd_=false;
+    peer_available_=false;peer_negotiating_=false;peer_retry_={};peer_retries_=0;
     signal_input_.clear();signal_output_.clear();chat_input_.clear();chat_output_.clear();
     if(mods_)mods_->disconnect();raw_forward_=zstd_forward_=mods_forward_=0;ssh_.reset();{std::lock_guard guard(mutex_);commands_.clear();}unbind_log(identity);
 }

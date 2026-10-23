@@ -61,7 +61,8 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.process_count += 1
         logs = self.logs / ('bridge-' + str(self.process_count))
         binary = os.environ.get('BUGGCRAFT_BRIDGE_EXECUTABLE', str(ROOT/'build'/('buggcraft-bridge.exe' if os.name=='nt' else 'buggcraft-bridge')))
-        process = await asyncio.create_subprocess_exec(binary, stdin=asyncio.subprocess.PIPE,
+        command = getattr(self, 'bridge_command', None) or [binary]
+        process = await asyncio.create_subprocess_exec(*command, stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
             env=dict(os.environ, BUGGCRAFT_BRIDGE_LOG_DIR=str(logs)))
         process.player_logs = logs
@@ -101,6 +102,18 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
     async def add(self, process):
         encoded = base64.urlsafe_b64encode(json.dumps(self.profile).encode()).decode().rstrip('=')
         return (await self.call(process,'node.add',{'code':'buggnode1-'+encoded}))['node']
+
+    async def wait_direct(self, process, joined):
+        # A real first negotiation can time out on a multi-interface machine.
+        # Require the native retry to restore P2P; relay alone cannot pass.
+        async with asyncio.timeout(45):
+            while True:
+                state = next(row for row in (await self.call(process, 'session.list'))['sessions']
+                             if row['session'] == joined['session'])
+                self.assertEqual(state['state'], 'online')
+                if state['transport'] == 'p2p':
+                    return dict(joined, **state)
+                await asyncio.sleep(.1)
 
     async def exchange(self, joined, data=None):
         data = data if data is not None else secrets.token_bytes(1024*1024)

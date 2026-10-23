@@ -27,19 +27,21 @@ std::shared_ptr<rtc::PeerConnection> Session::create_peer(const std::string& key
         if(state!=rtc::PeerConnection::GatheringState::Complete)return;
         if(auto owner=weak.lock())owner->post([owner,peer,key,client]{if(auto p=peer.lock()){try{auto local=p->localDescription();if(!local)return;std::string sdp=*local;validate_sdp(sdp);Json value{{"type",client?"offer":"answer"},{"sdp",sdp}};if(!client)value["peer"]=key;owner->signal(value);log("peer_candidates_ready",{{"session",owner->identity},{"role",owner->role}});}catch(const std::exception&){p->close();log("peer_candidates_rejected",{{"session",owner->identity}});}}});
     });
-    pc->onStateChange([weak,peer,client](rtc::PeerConnection::State state){if(auto owner=weak.lock())owner->post([owner,peer,client,state]{
-        log("peer_state",{{"session",owner->identity},{"state",static_cast<int>(state)}});
-        if(client){owner->direct_=state==rtc::PeerConnection::State::Connected;if(owner->direct_)owner->become_ready();}
-        if(state==rtc::PeerConnection::State::Connected)if(auto p=peer.lock()){rtc::Candidate local,remote;if(p->getSelectedCandidatePair(&local,&remote))log("peer_selected_pair",{{"session",owner->identity},{"local",std::string(local)},{"remote",std::string(remote)}});}
+    pc->onStateChange([weak,peer,client,player](rtc::PeerConnection::State state){if(auto owner=weak.lock())owner->post([owner,peer,client,player,state]{
+        auto p=peer.lock();if(!p||(client&&owner->client_peer_!=p))return;
+        log("peer_state",{{"session",owner->identity},{"player",player},{"state",static_cast<int>(state)}});
+        if(client){owner->direct_=state==rtc::PeerConnection::State::Connected;if(owner->direct_){const bool recovered=owner->peer_retries_>0;owner->peer_negotiating_=false;owner->peer_retry_={};owner->peer_retries_=0;owner->become_ready();if(recovered){log("peer_recovered",{{"session",owner->identity},{"player",player}});owner->event({{"type","bridge"},{"status","直连已恢复，后续连接优先使用直连"}});}}}
+        if(state==rtc::PeerConnection::State::Failed||state==rtc::PeerConnection::State::Closed)owner->fail_peer(p,state==rtc::PeerConnection::State::Failed?"peer-failed":"peer-closed",player);
+        if(state==rtc::PeerConnection::State::Connected)if(auto p=peer.lock()){rtc::Candidate local,remote;if(p->getSelectedCandidatePair(&local,&remote))log("peer_selected_pair",{{"session",owner->identity},{"player",player},{"local",std::string(local)},{"remote",std::string(remote)}});}
     });});
-    pc->onDataChannel([weak,player](std::shared_ptr<rtc::DataChannel> channel){if(auto owner=weak.lock()){if(!owner->post([owner,channel,player]{if(channel->label()=="probe"){if(owner->probes_.size()<128)owner->probes_.push_back(channel);else channel->close();}else if(channel->label()=="game"&&owner->role=="host")owner->add_data(channel,invalid_socket,player);else channel->close();}))channel->close();}else channel->close();});
+    pc->onDataChannel([weak,peer,player](std::shared_ptr<rtc::DataChannel> channel){if(auto owner=weak.lock()){if(!owner->post([owner,peer,channel,player]{auto p=peer.lock();if(!p){channel->close();return;}if(channel->label()=="probe")owner->watch_peer(p,channel,player);else if(channel->label()=="game"&&owner->role=="host")owner->add_data(channel,invalid_socket,player,p);else channel->close();}))channel->close();}else channel->close();});
     return pc;
 }
-void Session::add_data(const std::shared_ptr<rtc::DataChannel>& channel,NetSocket socket,std::string player){
+void Session::add_data(const std::shared_ptr<rtc::DataChannel>& channel,NetSocket socket,std::string player,std::shared_ptr<rtc::PeerConnection> peer){
     if(player.empty())player=player_;
     auto count=std::count_if(streams_.begin(),streams_.end(),[&](const auto& stream){return stream->player==player;});
     if(streams_.size()>=128||count>=8||(game_port_==0&&role=="host")){close_socket(socket);channel->close();return;}
-    auto stream=std::make_shared<Stream>();stream->data=channel;stream->player=std::move(player);stream->session=identity;
+    auto stream=std::make_shared<Stream>();stream->data=channel;stream->peer=peer;stream->player=std::move(player);stream->session=identity;
     try{stream->socket=socket==invalid_socket?connect_game(game_port_,stream->connecting):socket;}catch(...){channel->close();return;}
     std::weak_ptr<Session> weak=shared_from_this();std::weak_ptr<Stream> target=stream;
     channel->onMessage([weak,target](rtc::message_variant value){if(auto owner=weak.lock()){if(!owner->post([target,value=std::move(value)]{if(auto stream=target.lock()){
@@ -54,7 +56,7 @@ void Session::add_data(const std::shared_ptr<rtc::DataChannel>& channel,NetSocke
     channel->onOpen([weak]{if(auto owner=weak.lock())owner->wake_.notify();});
     channel->onClosed([weak,target]{if(auto owner=weak.lock())owner->post([target]{if(auto s=target.lock())s->dead=true;});});
     channel->setBufferedAmountLowThreshold(65536);channel->onBufferedAmountLow([weak]{if(auto owner=weak.lock())owner->wake_.notify();});
-    streams_.push_back(stream);log("game_path",{{"session",identity},{"player",stream->player},{"stream",stream->trace},{"path","p2p"}});
+    streams_.push_back(stream);log("game_path",{{"session",identity},{"player",stream->player},{"stream",stream->trace},{"path","p2p"},{"sctp_stream",channel->id()?Json(*channel->id()):Json(nullptr)}});
 }
 void Session::start_peer(){
     if(policy_=="relay")return;
@@ -63,9 +65,9 @@ void Session::start_peer(){
 void Session::receive_signal(const Json& value){
     auto type=value.value("type","");
     if(type=="ready"){peer_available_=value.value("available",false);if(role=="host")return;if(!peer_available_){become_ready();return;}
-        client_peer_=create_peer({},true);rtc::DataChannelInit init;init.id=1;probes_.push_back(client_peer_->createDataChannel("probe",init));client_peer_->setLocalDescription(rtc::Description::Type::Offer);
-    }else if(type=="answer"&&role=="client"&&client_peer_){auto sdp=value.at("sdp").get<std::string>();validate_sdp(sdp);client_peer_->setRemoteDescription(rtc::Description(sdp,"answer"));}
-    else if(type=="offer"&&role=="host"){auto key=value.at("peer").get<std::string>();if(key.size()>64||peers_.contains(key)||peers_.size()>=128)return;auto sdp=value.at("sdp").get<std::string>();validate_sdp(sdp);auto pc=create_peer(key,false,value.value("player","peer-"+key));peers_[key]=pc;pc->setRemoteDescription(rtc::Description(sdp,"offer"));pc->setLocalDescription(rtc::Description::Type::Answer);}
+        start_client_peer();
+    }else if(type=="answer"&&role=="client"&&client_peer_&&peer_negotiating_){auto sdp=value.at("sdp").get<std::string>();validate_sdp(sdp);client_peer_->setRemoteDescription(rtc::Description(sdp,"answer"));}
+    else if(type=="offer"&&role=="host"){auto key=value.at("peer").get<std::string>();if(key.size()>64||(!peers_.contains(key)&&peers_.size()>=128))return;auto sdp=value.at("sdp").get<std::string>();validate_sdp(sdp);if(auto old=peers_.find(key);old!=peers_.end()){fail_peer(old->second,"peer-renegotiation",value.value("player","peer-"+key));peers_.erase(old);}auto pc=create_peer(key,false,value.value("player","peer-"+key));peers_[key]=pc;pc->setRemoteDescription(rtc::Description(sdp,"offer"));pc->setLocalDescription(rtc::Description::Type::Answer);}
     else if(type=="left"&&role=="host"){auto key=value.value("peer","");if(auto it=peers_.find(key);it!=peers_.end()){it->second->close();peers_.erase(it);}}
     else if(type=="unavailable"&&role=="client")become_ready();
 }

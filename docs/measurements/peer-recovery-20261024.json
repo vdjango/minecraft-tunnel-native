@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "date": "2026-10-24",
+  "scope": "P2P heartbeat, isolated fallback, automatic direct retry and SCTP stream reuse",
+  "ubuntu": {
+    "build_type": "Release",
+    "ctest": {"targets": 2, "passed": 2},
+    "specialized": {"tests": 8, "passed": 8, "seconds": 104.124, "clients": ["process", "shared_library_c_abi"]},
+    "regression": {"tests": 54, "passed": 51, "skipped": 3, "seconds": 110.089},
+    "skip_reasons": {"adjacent_launcher_checkout_absent": 2, "launcher_sdk_not_configured": 1},
+    "retained_log_files": 246
+  },
+  "windows": {
+    "build_type": "Release",
+    "ctest": {"targets": 2, "passed": 2},
+    "shared_library_specialized": {"tests": 6, "passed": 6, "seconds": 94.602},
+    "standalone_process_final_run": "blocked by Windows application control, WinError 4551",
+    "client_bundle": {
+      "path": "validation-artifacts/bridge-client-windows-20261024.zip",
+      "bytes": 7194984,
+      "manifest_files": 23,
+      "sha256": "41ea8a9210ef4b1df5b8b736a158afec6391a1df5439bf229beb70998219217a"
+    }
+  },
+  "contracts": {
+    "heartbeat_interval_seconds": 5,
+    "heartbeat_timeout_seconds": 20,
+    "idle_integration_seconds": 32,
+    "short_connections_per_churn_case": 640,
+    "game_reconnects_after_reset": 3,
+    "fault": "test UDP proxy drops host-to-guest traffic; SSH and another player remain healthy",
+    "recovery": "same room, SSH identity and listening address; existing relay stream continues; new stream uses P2P",
+    "signaling_failure": "one guest falls back without disconnecting its SSH or another player's P2P"
+  },
+  "limitations": [
+    "Integration uses TCP echo traffic, not a new Minecraft GUI run.",
+    "No new 30-minute throughput run is included in these results.",
+    "Underlying SCTP detected UDP loss before the application heartbeat deadline; the exact 20-second boundary is covered by C++ state-machine tests.",
+    "macOS was not run locally.",
+    "The old diagnostic log explains failed reentry after SCTP stream exhaustion, not the cause of the first disconnect.",
+    "Clients must update their complete native runtime; server deployment cannot replace an old client DLL."
+  ]
+}
