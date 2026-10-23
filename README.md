@@ -1,164 +1,155 @@
+<div align="center">
+
 # Minecraft Tunnel Native
 
-Buggcraft 的 C++20 联机核心与启动器桥。服务器主要面向 Ubuntu；桥面向 Windows、macOS 和 Linux。原版 Minecraft 无需安装 Mod。
+**自托管的 Minecraft 联机节点 · C++20 数据转发 · 原版客户端接入**
 
-启动器默认通过 C ABI 调用 `buggcraft_bridge.dll` / `libbuggcraft_bridge.so` / `libbuggcraft_bridge.dylib`；也可使用独立 `buggcraft-bridge` 进程。两种入口共用同一套 C++ 实现。节点接入、房间控制、SSH、P2P、加密中转、压缩、游戏状态探测、聊天和整合包传输都由桥处理，Qt/Python 层只负责界面和控制参数。
+[![CI](https://github.com/vdjango/minecraft-tunnel-native/actions/workflows/core.yml/badge.svg)](https://github.com/vdjango/minecraft-tunnel-native/actions/workflows/core.yml)
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C)](CMakeLists.txt)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
-> 服务端的游戏数据面由 C++ 核心处理；`web/` 仍包含 Python 网页、账号、房间授权和联邦目录业务。这些服务端控制业务尚未全部移植为 C++。`compatibility/` 保留旧协议测试契约，回归时连接当前原生核心，不是运行入口。
+[快速开始](#快速开始) · [性能实测](#性能实测) · [部署指南](docs/deployment.md) · [启动器接入](#启动器接入) · [协议文档](PROTOCOL_STANDARD.md)
 
-## 架构与目录
+</div>
 
-```text
-启动器界面 ── C ABI 或 stdio JSON-RPC ── C++ bridge
-                                       ├─ WebRTC DTLS/SCTP ── 对端 bridge ── Minecraft
-                                       └─ SSH ── C++ core ── 对端 bridge ── Minecraft
-                                                   │ 私有 IPC
-                                              Python web/业务
+Minecraft Tunnel Native 为 Minecraft Java 版提供房间联机、P2P 直连和加密中转。玩家通过支持本项目协议的启动器添加节点、创建或加入房间，原版游戏无需安装 Mod。
+
+节点可独立部署，也可加入节点联邦。服务端以 **Ubuntu** 为主要部署平台；客户端原生桥面向 **Windows、macOS 和 Linux**，提供动态库和独立进程两种接入方式。
+
+## 核心能力
+
+- **原生数据转发**：C++20 负责 SSH、STUN、P2P 和游戏字节转发；工作线程、有界缓冲与背压控制并发流量。
+- **直连与中转**：自动尝试 WebRTC P2P，协商失败时使用 SSH 加密中转；同一房间可同时服务直连和中转玩家。
+- **带宽优化**：中转支持 Zstandard 自适应压缩，收益不足时切换原始流；Minecraft 自身已压缩或加密的数据不保证额外收益。
+- **节点联邦**：共享已验证的节点与房间目录，直接定位房间所属节点；带签名、并发预算和退避机制，当前最多 32 个成员。
+- **Web 管理**：首次部署向导、账号与好友、房间权限、节点网络、实时带宽及问题反馈。
+- **可追踪的运行状态**：心跳、容量限制和逐玩家日志，记录连接路径、流量、背压及关闭原因。
+
+## 架构
+
+```mermaid
+flowchart LR
+    UI[启动器界面] -->|C ABI / JSON-RPC| B[原生桥 C++]
+    B <-->|WebRTC P2P| H[房主原生桥 C++]
+    B <-->|SSH 加密中转| N[节点核心 C++]
+    N <--> H
+    H <--> MC[Minecraft 服务端 / 局域网世界]
+    W[Web 与节点业务 Python] <-->|私有 IPC| N
 ```
 
-| 目录 | 用途 |
-| --- | --- |
-| `core/` | SSH/STUN、房间转发、流控背压、心跳、容量限制和业务 IPC |
-| `bridge/` | 独立启动器桥、选路、P2P/中转、压缩、聊天、游戏探测及整合包传输 |
-| `include/buggcraft/bridge.h`、`bindings/` | 稳定 C ABI 头文件和 Python ctypes 绑定，供其他语言调用 |
-| `web/`、`site/` | Python Web 与节点业务、静态页面 |
-| `tests/cpp/` | C++ 编解码、边界、协议、心跳和日志单元测试 |
-| `tests/` | 真实核心/桥进程、故障、选路、联邦和原版服务器集成测试 |
-| `scripts/` | 固定依赖下载、构建验证、压力测试与部署工具 |
-| `compatibility/` | 旧协议契约及兼容性测试；通过 `scripts/check_compatibility.py` 对当前原生核心执行 |
-| `docs/` | 验证范围、测量结果、日志、压缩协议和部署记录 |
+**游戏数据面由 C++ 处理。** 客户端界面通过桥发起操作，游戏连接直接进入本地桥；服务端 Python 负责 Web、账号、房间授权与联邦目录业务。节点仍需要 Python 运行这些业务，独立原生桥运行时无需 Python。
 
-## 构建
+## 快速开始
 
-依赖 CMake 3.24+、C++20 编译器、OpenSSL 3.x 和 Python。Python 用于依赖准备、服务端 Web 和测试；独立桥的运行不需要 Python。依赖下载脚本固定版本并校验 SHA-256；Release 在工具链支持时启用 LTO，不使用 `-march=native`。
-
-### Ubuntu
+需要 CMake 3.24+、C++20 编译器、OpenSSL 3.x，以及 Python 3.11+。以下命令面向 Ubuntu 24.04，从源码构建节点与桥：
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y build-essential cmake pkg-config libssl-dev python3-venv
+sudo apt-get install -y git build-essential cmake pkg-config libssl-dev python3-venv
+
+git clone https://github.com/vdjango/minecraft-tunnel-native.git
+cd minecraft-tunnel-native
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python scripts/fetch_deps.py
+
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel 2
 cmake --install build --prefix "$PWD/runtime"
+
 export BUGGCRAFT_NATIVE_CORE="$PWD/runtime/bin/buggcraft-core"
-export BUGGCRAFT_BRIDGE_EXECUTABLE="$PWD/runtime/bin/buggcraft-bridge"
+.venv/bin/python web/main.py \
+  --directory "$HOME/.local/share/buggcraft-node" --no-browser
 ```
 
-### Windows
+首次启动会打印带一次性令牌的 HTTPS 设置链接。将 `SERVER_IP` 替换为服务器地址，核对终端中的证书指纹，在网页中完成配置。后续使用相同的数据目录启动即可。向导使用自签名证书，正式对外服务建议配置域名与受信任证书。
 
-支持 MinGW-w64 和 MSVC。已在本机使用 MinGW-w64 GCC 15.2 构建；CI 使用 MSVC/vcpkg。
+| 默认端口 | 用途 |
+| :--- | :--- |
+| TCP `3333` | 启动器连接与 SSH 加密中转 |
+| UDP `3333` | STUN，辅助 P2P 建立连接 |
+| TCP `18443` | HTTPS 初始化与 Web 管理 |
 
-```powershell
-python scripts/fetch_deps.py
-cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DOPENSSL_ROOT_DIR=C:/OpenSSL
-cmake --build build --parallel 4
-cmake --install build --prefix runtime
-$env:BUGGCRAFT_NATIVE_CORE = "$PWD/runtime/bin/buggcraft-core.exe"
-$env:BUGGCRAFT_BRIDGE_EXECUTABLE = "$PWD/runtime/bin/buggcraft-bridge.exe"
-$env:PATH = "$PWD/runtime/bin;" + $env:PATH
-```
+防火墙和安全组需放行实际配置的端口，节点对外地址应填写玩家能够访问的域名或 IP。初始化链接、个人接入码、管理凭据和私钥应妥善保存。
 
-使用 MSVC 时先执行 `vcpkg install openssl:x64-windows`，配置 CMake 的 vcpkg toolchain，并在构建、安装和 CTest 命令中加 `--config Release` / `--build-config Release`。具体命令见 [跨平台 CI](.github/workflows/core.yml)。
+继续阅读：[生产部署与 systemd](docs/deployment.md) · [Windows / macOS 构建与打包](docs/build.md) · [配置示例](config.example.ini)。
 
-### macOS
+## 性能实测
 
-```bash
-brew install cmake openssl@3 python
-python3 scripts/fetch_deps.py
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)"
-cmake --build build --parallel 2
-cmake --install build --prefix "$PWD/runtime"
-```
+以下为 **2026-10-23 的项目自测**，附测试方法、原始 JSON 和版本标识，未经过独立第三方认证。它们描述对应版本和负载下的表现，不能直接换算为公网带宽、可承载玩家数或后续版本的性能保证。
 
-CI 配置包含 macOS ARM64 和 Intel；本次工作环境没有完成 macOS 实机验证。当前产物没有受信任代码签名或 Apple 公证。
+**节点转发对比**：Ubuntu 24.04、4 vCPU、约 3.7 GiB RAM；同机回环网络，32 条流、4 个房间，每流上传 32 MiB 并回显。两种实现使用相同 AES-128-GCM 算法，关闭 SSH 和游戏流压缩，校验长度、SHA-256 与 EOF。下表为三轮结果的中位数；服务器资源包含 Python 管理进程及原生子进程。
 
-**发行时保留完整安装目录。** Windows 的桥库和依赖 DLL 放在 `bin/`，Linux/macOS 的桥库和原生依赖放在 `lib/`；Linux 还需要发行版的 OpenSSL 3 系统运行库，macOS 构建使用静态 OpenSSL。`cmake --install` 同时安装 C 头文件、Python 绑定及许可。可从 [Actions](https://github.com/vdjango/minecraft-tunnel-native/actions/workflows/core.yml) 获取对应平台构建产物。
+| 指标 | Python 转发 | C++ 转发 + Python 管理 |
+| :--- | ---: | ---: |
+| 应用载荷出口吞吐 | 86.44 MiB/s | **174.93 MiB/s** |
+| 完成时间 | 23.6938 s | **11.7077 s** |
+| 服务器累计 CPU 时间 | 11.81 s | **8.19 s** |
+| 服务器峰值 RSS | 150.27 MiB | **122.49 MiB** |
+| 空载回声 RTT 中位数 | 0.604 ms | **0.333 ms** |
 
-## 启动节点服务
+这一负载下，吞吐中位数为原实现的 **2.02 倍**，累计 CPU 时间减少 **30.7%**。三轮吞吐范围分别为 65.33–105.57 与 172.28–175.87 MiB/s；单流测试中原生方案的总 RSS 则高于 Python，资源优势取决于负载。[测试方法](docs/validation-20261023.md#ubuntu-性能对比) · [三轮统计](docs/measurements/ubuntu-32-stream-median.json)
 
-根据 [config.example.ini](config.example.ini) 和 [部署记录](docs/production-deployment-20261023-evening.md) 生成独立配置、SSH 主机密钥和随机玩家凭据，然后启动：
+**30 分钟持续负载**：真实 C++ 节点与桥，3 名访客、9 条持续大流和 3 条 RTT 探测流，另完成 3306 轮短连接及控制请求。实际运行 1800.217 秒，已校验回显负载 **186.314 GiB**，平均 **105.992 MiB/s**；30 秒窗口吞吐为 101.85–108.58 MiB/s，最大探测 RTT 为 26.208 ms。此项为 Ubuntu 回环传输测试，未运行游戏 GUI。[完整范围与日志观察](docs/validation/bridge-soak-30min-20261023.md) · [结果 JSON](docs/measurements/bridge-soak-30min-20261023.json)
 
-```bash
-.venv/bin/python web/main.py --config /path/to/config.ini
-```
+**原版游戏与压缩**：另有 4 个 Mojang 原版 1.21.8 GUI 客户端的进服、移动、挖掘、放置和重进记录；该次短测的应用层字节节省为 **6.13%**，不含 SSH/TCP 开销，也不代表固定压缩率。[原版实测](docs/validation-20261023.md#真实原版多人游戏) · [压缩协议与边界](docs/relay-compression.md)
 
-Web 进程负责启动和管理原生核心。部署前用 `runtime/bin/buggcraft-core --version` 检查动态库，用 `runtime/bin/buggcraft-bridge --version` 检查桥；只有版本命令成功不代表联机验收通过。运行数据、管理员密码、接入码、玩家日志和私钥不得提交仓库。
+测量口径、原始数据索引和复现命令见 [性能与验证](docs/performance.md)。
 
 ## 启动器接入
 
-将 CMake 安装目录打包为启动器的 `native/`，保持 `bin/`、`lib/`、`share/` 的相对位置。Buggcraft 默认优先加载动态库，找不到库时使用独立进程；已经找到库但加载失败时明确报错。`BUGGCRAFT_BRIDGE_LIBRARY` 可指定库的绝对路径；`BUGGCRAFT_BRIDGE_MODE=library|process|auto` 选择入口。显式设置 `BUGGCRAFT_BRIDGE_EXECUTABLE` 时，auto 使用指定进程。源码开发时额外查找相邻原生仓库的 `runtime/` 和 `build/`。
+原生桥承接节点接入、房间生命周期、选路、P2P/中转、压缩、游戏状态、聊天与整合包传输。启动器负责展示页面、提交操作和消费事件，将加入房间后返回的 `127.0.0.1:端口` 交给游戏。
 
-Python 调用示例（绑定只用标准库，游戏数据不经过 Python）：
+| 入口 | 适合的集成方式 | 文档 |
+| :--- | :--- | :--- |
+| C ABI 动态库 | Python、C/C++、C#、Rust 等通过 FFI 调用 | [C 头文件](include/buggcraft/bridge.h) · [调用与内存管理](docs/bridge-library.md) |
+| 独立进程 | 启动 `buggcraft-bridge`，经 stdin/stdout 交换 JSON Lines | [JSON-RPC 协议](PROTOCOL_STANDARD.md) |
 
-```python
-from buggcraft_bridge import Bridge  # 来自安装目录 share/buggcraft-native/python
+两种入口共用相同 C++ 实现。Windows 使用 `bin/buggcraft_bridge.dll`，Linux 使用 `lib/libbuggcraft_bridge.so`，macOS 使用 `lib/libbuggcraft_bridge.dylib`。打包时保留完整安装目录与相对路径，使用绝对路径加载，避免与 Qt 或其他软件的依赖库混用。[发行目录说明](docs/build.md#发行目录)
 
-with Bridge('/absolute/path/native/lib/libbuggcraft_bridge.so') as bridge:
-    response = bridge.request('bridge.initialize', {'protocol': 1})
-    print(response['result']['build'])
-```
+- **启动器接入码**：以 `buggnode1-` 开头，用于 `node.add`；个人接入码还提供账号与好友授权。
+- **房间邀请码**：以 `bugg1-` 开头，用于 `room.join`。
 
-Windows 路径为 `native/bin/buggcraft_bridge.dll`，macOS 为 `native/lib/libbuggcraft_bridge.dylib`。Windows 使用绝对路径和限定 DLL 搜索标志，只搜索该 DLL 目录及 System32，不从当前目录、PATH 或 Qt 目录寻找桥依赖。Linux/macOS 使用库自身的相对 RPATH。其他语言接入和内存管理见 [C ABI 文档](docs/bridge-library.md)。动态库同样受系统代码签名及应用控制策略约束。
+## 可靠性与边界
 
-动态库和进程入口接收相同的 UTF-8 JSON-RPC。使用 `buggcraft-bridge` 子进程时，通过 stdin/stdout 交换 JSON Lines，并持续读取 stderr。先初始化，再添加节点：
+心跳用于发现异常退出；联邦查询使用已同步目录和受限直查，游戏流量无需沿节点邀请链逐级转发。中间邀请节点失联后，已互相发现并可直接通信的其他节点可继续工作。[心跳与故障测试](docs/validation/heartbeat-federation-20261023.md) · [17 节点长链测试](docs/validation/federation-chain-20261023.md)
 
-```json
-{"jsonrpc":"2.0","id":1,"method":"bridge.initialize","params":{"protocol":1}}
-{"jsonrpc":"2.0","id":2,"method":"node.add","params":{"code":"buggnode1-<用户复制的启动器接入码>"}}
-{"jsonrpc":"2.0","id":3,"method":"room.host","params":{"node":"<返回的node句柄>","game_port":25565,"transport":"auto"}}
-{"jsonrpc":"2.0","id":4,"method":"room.join","params":{"node":"<返回的node句柄>","invite":"bugg1-<房间邀请码>","transport":"auto"}}
-{"jsonrpc":"2.0","id":5,"method":"room.close","params":{"session":"<返回的session句柄>"}}
-```
+已建立的 TCP 游戏流不能无缝迁移到另一节点；承载该流的节点失联后，需要重新连接。P2P 能否建立取决于双方网络、NAT 与防火墙。动态库和可执行文件均受操作系统应用控制约束，当前项目未提供受信任代码签名或 Apple 公证。
 
-建房与加入是两个玩家各自的操作。加入后把返回的 `127.0.0.1:端口` 交给 Minecraft；启动器无需转发游戏数据。关闭 stdin 会清理会话并退出。
+逐玩家日志记录传输元数据，不保存游戏包内容；反馈前仍应检查诊断文件中的个人信息。[日志与保留策略](docs/validation/player-log-retention.md)
 
-- **启动器接入码**以 `buggnode1-` 开头，用于添加节点。匿名接入码可联机，用户中心生成的个人接入码额外提供账号/好友能力。
-- **房间邀请码**以 `bugg1-` 开头，用于加入房间，不能填入添加节点的输入框。
-- 个人接入码含授权凭据和本地签名材料。必须完整传入桥，SSH 认证由桥自行取对应凭据段；不得打印、截断、放入 URL 或命令行。
-- 缺少桥、依赖库或能力不匹配会明确报错。更新启动器时必须同时更新完整原生运行目录。
+## 开发与测试
 
-请求上限 8 KiB；最多 16 个节点句柄、8 个房间会话。完整能力以 `bridge.initialize.result.methods` 为准，接口与安全边界见 [PROTOCOL_STANDARD.md](PROTOCOL_STANDARD.md)。
-
-## 性能、带宽与故障处理
-
-节点将同一房间的流归属同一工作线程，访客 channel 直接转发到房主 channel，使用有界环形缓冲、SSH 窗口和背压，不经 Python 搬运游戏字节。不同房间分布到多个工作线程。桥的网络会话、游戏状态探测和整合包下载分别调度，避免控制探测长时间阻塞数据转发。
-
-中转可协商原生 Zstandard level 1 压缩，节点直接转发压缩流；原版游戏无需改变。仅压缩确有收益的数据，连续不可压缩数据转为原始流，避免长期额外开销；压缩块、解压窗口和输出量都有上限。Minecraft 已压缩或加密的流量不保证进一步节省带宽。协议与测量口径见 [压缩说明](docs/relay-compression.md)。
-
-`auto` 优先尝试 P2P，失败时使用加密中转；同一房间可混合两种路径。桥按延迟、抖动、负载和剩余容量选择节点并保留备用入口，通过事件提示界面。已建立的 TCP 流不能无缝迁移到另一节点；所属节点失联时需要重新加入，其他健康节点上的房间不受邀请链断开影响。
-
-心跳识别异常退出，联邦同步采用有界并发、退避、抖动和签名目录增量刷新。当前联邦上限 32 个成员；找房/好友查询利用本地已验证目录及受限直查，不沿邀请链逐级转发。详见 [心跳故障验证](docs/validation/heartbeat-federation-20261023.md) 和 [长链验证](docs/validation/federation-chain-20261023.md)。
-
-核心参数包括 `workers`、`buffer_kib`、`max_connections`、`max_total_streams`、`max_streams_per_room`、`max_streams_per_client` 和 `compression`，见示例配置。调大缓冲不能增加物理出口带宽；容量需要按实际机器和游戏负载测量。
-
-## 测试与记录
-
-以下集成测试启动真实 C++ 核心，并通过桥进程及动态库联机。先设置上面的两个可执行文件环境变量，并安装 `requirements.txt`。动态库测试设置 `BUGGCRAFT_BRIDGE_LIBRARY` 为安装的库，`BUGGCRAFT_BRIDGE_PACKAGE` 为完整安装目录，以验证中文、空格路径搬迁：
+构建后先运行原生测试，再运行真实节点和桥的集成测试。以下命令使用已安装的 Ubuntu 运行目录：
 
 ```bash
+export BUGGCRAFT_NATIVE_CORE="$PWD/runtime/bin/buggcraft-core"
+export BUGGCRAFT_BRIDGE_EXECUTABLE="$PWD/runtime/bin/buggcraft-bridge"
+export BUGGCRAFT_BRIDGE_LIBRARY="$PWD/runtime/lib/libbuggcraft_bridge.so"
+export BUGGCRAFT_BRIDGE_PACKAGE="$PWD/runtime"
+
 ctest --test-dir build --output-on-failure
-python -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_route_selection tests.test_node_health tests.test_player_logs -v
-python -m unittest tests.test_federation_budget tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v
-python scripts/check_compatibility.py
+.venv/bin/python -m unittest tests.test_native tests.test_bridge \
+  tests.test_bridge_services tests.test_bridge_library tests.test_route_selection \
+  tests.test_node_health tests.test_player_logs -v
+.venv/bin/python -m unittest tests.test_federation_budget tests.test_federation_lookup \
+  tests.test_federation_resilience tests.test_federation_chain -v
+.venv/bin/python scripts/check_compatibility.py
 ```
 
-使用虚拟环境时将 `python` 换成 `.venv/bin/python`。C++ 单元覆盖压缩损坏帧/解压上限、碎片化、半关闭、环形缓冲、心跳、日志和游戏协议解析；集成覆盖多玩家并行、高吞吐延迟、黑洞断网、强杀、回退、个人接入码和好友签名、整合包分页/校验/取消及并行游戏传输。
+CI 配置覆盖 Ubuntu、Windows MSVC、macOS ARM64 与 Intel；各平台是否通过应以对应提交的 [Actions 结果](https://github.com/vdjango/minecraft-tunnel-native/actions/workflows/core.yml) 为准。[原生接管验证记录](docs/validation/native-cutover-20261023.md) 单独列出了本机验证及尚未验证的范围。
 
-```bash
-# 30 分钟压力测试；保留结果和逐玩家日志
-python scripts/bridge_soak.py --seconds 1800 --output validation-artifacts/bridge-soak.json
+| 目录 | 内容 |
+| :--- | :--- |
+| `core/` | 节点 SSH / STUN、转发、流控与 IPC |
+| `bridge/` | 客户端原生桥与 C ABI 实现 |
+| `include/`、`bindings/` | 公共 C 头文件与语言绑定 |
+| `web/`、`site/` | Web、节点业务与静态页面 |
+| `tests/`、`tests/cpp/` | 集成测试与原生单元测试 |
+| `scripts/`、`cmake/` | 依赖准备、构建、测量及打包 |
+| `docs/` | 协议、部署、验证方法与测量数据 |
+| `compatibility/` | 面向当前核心执行的旧协议测试契约 |
 
-# 已有合法原版服务端 jar 时运行多版本聊天/状态/人数上报验证
-BUGGCRAFT_CHAT_SERVER_ROOT=/path/to/chat-servers python -m unittest tests.test_native_game_chat -v
-```
+## 许可证
 
-原版服务器测试默认覆盖 1.6.4、1.8.9、1.19、1.19.2、1.20.4、1.21.8、26.3；jar 按 `<版本>/server.jar` 放置，缺少资产则跳过对应项。Java 版本需匹配服务端要求。它使用真实原版服务器和两个原生协议客户端；GUI 多玩家/死亡复活实测另见 [既有验证记录](docs/validation-20261023.md) 与 [A 建房/B 加入](docs/validation/player-pair-performance-20261023.md)。这些不同测试的结果不能互相替代。
-
-日志按玩家/会话保留连接路径、心跳、流量、压缩、关闭原因及性能采样；使用 `BUGGCRAFT_BRIDGE_LOG_DIR` 指定目录。不要上传原始接入码、token、私钥或玩家隐私；保留策略和诊断导出见 [日志说明](docs/validation/player-log-retention.md)。最新源码验证与限制见 [原生桥接管记录](docs/validation/native-cutover-20261023.md)。历史性能测量只描述对应源码、机器和负载，不代表后续所有版本的性能承诺。
-
-## 许可
-
-项目使用 [AGPL-3.0-or-later](LICENSE)。第三方许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 与 `licenses/`；发行包须同时包含这些文件。
+本项目采用 [AGPL-3.0-or-later](LICENSE)。第三方依赖及其许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 与 [licenses/](licenses/)，分发时应保留相应声明。
