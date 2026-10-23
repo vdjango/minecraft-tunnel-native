@@ -25,7 +25,7 @@ struct Cursor {
     std::string_view take(size_t count){if(count>data.size()-offset)throw Failure(-32602,"Truncated game packet");auto bytes=data.substr(offset,count);offset+=count;return bytes;}
     uint64_t number(size_t width){uint64_t result=0;for(unsigned char byte:take(width))result=(result<<8)|byte;return result;}
     uint32_t integer(){uint32_t result=0;for(unsigned i=0;i<5;++i){auto b=number(1);if(i==4&&(b&0xf0))throw Failure(-32602,"Invalid game integer");result|=static_cast<uint32_t>(b&127)<<(7*i);if(!(b&128))return result;}throw Failure(-32602,"Invalid game integer");}
-    std::string text(size_t maximum=32767){auto size=integer();if(size>maximum*4)throw Failure(-32602,"Game string exceeds limit");std::string value(take(size));if(utf16(value).size()>maximum)throw Failure(-32602,"Game string exceeds limit");return value;}
+    std::string text(size_t maximum=32767){auto size=integer();if(size>maximum*4)throw Failure(-32602,"Game string exceeds limit");std::string value(take(size));auto units=utf16(value);if(units.size()>maximum)throw Failure(-32602,"Game string exceeds limit");if(utf8(units)!=value)throw Failure(-32602,"Invalid game UTF-8 string");return value;}
     double real64(){return std::bit_cast<double>(number(8));}
     float real32(){return std::bit_cast<float>(static_cast<uint32_t>(number(4)));}
     Json nbt(int tag=-1,unsigned depth=0){
