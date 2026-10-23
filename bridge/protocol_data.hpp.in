@@ -1,6 +1,0 @@
-// Generated from the audited Minecraft packet ID tables. See THIRD_PARTY_NOTICES.md.
-#pragma once
-namespace bridge::game {
-inline constexpr char profiles_json[]=R"buggdata(@CHAT_PROTOCOLS@)buggdata";
-inline constexpr char legacy_json[]=R"buggdata(@LEGACY_PACKETS@)buggdata";
-}

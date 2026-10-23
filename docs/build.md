@@ -2,7 +2,7 @@
 
 需要 CMake 3.24+、C++20 编译器和 OpenSSL 3.x。`scripts/fetch_deps.py` 下载固定版本依赖并校验 SHA-256；Python 3.11+ 用于依赖准备、Web 和测试，独立桥运行时不需要 Python。
 
-普通部署使用 [README](../README.md#安装节点) 中的安装包。各平台自动构建步骤以 [CI 配置](../.github/workflows/core.yml) 为准。
+普通部署使用 [README](../README.md#安装一个节点) 中的安装包。各平台自动构建步骤以 [CI 配置](../.github/workflows/core.yml) 为准。
 
 ## Ubuntu 源码构建
 
@@ -100,3 +100,30 @@ Ubuntu 仍需提供系统 OpenSSL 3 运行库；macOS 构建将 OpenSSL 静态�
 启动器可将此目录作为自己的 `native/` 子目录，使用绝对路径加载对应平台的桥库。Windows 应限定 DLL 搜索目录；Linux/macOS 使用安装产物的相对 RPATH。不要将桥依赖复制到 Qt 插件目录，也不要只分发单个桥文件。
 
 构建成功、版本命令成功和真实联机通过是不同验证。产物仍受 Windows 应用控制、macOS Gatekeeper 和签名策略约束；项目当前未提供受信任代码签名或 Apple 公证。
+
+## 自动发布到 GitHub Release
+
+构建和发布都使用现有 GitHub Actions，无需单独部署构建服务器。日常提交运行四个平台的构建、C/C++ 单元测试、桥与联邦测试；Ubuntu 额外验证 `.deb` 安装与重装。
+
+准备正式版本时，先修改 `CMakeLists.txt` 的项目版本并提交，再推送对应标签：
+
+```bash
+git tag v0.3.0
+git push origin v0.3.0
+```
+
+标签版本必须与 CMake 一致。也支持 `v0.3.0-rc.1`、`-beta.1`、`-alpha.1`，这些会标记为预发布。普通分支提交只保留构建产物，不创建 Release。
+
+所有平台成功后，发布任务下载本次构建的归档，验证五个包及 SHA-256，再创建 Release 草稿、上传附件并发布。上传中途失败可以重跑发布任务，草稿会继续上传；已经发布的版本不会被覆盖。
+
+| 附件 | 用途 |
+| --- | --- |
+| `buggcraft-node_版本号_amd64.deb` | Ubuntu 24.04 完整节点安装包，含 Web |
+| `buggcraft-native-版本号-windows-x64.zip` | Windows 核心、桥 EXE、DLL 和依赖 |
+| `buggcraft-native-版本号-macos-arm64.tar.gz` | Apple Silicon 原生运行包 |
+| `buggcraft-native-版本号-macos-x64.tar.gz` | Intel Mac 原生运行包 |
+| `buggcraft-native-版本号-linux-x64.tar.gz` | Ubuntu 24.04 原生运行包 |
+
+附件同时包含各包 `.sha256` 和汇总 `SHA256SUMS`。解压原生运行包后保留 `runtime/` 结构；其中 `share/buggcraft-native/build-info.json` 记录版本、提交和构建链接。Unix 归档在上传前打包，保留执行权限和动态库软链接。
+
+发布任务仅在本仓库的版本标签推送、且全部构建成功时获得 `contents: write`；使用 GitHub 自动提供的 `GITHUB_TOKEN`，不需要添加个人令牌或生产服务器凭据。自动发布不等于自动升级生产节点，也不包含启动器自身的打包发布。
