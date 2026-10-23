@@ -12,6 +12,7 @@ package/
 .venv/
 *.zip
 *.tar.gz
+*.deb
 *.pem
 *.key
 .env

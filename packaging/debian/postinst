@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+if [ "$1" = configure ]; then
+    if ! getent passwd buggcraft-node >/dev/null; then
+        adduser --system --group --home /var/lib/buggcraft-node --no-create-home --disabled-login buggcraft-node >/dev/null
+    fi
+    install -d -o buggcraft-node -g buggcraft-node -m 0700 /var/lib/buggcraft-node
+    if [ -d /run/systemd/system ]; then
+        systemctl daemon-reload
+        deb-systemd-helper enable buggcraft-node.service >/dev/null
+        deb-systemd-invoke restart buggcraft-node.service >/dev/null
+        echo 'Open the setup link with: sudo buggcraft-node setup'
+    else
+        echo 'Installed. Start on a systemd host, or run: buggcraft-node serve --directory YOUR_DATA_DIRECTORY'
+    fi
+fi

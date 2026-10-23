@@ -1,0 +1,59 @@
+#!/usr/bin/python3
+"""Small installed command; all game transport runs in the native core."""
+import argparse
+import configparser
+import json
+import os
+from pathlib import Path
+import runpy
+import subprocess
+import sys
+import time
+
+
+def main():
+    root = Path(__file__).resolve().parents[1] / 'lib' / 'buggcraft-node'
+    data = Path(os.environ.get('BUGGCRAFT_NODE_DATA', '/var/lib/buggcraft-node'))
+    parser = argparse.ArgumentParser(description='Buggcraft node: setup, status, logs or serve')
+    parser.add_argument('command', choices=('setup', 'status', 'logs', 'serve'))
+    args, extra = parser.parse_known_args()
+    if args.command == 'serve':
+        sys.path[:0] = [str(root / 'python'), str(root / 'web')]
+        os.environ['BUGGCRAFT_NATIVE_CORE'] = str(root / 'native/bin/buggcraft-core')
+        sys.argv = [str(root / 'web/main.py'), *extra]
+        runpy.run_path(sys.argv[0], run_name='__main__')
+        return
+    if extra:
+        parser.error('Unexpected arguments: ' + ' '.join(extra))
+    if args.command in ('status', 'logs'):
+        command = (['systemctl', 'status', 'buggcraft-node', '--no-pager'] if args.command == 'status'
+                   else ['journalctl', '-u', 'buggcraft-node', '-n', '80', '--no-pager'])
+        raise SystemExit(subprocess.call(command))
+    config = data / 'server.conf'
+    try:
+        if config.is_file():
+            settings = configparser.ConfigParser(interpolation=None)
+            settings.read(config)
+            profile_path = data / settings['web'].get('profile_file', 'relay-profile.json')
+            host = json.loads(profile_path.read_text())['server_host']
+            host = '[' + host + ']' if ':' in host else host
+            print(f"Configured: https://{host}:{settings['web'].getint('port', 18443)}/admin")
+            return
+        # The service writes this private file only while first setup is active.
+        for _ in range(30):
+            try:
+                value = json.loads((data / 'setup-link.json').read_text())
+                os.kill(value['pid'], 0)
+                print('First setup: ' + value['url'])
+                print('Certificate SHA256: ' + value['fingerprint'])
+                print('Replace SERVER_IP with your server address. Keep this link private.')
+                return
+            except (FileNotFoundError, ProcessLookupError, json.JSONDecodeError):
+                time.sleep(.2)
+        raise SystemExit('Setup is not running. Check: sudo buggcraft-node status')
+    except PermissionError:
+        raise SystemExit('Run this command with sudo to read the private setup link.') from None
+
+
+if __name__ == '__main__':
+    main()

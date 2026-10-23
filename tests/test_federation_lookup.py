@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'web'))
 import asyncssh
 from tunnel.accounts import Accounts
 from tunnel.account_replication import header
-from tunnel.federation import Federation, MAX_NODES
+from tunnel.federation import Federation
 from tunnel.federation_lookup import PROBE_FANOUT
 from tests.account_fixture import enroll
 
@@ -24,7 +24,7 @@ class LookupTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(temporary.cleanup)
         self.feds = []
         network = secrets.token_urlsafe(48)
-        for index in range(MAX_NODES):
+        for index in range(64):
             key = asyncssh.generate_private_key('ssh-ed25519')
             fed = Federation(key, dict(server_host='127.0.0.1', server_port=3333 + index,
                 token=secrets.token_urlsafe(48), server_public_key=key.export_public_key().decode()),
@@ -41,7 +41,7 @@ class LookupTests(unittest.IsolatedAsyncioTestCase):
         self.entry = header(self.owner.accounts.records[self.account])
         self.node.ingest([f.records[f.id] for f in self.feds[1:]])
 
-    async def test_local_match_does_not_contact_thirty_one_peers(self):
+    async def test_local_match_does_not_contact_sixty_three_peers(self):
         self.node.accounts.replication.accept(self.entry)
         with patch.object(self.node, 'account_rpc', new=AsyncMock()) as rpc:
             self.assertEqual(await self.node.lookup_accounts('REMOTE_FRIEND'),

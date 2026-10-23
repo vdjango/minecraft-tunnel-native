@@ -59,8 +59,6 @@ async def run(config_path):
             blocked=state.get("blocked", []),
         )
         seeds = state.get("seeds", [])
-        if len(seeds) > 31:
-            raise ValueError("Federation is limited to 32 nodes")
         federation.seeds = {
             identity(item["server_public_key"]): validate_profile(item) for item in seeds
         }

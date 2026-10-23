@@ -16,7 +16,7 @@ jobs:
           python-version: '3.12'
       - name: Ubuntu build dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build dpkg-dev
       - name: Windows OpenSSL
         if: runner.os == 'Windows'
         shell: pwsh
@@ -66,7 +66,7 @@ jobs:
           $env:BUGGCRAFT_BRIDGE_EXECUTABLE = "$pwd/package/bin/buggcraft-bridge.exe"
           $env:BUGGCRAFT_BRIDGE_LIBRARY = "$pwd/package/bin/buggcraft_bridge.dll"
           $env:BUGGCRAFT_BRIDGE_PACKAGE = "$pwd/package"
-          python -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_federation_budget tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v
+          python -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/check_compatibility.py
       - name: Unix protocol checks
@@ -80,8 +80,26 @@ jobs:
           else
             export BUGGCRAFT_BRIDGE_LIBRARY="$PWD/package/lib/libbuggcraft_bridge.so"
           fi
-          python -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_federation_budget tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v
+          python -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v
           python scripts/check_compatibility.py
+      - name: Build Ubuntu installer
+        if: runner.os == 'Linux'
+        run: python scripts/build_deb.py --runtime package --version "$(date -u +%Y.%m.%d).${{ github.run_number }}"
+      - name: Test Ubuntu package installation and reinstall
+        if: runner.os == 'Linux'
+        run: |
+          package_name=$(basename build/debian/*.deb)
+          docker run --rm -e BUGGCRAFT_DEB_NAME="$package_name" \
+            -v "$PWD/build/debian:/packages:ro" \
+            -v "$PWD/tests/debian_smoke.py:/validate.py:ro" ubuntu:24.04 sh -ec \
+            'apt-get update -qq; apt-get install -y --no-install-recommends "/packages/$BUGGCRAFT_DEB_NAME" systemd; python3 /validate.py'
+      - name: Publish Ubuntu installer
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: buggcraft-node-ubuntu24.04-amd64
+          path: build/debian/*
+          if-no-files-found: error
       - name: Publish complete native runtime
         uses: actions/upload-artifact@v4
         with:

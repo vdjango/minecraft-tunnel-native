@@ -1,0 +1,25 @@
+[Unit]
+Description=Buggcraft native Minecraft node
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=buggcraft-node
+Group=buggcraft-node
+WorkingDirectory=/usr/lib/buggcraft-node
+ExecStart=/usr/bin/buggcraft-node serve --directory /var/lib/buggcraft-node --no-browser
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=25
+StateDirectory=buggcraft-node
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target

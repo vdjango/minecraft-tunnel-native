@@ -17,9 +17,8 @@ from .federation_transport import Transport
 from .federation_lookup import AccountLookup
 from . import federation_wire as wire
 
-MAX_NODES = 32
 MAX_RECORD = 512 * 1024
-MAX_SNAPSHOT = MAX_NODES * MAX_RECORD + 10 * 1024 * 1024
+MAX_SNAPSHOT = wire.PAGE_RECORDS * MAX_RECORD + 10 * 1024 * 1024
 TTL = 30
 LOG = logging.getLogger(__name__)
 
@@ -70,6 +69,7 @@ class Federation:
         self.inflight = {}
         self.sync_lock = asyncio.Lock()
         self.snapshot_versions = {}
+        self.record_cursors = {}
         self.health_states = {}
         self.stats = dict(exchanges_started=0, exchanges_failed=0, snapshot_received_bytes=0)
         self.task = None
@@ -129,8 +129,9 @@ class Federation:
         self.seen[self.id] = time.monotonic()
 
     def ingest(self, records):
-        if not isinstance(records, list) or len(records) > MAX_NODES:
-            raise ValueError('Too many federation members')
+        if not isinstance(records, list) or len(records) > wire.MAX_RECORDS_PER_MESSAGE:
+            raise ValueError('Federation wire batch exceeds limit')
+        changed = False
         for record in records:
             try:
                 record = wire.expand(record, self.records)
@@ -187,15 +188,15 @@ class Federation:
                 previous = self.records.get(node_id)
                 if previous and previous['body']['issued'] >= issued:
                     continue  # Replaying a signed heartbeat must not extend its lease.
-                if not previous and len(self.records) >= MAX_NODES:
-                    continue
                 self.records[node_id] = record
                 self.seen[node_id] = time.monotonic()
                 if self.seeds.get(node_id) != profile:
                     self.seeds[node_id] = profile
-                    self.on_change()
+                    changed = True
             except (KeyError, ValueError, TypeError, asyncssh.Error):
                 continue
+        if changed:
+            self.on_change()
 
     def live(self):
         now = time.monotonic()
@@ -203,9 +204,10 @@ class Federation:
                 now - self.seen.get(k, 0) < TTL and v['body']['issued'] > time.time() - TTL}
 
     def snapshot(self, recipient=None, social_version=None, presence_version=None,
-                 record_versions=None, snapshot_versions=None):
+                 record_versions=None, snapshot_versions=None, record_cursor=''):
         self.publish()
-        result = {'records': wire.compact(self.live(), record_versions),
+        selected, next_cursor = wire.page(self.live(), record_cursor, self.id)
+        result = {'records': wire.compact(selected, record_versions), 'record_cursor': next_cursor,
                 'accounts': self.accounts.snapshot(recipient) if self.accounts else [],
                 'account_routes': self.accounts.replication.snapshot() if self.accounts else [],
                 'social': self.accounts.social.snapshot() if self.accounts and social_version != self.accounts.social.digest() else [],
@@ -286,6 +288,7 @@ class Federation:
         self.last_failure.clear()
         self.schedule = Schedule()
         self.snapshot_versions.clear()
+        self.record_cursors.clear()
         self.health_states.clear()
         self.blocked.clear()
         self.publish()
@@ -311,8 +314,6 @@ class Federation:
             self.network_key = key
             self.records.clear()
             self.seen.clear()
-        if len(self.seeds) >= MAX_NODES - 1 and node_id not in self.seeds:
-            raise ValueError('Federation member limit reached')
         self.seeds[node_id] = profile
         self.publish()
         self.on_change()
@@ -353,7 +354,9 @@ class Federation:
         node_id = identity(profile['server_public_key'])
         async with self.transport.connection(profile, node_id) as conn:
             async with conn.create_process(subsystem='buggcraft-rooms-v1', encoding=None) as process:
-                request = {'op': 'snapshot', 'record_versions': wire.versions(self.live()),
+                after = self.record_cursors.get(node_id, '')
+                request = {'op': 'snapshot', 'record_cursor': after,
+                           'record_versions': wire.page_versions(self.live(), after, node_id),
                            'snapshot_versions': self.snapshot_versions.get(node_id, {})}
                 if self.accounts:
                     request.update(social_version=self.accounts.social.digest(), presence_version=self.accounts.social.digest(True))
@@ -367,6 +370,7 @@ class Federation:
                 value = json.loads(response)
                 if not value.get('ok'):
                     raise ValueError('Federation snapshot rejected')
+                next_cursor = wire.cursor(value['result'].get('record_cursor', ''))
                 self.stats['snapshot_received_bytes'] += len(response)
                 self.ingest(value['result']['records'])
                 if self.accounts:
@@ -375,6 +379,7 @@ class Federation:
                     self.accounts.social.ingest(value['result'].get('social', []))
                     self.accounts.social.ingest(value['result'].get('presence', []))
                 self.snapshot_versions[node_id] = value['result'].get('snapshot_versions', {})
+                self.record_cursors[node_id] = next_cursor
 
     async def account_rpc(self, profile, operation, **payload):
         node_id = identity(profile['server_public_key'])
@@ -401,8 +406,7 @@ class Federation:
         peers.update({n: r['body']['profile'] for n, r in self.live().items() if n != self.id})
         # Fail closed during a partition. A name is never registered on only
         # one side of a known network. Reservations survive process restarts.
-        results = await asyncio.gather(*(self.account_rpc(p, 'username_reserve', username=username, account=account)
-                                         for p in peers.values()), return_exceptions=True)
+        results = await self.account_results(peers.values(), 'username_reserve', username=username, account=account)
         if any(not isinstance(r, dict) or r.get('reserved') is not True for r in results):
             raise ValueError('用户名已被使用，或网络暂时无法确认注册，请稍后重试。')
 
@@ -413,8 +417,7 @@ class Federation:
                     (n == home or n in targets or any(c.get('account') == account for c in r['body'].get('account_copies', [])))}
         if home != self.id and home in self.seeds and home not in self.blocked:
             profiles.setdefault(home, self.seeds[home])
-        results = await asyncio.gather(*(self.account_rpc(p, 'account_record', account=account)
-                                         for p in profiles.values()), return_exceptions=True)
+        results = await self.account_results(profiles.values(), 'account_record', account=account)
         for result in results:
             if isinstance(result, dict) and result.get('record'):
                 try:
@@ -425,6 +428,30 @@ class Federation:
                 except (ValueError, TypeError, KeyError, asyncssh.Error):
                     continue
         return None
+
+    async def account_results(self, profiles, operation, **payload):
+        # Never create one task per federation member. Transport also shares
+        # its three-connection budget with background gossip.
+        remaining = iter(profiles)
+        results = []
+        async def worker():
+            for profile in remaining:
+                try:
+                    async with asyncio.timeout(4):
+                        results.append(await self.account_rpc(profile, operation, **payload))
+                except Exception as exc:
+                    results.append(exc)
+        tasks = [asyncio.create_task(worker()) for _ in range(3)]
+        try:
+            async with asyncio.timeout(20):
+                await asyncio.gather(*tasks)
+        except TimeoutError:
+            raise ValueError('联邦暂时无法确认账户状态，请稍后重试。') from None
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        return results
 
     async def _exchange_one(self, node_id, profile):
         try:

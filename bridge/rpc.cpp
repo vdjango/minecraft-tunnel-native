@@ -25,7 +25,14 @@ public:
             for(const auto& item:imported)value.alternatives.push_back(Profile::from_json(item));
             bool verified=false;
             try{Ssh connection(value.profile,"directory:rooms",{},2);auto ping=connection.request({{"op","ping"}},2);value.profile.name=ping.value("name","Node");verified=true;
-                try{auto topology=connection.request({{"op","topology"}},2).at("nodes");if(topology.is_array()&&topology.size()<=32)for(auto& item:topology)try{value.alternatives.push_back(Profile::from_json(item));}catch(...){} }catch(...){}
+                // Discovery is paged independently of federation membership.
+                // Keep only the small probe set even with an older server.
+                try{auto topology=connection.request({{"op","topology"},{"limit",5}},2).at("nodes");
+                    if(topology.is_array())for(const auto& item:topology){
+                        if(value.alternatives.size()>=10)break;
+                        try{value.alternatives.push_back(Profile::from_json(item));}catch(...){}
+                    }
+                }catch(...){}
             }catch(...){if(value.alternatives.empty())throw;}
             value.routes=std::make_unique<RouteSelector>(value.profile,value.alternatives);
             try{value.routes->refresh(value.profile,value.alternatives);}catch(...){if(!verified)throw;log("route_probe_deferred");}

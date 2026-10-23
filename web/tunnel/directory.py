@@ -225,7 +225,8 @@ class RoomControlSession(asyncssh.SSHServerSession):
             return relay.diagnostics.report(peer, request.get('report'))
         if peer.role == 'federation' and relay.federation and operation == 'snapshot':
             return relay.federation.snapshot(getattr(peer, 'node_id', None), request.get('social_version'),
-                request.get('presence_version'), request.get('record_versions'), request.get('snapshot_versions'))
+                request.get('presence_version'), request.get('record_versions'), request.get('snapshot_versions'),
+                request.get('record_cursor', ''))
         if peer.role == 'federation' and relay.federation and relay.federation.accounts:
             store = relay.federation.accounts
             if operation == 'username_reserve':
@@ -304,11 +305,25 @@ class RoomControlSession(asyncssh.SSHServerSession):
             return {'rooms': page, 'next': end if end < len(listings) else None,
                     'total': len(listings)}
         if operation == 'topology' and peer.role == 'directory':
-            return {'nodes': [relay.federation.player_profile(p, getattr(peer, 'account', None), getattr(peer, 'credential', None))
-                              for p in relay.federation.topology()] if relay.federation else [],
-                    'routes': [dict(profile=relay.federation.player_profile(record['body']['profile'],getattr(peer,'account',None),getattr(peer,'credential',None)),
-                                   name=record['body']['name'],routing=record['body'].get('routing',{}))
-                               for record in relay.federation.live().values()] if relay.federation else []}
+            offset, limit = request.get('offset', 0), request.get('limit', 32)
+            if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 32:
+                raise ValueError('Invalid topology pagination')
+            records = sorted(relay.federation.live().items()) if relay.federation else []
+            records = [(node, record) for node, record in records if node != relay.federation.id]
+            nodes, routes, size = [], [], 0
+            for _, record in records[offset:offset + limit]:
+                profile = relay.federation.player_profile(record['body']['profile'],
+                    getattr(peer, 'account', None), getattr(peer, 'credential', None))
+                route = dict(profile=profile, name=record['body']['name'], routing=record['body'].get('routing', {}))
+                length = len(json.dumps([profile, route], ensure_ascii=True).encode())
+                if size + length > 48000:
+                    break
+                nodes.append(profile)
+                routes.append(route)
+                size += length
+            end = offset + len(nodes)
+            return {'nodes': nodes, 'routes': routes,
+                    'next': end if end < len(records) else None, 'total': len(records)}
         if operation == 'account_lookup' and peer.role == 'federation':
             if not relay.federation or not relay.federation.accounts:
                 raise ValueError('Account directory unavailable')

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import hmac
 import html
 import ipaddress
+import json
 import logging
 import os
 from pathlib import Path
@@ -149,12 +150,21 @@ async def first_run(directory, *, host='0.0.0.0', web_port=18443, open_browser=F
     with tempfile.TemporaryDirectory(prefix='buggcraft-setup-') as temporary:
         tls, fingerprint = setup_tls(temporary)
         await runner.setup()
+        private_link = None
         try:
             await web.TCPSite(runner, host, web_port, ssl_context=tls).start()
             display_host = 'SERVER_IP' if host in ('0.0.0.0', '::') else host
             if ':' in display_host:
                 display_host = '[' + display_host + ']'
-            print(f'\nFirst setup: https://{display_host}:{web_port}/?token={server.token}', flush=True)
+            setup_url = f'https://{display_host}:{web_port}/?token={server.token}'
+            # Lets the installed CLI show the current link without scraping logs.
+            private_link = Path(directory).resolve() / 'setup-link.json'
+            private_link.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            private_link.unlink(missing_ok=True)
+            descriptor = os.open(private_link, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(descriptor, 'w', encoding='utf-8') as target:
+                json.dump(dict(url=setup_url, fingerprint=fingerprint, pid=os.getpid()), target)
+            print(f'\nFirst setup: {setup_url}', flush=True)
             print(f'Setup certificate SHA256: {fingerprint}', flush=True)
             print('Replace SERVER_IP with your server address. Keep this setup link private.\n', flush=True)
             if open_browser:
@@ -166,5 +176,7 @@ async def first_run(directory, *, host='0.0.0.0', web_port=18443, open_browser=F
                     logging.getLogger(__name__).warning('Cannot open browser; use the setup link above.')
             await server.finished.wait()
         finally:
+            if private_link is not None:
+                private_link.unlink(missing_ok=True)
             await runner.cleanup()
     return Path(directory).resolve() / 'server.conf'

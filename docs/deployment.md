@@ -1,6 +1,27 @@
 # 节点部署
 
-推荐先按 [README](../README.md#快速开始) 在 Ubuntu 完成构建、首次设置和一次房间联机，再配置开机自启。
+Ubuntu 24.04 amd64 推荐使用安装包。安装、升级都使用同一个命令，配置与身份保存在 `/var/lib/buggcraft-node`：
+
+```bash
+sudo apt install ./buggcraft-node_*_amd64.deb
+sudo buggcraft-node setup
+```
+
+安装包来自 [Actions 成功构建](https://github.com/vdjango/minecraft-tunnel-native/actions/workflows/core.yml) 的 `buggcraft-node-ubuntu24.04-amd64` 产物，包含 `.deb` 和 SHA-256 文件。下载并解压后可用 `sha256sum -c 文件名.deb.sha256` 核对完整性；这不替代下载来源的可信性。当前没有在线 APT 软件源。
+
+软件安装到 `/usr/lib/buggcraft-node`，以专用 `buggcraft-node` 用户运行。C++、Web 和私有 Python 依赖一起提供，安装时不运行 pip。首次设置链接仅在初始化期间存在，数据目录为 `0700`，链接文件为 `0600`。已有配置不会重新进入初始化。
+
+| 操作 | 命令 |
+| --- | --- |
+| 查看初始化链接或管理页面地址 | `sudo buggcraft-node setup` |
+| 查看服务状态 | `sudo buggcraft-node status` |
+| 查看最近日志 | `sudo buggcraft-node logs` |
+| 重启服务 | `sudo systemctl restart buggcraft-node` |
+| 停止服务 | `sudo systemctl stop buggcraft-node` |
+
+升级会重启服务并中断该节点现有连接，应安排维护时间。升级前停止服务并备份整个 `/var/lib/buggcraft-node`，保留旧安装包；回退可用 `sudo apt install --allow-downgrades ./旧版本.deb`，状态格式变化时还需恢复对应备份。卸载及 purge 均保留节点数据，避免误删身份、账号和日志。
+
+安装包支持范围目前为 Ubuntu 24.04 / Python 3.12；其他平台使用 [源码构建](build.md)。下面的手动 systemd 方式供源码部署使用，不需要和安装包同时执行。
 
 ## 配置与数据
 

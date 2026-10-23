@@ -4,22 +4,54 @@
   "scope": "P2P heartbeat, isolated fallback, automatic direct retry and SCTP stream reuse",
   "ubuntu": {
     "build_type": "Release",
-    "ctest": {"targets": 2, "passed": 2},
-    "specialized": {"tests": 8, "passed": 8, "seconds": 104.124, "clients": ["process", "shared_library_c_abi"]},
-    "regression": {"tests": 54, "passed": 51, "skipped": 3, "seconds": 110.089},
-    "skip_reasons": {"adjacent_launcher_checkout_absent": 2, "launcher_sdk_not_configured": 1},
+    "ctest": {
+      "targets": 2,
+      "passed": 2
+    },
+    "specialized": {
+      "tests": 8,
+      "passed": 8,
+      "seconds": 104.124,
+      "clients": [
+        "process",
+        "shared_library_c_abi"
+      ]
+    },
+    "regression": {
+      "tests": 54,
+      "passed": 51,
+      "skipped": 3,
+      "seconds": 110.089
+    },
+    "skip_reasons": {
+      "adjacent_launcher_checkout_absent": 2,
+      "launcher_sdk_not_configured": 1
+    },
     "retained_log_files": 246
   },
   "windows": {
     "build_type": "Release",
-    "ctest": {"targets": 2, "passed": 2},
-    "shared_library_specialized": {"tests": 6, "passed": 6, "seconds": 94.602},
+    "ctest": {
+      "targets": 2,
+      "passed": 2
+    },
+    "shared_library_specialized": {
+      "tests": 6,
+      "passed": 6,
+      "seconds": 94.602
+    },
     "standalone_process_final_run": "blocked by Windows application control, WinError 4551",
     "client_bundle": {
-      "path": "validation-artifacts/bridge-client-windows-20261024.zip",
-      "bytes": 7194984,
+      "path": "validation-artifacts/bridge-client-windows-20261024-final.zip",
+      "bytes": 7194217,
       "manifest_files": 23,
-      "sha256": "41ea8a9210ef4b1df5b8b736a158afec6391a1df5439bf229beb70998219217a"
+      "sha256": "7fbce1ade99572b4380274c73228bcdd0f74551d545a708607fb0069fce84238"
+    },
+    "final_abi_route_regression": {
+      "tests": 7,
+      "passed": 7,
+      "seconds": 9.898,
+      "scope": "C ABI, relocated install and five existing route cases through DLL after topology fix"
     }
   },
   "contracts": {

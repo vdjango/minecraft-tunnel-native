@@ -2,7 +2,33 @@
 
 需要 CMake 3.24+、C++20 编译器和 OpenSSL 3.x。`scripts/fetch_deps.py` 下载固定版本依赖并校验 SHA-256；Python 3.11+ 用于依赖准备、Web 和测试，独立桥运行时不需要 Python。
 
-Ubuntu 节点的完整起步流程见 [README](../README.md#快速开始)。各平台自动构建步骤以 [CI 配置](../.github/workflows/core.yml) 为准。
+普通部署使用 [README](../README.md#安装节点) 中的安装包。各平台自动构建步骤以 [CI 配置](../.github/workflows/core.yml) 为准。
+
+## Ubuntu 源码构建
+
+```bash
+sudo apt-get update
+sudo apt-get install -y git build-essential cmake pkg-config libssl-dev python3-venv dpkg-dev
+git clone https://github.com/vdjango/minecraft-tunnel-native.git
+cd minecraft-tunnel-native
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python scripts/fetch_deps.py
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel 2
+ctest --test-dir build --output-on-failure
+cmake --install build --prefix "$PWD/runtime"
+```
+
+源码运行 Web：设置 `BUGGCRAFT_NATIVE_CORE="$PWD/runtime/bin/buggcraft-core"`，再执行 `.venv/bin/python web/main.py --directory ./data --no-browser`。
+
+Ubuntu 24.04 使用系统 Python 3.12 的环境打包：
+
+```bash
+.venv/bin/python scripts/build_deb.py --runtime runtime --version 2026.10.24.1
+```
+
+产物在 `build/debian/`，包含 Web、私有 Python 依赖、原生节点与 libssh、systemd 服务和管理命令。安装时不运行 pip。使用实际 ELF 的符号依赖生成系统依赖列表；Python 二进制依赖限制为 3.12。此配方不适用于其他 Ubuntu 版本，也不交叉生成其他架构安装包。安装包校验与升级说明见 [部署指南](deployment.md)。
 
 ## Windows
 

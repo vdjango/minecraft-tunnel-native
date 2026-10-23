@@ -1,6 +1,32 @@
 """Compact refreshes reconstruct the original signed record before verification."""
 import hashlib
 import json
+import re
+
+PAGE_RECORDS = 32
+# A wire-batch budget, not a limit on the membership registry.
+MAX_RECORDS_PER_MESSAGE = 256
+
+
+def cursor(value):
+    if not isinstance(value, str) or (value and not re.fullmatch('[0-9a-f]{32}', value)):
+        raise ValueError('Invalid federation page cursor')
+    return value
+
+
+def page(records, after, owner):
+    cursor(after)
+    nodes = sorted(node for node in records if node != owner and node > after)
+    selected = nodes[:PAGE_RECORDS - 1]
+    more = selected[-1] if len(nodes) > len(selected) else ''
+    result = {owner: records[owner]} if owner in records else {}
+    result.update((node, records[node]) for node in selected)
+    return result, more
+
+
+def page_versions(records, after, owner):
+    selected, _ = page(records, after, owner)
+    return versions(selected)
 
 
 def digest(value):
@@ -18,7 +44,7 @@ def versions(records):
 
 
 def compact(records, known):
-    if not isinstance(known, dict) or len(known) > 32:
+    if not isinstance(known, dict) or len(known) > PAGE_RECORDS:
         return list(records.values())
     result = []
     for node, record in records.items():

@@ -22,6 +22,8 @@ NAMES = ('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'Z', 'K', 'M', 'L', 'N', '
 
 
 class FederationChainTests(unittest.IsolatedAsyncioTestCase):
+    names = NAMES
+    middle = 7
     asyncSetUp = bridge_tests.BridgeTests.asyncSetUp
     process = bridge_tests.BridgeTests.process
     call = bridge_tests.BridgeTests.call
@@ -35,13 +37,13 @@ class FederationChainTests(unittest.IsolatedAsyncioTestCase):
         relays, feds = [self.node], []
         network = secrets.token_urlsafe(48)
         started = time.monotonic()
-        for _ in NAMES[1:]:
+        for _ in self.names[1:]:
             key = asyncssh.generate_private_key('ssh-ed25519')
             relay = await RelayServer('127.0.0.1', 0, host_key=key,
                 token=secrets.token_urlsafe(48), workers=1).start()
             self.addAsyncCleanup(relay.close)
             relays.append(relay)
-        for name, relay in zip(NAMES, relays):
+        for name, relay in zip(self.names, relays):
             key = relay.host_key
             fed = Federation(key, dict(server_host='127.0.0.1', server_port=relay.port,
                 token=relay.token, server_public_key=key.export_public_key().decode()),
@@ -57,22 +59,22 @@ class FederationChainTests(unittest.IsolatedAsyncioTestCase):
         # Exact invitation direction from the reported topology. H is the
         # initial seed in the middle; A and Q do not initially know each other.
         for index, fed in enumerate(feds):
-            if index != 7:
-                fed.join(feds[index + 1 if index < 7 else index - 1].invitation())
+            if index != self.middle:
+                fed.join(feds[index + 1 if index < self.middle else index - 1].invitation())
         self.assertNotIn(feds[-1].id, feds[0].seeds)
         self.assertNotIn(feds[0].id, feds[-1].seeds)
         a_account, a_token = enroll(feds[0].accounts, 'chain_player_A')
         q_account, q_token = enroll(feds[-1].accounts, 'chain_player_Q')
         for fed in feds:
             fed.task = asyncio.create_task(fed.run())
-        async with asyncio.timeout(90):
+        async with asyncio.timeout(180):
             while (any(len(f.live()) != len(feds) for f in feds) or
                    any(a_account not in f.accounts.replication.directory or
                        q_account not in f.accounts.replication.directory for f in feds)):
                 await asyncio.sleep(.1)
         convergence = time.monotonic() - started
         print('CHAIN_CONVERGED ' + json.dumps(dict(nodes=len(feds), seconds=round(convergence, 3))), flush=True)
-        a, h, q = feds[0], feds[7], feds[-1]
+        a, h, q = feds[0], feds[self.middle], feds[-1]
         self.assertIn(a.id, q.seeds)
         self.assertIn(q.id, a.seeds)
         host, guest = await self.process(), await self.process()
@@ -108,9 +110,9 @@ class FederationChainTests(unittest.IsolatedAsyncioTestCase):
 
         await block()
         await h.close()
-        relays[7].process.kill()
+        relays[self.middle].process.kill()
         async with asyncio.timeout(5):
-            await relays[7].failed.wait()
+            await relays[self.middle].failed.wait()
         failed_at = time.monotonic()
         active = [f for f in feds if f is not h]
         samples = []
@@ -174,8 +176,9 @@ class FederationChainTests(unittest.IsolatedAsyncioTestCase):
         writer.close()
         await writer.wait_closed()
         ordered = sorted(latencies)
-        report = dict(passed=True, topology='A->B->C->D->E->F->G->H<-I<-Z<-K<-M<-L<-N<-O<-P<-Q',
-            nodes=len(feds), failed='H', survivors=len(active), convergence_seconds=round(convergence, 3),
+        topology = '->'.join(self.names[:self.middle+1]) + '<-' + '<-'.join(self.names[self.middle+1:])
+        report = dict(passed=True, topology=topology,
+            nodes=len(feds), failed=self.names[self.middle], survivors=len(active), convergence_seconds=round(convergence, 3),
             failure_observation_seconds=round(time.monotonic()-failed_at, 3),
             continuous_blocks=len(latencies), continuous_bytes=len(latencies)*len(payload),
             block_rtt_p99_ms=round(ordered[min(len(ordered)-1, int(len(ordered)*.99))], 3),
@@ -191,6 +194,12 @@ class FederationChainTests(unittest.IsolatedAsyncioTestCase):
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(json.dumps(report, indent=2), encoding='utf-8')
         print('FEDERATION_CHAIN ' + json.dumps(report), flush=True)
+
+
+@unittest.skipUnless(os.environ.get('BUGGCRAFT_FEDERATION_SCALE') == '1', 'Opt in to 65 real native nodes')
+class FederationLargeChainTests(FederationChainTests):
+    names = ('A',) + tuple(f'S{i:02d}' for i in range(1, 32)) + ('H',) + tuple(f'S{i:02d}' for i in range(33, 64)) + ('Q',)
+    middle = 32
 
 
 if __name__ == '__main__':
