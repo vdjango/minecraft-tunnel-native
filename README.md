@@ -79,7 +79,7 @@ CI 配置包含 macOS ARM64 和 Intel；本次工作环境没有完成 macOS 实
 
 ## 启动节点服务
 
-根据 [config.example.ini](config.example.ini) 和 [部署记录](docs/production-deployment-20261023.md) 生成独立配置、SSH 主机密钥和随机玩家凭据，然后启动：
+根据 [config.example.ini](config.example.ini) 和 [部署记录](docs/production-deployment-20261023-evening.md) 生成独立配置、SSH 主机密钥和随机玩家凭据，然后启动：
 
 ```bash
 .venv/bin/python web/main.py --config /path/to/config.ini
