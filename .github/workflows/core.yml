@@ -55,9 +55,11 @@ jobs:
           $env:BUGGCRAFT_BRIDGE_EXECUTABLE = "$pwd/package/bin/buggcraft-bridge.exe"
           $env:BUGGCRAFT_BRIDGE_LIBRARY = "$pwd/package/bin/buggcraft_bridge.dll"
           $env:BUGGCRAFT_BRIDGE_PACKAGE = "$pwd/package"
-          python -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v
+          python -u -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v 2>&1 | Tee-Object -FilePath windows-protocol-tests.log
+          $testStatus = $LASTEXITCODE
+          if ($testStatus -ne 0) { exit $testStatus }
+          python -u scripts/check_compatibility.py 2>&1 | Tee-Object -FilePath windows-compatibility.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/check_compatibility.py
       - name: Unix protocol checks
         if: runner.os != 'Windows'
         run: |
@@ -115,6 +117,8 @@ jobs:
             native-build.log
             build/CMakeFiles/CMakeConfigureLog.yaml
             build/Testing/Temporary/LastTest.log
+            windows-protocol-tests.log
+            windows-compatibility.log
           if-no-files-found: warn
 
   release:
