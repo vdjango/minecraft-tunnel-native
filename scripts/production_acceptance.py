@@ -28,11 +28,12 @@ def run():
                 cert=(data/config['web']['tls_cert']).read_text()
                 der=ssl.PEM_cert_to_DER_cert(cert)
                 print(json.dumps(dict(name=json.loads((data/'node-state.json').read_text())['name'],
-                    tls_sha256=hashlib.sha256(der).hexdigest())))
+                    tls_sha256=hashlib.sha256(der).hexdigest(),
+                    profile=json.loads((data/'relay-profile.json').read_text()))))
             '''))
-        # Existing private files stay outside the evidence directory.
-        profile=json.loads((ROOT.parent/'minecraft-tunnel/config/production'/node/'relay-profile.json').read_text(encoding='utf-8'))
-        nodes.append(dict(**metadata,web_url=url,profile=profile))
+        # Read the active profile through pinned SSH trust; a moved local
+        # configuration directory must not select stale credentials.
+        nodes.append(dict(**metadata,web_url=url))
     sys.path[:0]=[str(ROOT/'compatibility'),str(ROOT/'web')]
     with tempfile.TemporaryDirectory(prefix='buggcraft-deployment-acceptance-') as temporary:
         private=Path(temporary)/'nodes.json'
