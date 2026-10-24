@@ -140,7 +140,7 @@ class NativeStream:
 
 
 class RelayServer(PythonRelay):
-    def __init__(self, *args, native_binary=None, workers=None, buffer_kib=64, compression='auto', **kwargs):
+    def __init__(self, *args, native_binary=None, workers=None, buffer_kib=512, compression='auto', **kwargs):
         super().__init__(*args, **kwargs)
         self.native_binary = native_binary or os.environ.get('BUGGCRAFT_NATIVE_CORE')
         if not self.native_binary:

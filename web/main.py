@@ -34,7 +34,7 @@ async def run(config_path):
         max_total_streams=settings.getint("max_total_streams", 512),
         max_client_streams=settings.getint("max_streams_per_client", 8),
         workers=settings.getint('workers', fallback=None),
-        buffer_kib=settings.getint('buffer_kib', 64),
+        buffer_kib=settings.getint('buffer_kib', 512),
         compression=settings.get('compression', 'auto'),
     )
     portal = federation = journal_context = None

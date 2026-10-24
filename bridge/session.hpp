@@ -22,7 +22,8 @@ struct Stream {
     ssh_channel channel = nullptr;
     std::shared_ptr<rtc::DataChannel> data;
     std::weak_ptr<rtc::PeerConnection> peer;
-    Ring to_socket{262144}, to_wire{131100};
+    // Keep a full WAN bandwidth-delay product in flight on slower routes.
+    Ring to_socket{1048576}, to_wire{1048576};
     std::unique_ptr<Codec> codec;
     std::string encoded_block, decoded_block;
     bool connecting=false, local_eof=false, remote_eof=false;

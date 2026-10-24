@@ -15,7 +15,7 @@ class Bridge:
         try:
             # Only this absolute DLL's directory and System32 participate in
             # dependency resolution. Never search cwd, PATH or Qt directories.
-            options = {'winmode': 0x00000100 | 0x00000800} if os.name == 'nt' else {}
+            options = {'winmode': 0x00000100 | 0x00000400 | 0x00000800} if os.name == 'nt' else {}
             self._lib = ctypes.CDLL(str(path), **options)
             lib = self._lib
             lib.buggcraft_bridge_abi_version.argtypes = []

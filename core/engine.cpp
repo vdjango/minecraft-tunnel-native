@@ -3,7 +3,7 @@
 
 int Engine::run() {
     int count = config.value("workers", 1);
-    size_t capacity = config.value("buffer_bytes", size_t{262144});
+    size_t capacity = config.value("buffer_bytes", size_t{524288});
     if (count < 1 || count > 64 || capacity < 32768 || capacity > 4 * 1024 * 1024 ||
         config.value("max_connections", 0) < 1 || config.value("max_streams", 0) < 1)
         throw std::runtime_error("invalid native resource limits");

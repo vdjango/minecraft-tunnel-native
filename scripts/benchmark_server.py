@@ -38,7 +38,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('engine', choices=['python', 'native'])
     parser.add_argument('--workers', type=int, default=4)
-    parser.add_argument('--buffer-kib', type=int, default=64)
+    parser.add_argument('--buffer-kib', type=int, default=512)
     parser.add_argument('--diagnostics-dir')
     parser.add_argument('--bind', choices=['127.0.0.1', '0.0.0.0'], default='127.0.0.1')
     args = parser.parse_args()

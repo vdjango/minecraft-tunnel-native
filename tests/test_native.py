@@ -22,6 +22,7 @@ class NativeTests(unittest.IsolatedAsyncioTestCase):
         self.key = asyncssh.generate_private_key('ssh-ed25519')
         self.relay = await RelayServer('127.0.0.1', 0, host_key=self.key,
                                       token=secrets.token_urlsafe(48), workers=2).start()
+        self.assertEqual(self.relay.buffer_kib, 512)
         self.connections = []
         self.servers = []
 

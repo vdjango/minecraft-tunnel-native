@@ -151,6 +151,6 @@ if __name__ == '__main__':
     parser.add_argument('--mib', type=int, default=8)
     parser.add_argument('--rooms', type=int, default=4)
     parser.add_argument('--workers', type=int, default=4)
-    parser.add_argument('--buffer-kib', type=int, default=64)
+    parser.add_argument('--buffer-kib', type=int, default=512)
     parser.add_argument('--output', default='benchmark.json')
     asyncio.run(main(parser.parse_args()))
