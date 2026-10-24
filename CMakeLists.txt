@@ -105,6 +105,7 @@ if(WIN32)
         get_filename_component(curl_runtime_directory "${curl_runtime_location}" DIRECTORY)
         list(APPEND NATIVE_RUNTIME_DIRS "${curl_runtime_directory}")
         list(APPEND NATIVE_RUNTIME_DIRS "${curl_runtime_directory}/../bin")
+        list(APPEND native_curl_runtime_directories "${curl_runtime_directory}")
       endif()
     endforeach()
     list(REMOVE_DUPLICATES NATIVE_RUNTIME_DIRS)
@@ -112,6 +113,15 @@ if(WIN32)
       # Config packages may expose only CURL_INCLUDE_DIRS. Use the imported
       # target's exact, configuration-specific DLL instead of an empty glob.
       set(native_curl_runtime "$<TARGET_FILE:CURL::libcurl>")
+      # vcpkg's libcurl imports z.dll from the same selected bin directory.
+      # CMake's dependency scanner intentionally does not recurse into an
+      # imported DLL, so stage that directory's complete runtime set.
+      foreach(curl_directory IN LISTS native_curl_runtime_directories)
+        file(GLOB curl_directory_runtime CONFIGURE_DEPENDS
+          "${curl_directory}/*.dll")
+        list(APPEND native_curl_transitive_runtime ${curl_directory_runtime})
+      endforeach()
+      list(APPEND native_curl_runtime ${native_curl_transitive_runtime})
     else()
       foreach(curl_include IN LISTS CURL_INCLUDE_DIR CURL_INCLUDE_DIRS)
         file(GLOB curl_runtime_files CONFIGURE_DEPENDS "${curl_include}/../bin/*curl*.dll")
