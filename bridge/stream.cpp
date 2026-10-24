@@ -50,16 +50,16 @@ void Session::pump(Stream& stream){
     }else{
         // SSH CLOSE can arrive while decoded bytes are still queued for the
         // game socket. Drain them through EOF before releasing the stream.
-        if(!stream.local_eof&&stream.to_wire.free()>=65600){int count=recv(stream.socket,buffer,sizeof(buffer),0);if(count>0){std::string_view bytes(buffer,static_cast<size_t>(count));if(stream.codec)copy_into(stream.to_wire,stream.codec->encode(bytes));else copy_into(stream.to_wire,bytes);stream.sent+=static_cast<size_t>(count);}else if(count==0)stream.local_eof=true;else if(!would_block()){stream.dead=true;return;}}
+        if(!stream.local_eof&&stream.to_wire.free()>=65600){int count=recv(stream.socket,buffer,sizeof(buffer),0);if(count>0){std::string_view bytes(buffer,static_cast<size_t>(count));if(stream.codec){stream.codec->encode(bytes,stream.encoded_block);copy_into(stream.to_wire,stream.encoded_block);}else copy_into(stream.to_wire,bytes);stream.sent+=static_cast<size_t>(count);}else if(count==0)stream.local_eof=true;else if(!would_block()){stream.dead=true;return;}}
         if(stream.to_wire.size()){int count=ssh_channel_write(stream.channel,stream.to_wire.read_ptr(),static_cast<uint32_t>(stream.to_wire.readable()));if(count>0)stream.to_wire.consumed(static_cast<size_t>(count));else if(count==SSH_ERROR){stream.dead=true;return;}}
-        if(stream.codec){std::string decoded;while(stream.to_socket.free()>=65536&&stream.codec->next(decoded))copy_into(stream.to_socket,decoded);}
+        if(stream.codec){while(stream.to_socket.free()>=65536&&stream.codec->next(stream.decoded_block))copy_into(stream.to_socket,stream.decoded_block);}
         // A full payload frame also carries its length header. With exactly
         // 65536 buffered bytes it may still need a few more bytes to decode.
         // Bound reads by the decoder's actual capacity, not payload length.
         const size_t capacity=stream.codec?std::min(sizeof(buffer),stream.codec->receive_capacity()):sizeof(buffer);
         if(stream.to_socket.free()>=131100&&capacity&&!stream.remote_eof){
             int count=ssh_channel_read_nonblocking(stream.channel,buffer,static_cast<uint32_t>(capacity),0);
-            if(count>0){if(stream.codec){stream.codec->feed(std::string_view(buffer,static_cast<size_t>(count)));std::string decoded;while(stream.to_socket.free()>=65536&&stream.codec->next(decoded))copy_into(stream.to_socket,decoded);}else copy_into(stream.to_socket,std::string_view(buffer,static_cast<size_t>(count)));}
+            if(count>0){if(stream.codec){stream.codec->feed(std::string_view(buffer,static_cast<size_t>(count)));while(stream.to_socket.free()>=65536&&stream.codec->next(stream.decoded_block))copy_into(stream.to_socket,stream.decoded_block);}else copy_into(stream.to_socket,std::string_view(buffer,static_cast<size_t>(count)));}
             else if(count==SSH_ERROR){stream.dead=true;return;}
             else if(ssh_channel_is_eof(stream.channel)){if(stream.codec&&!stream.codec->complete())throw std::runtime_error("Truncated compressed stream");stream.remote_eof=true;}
         }

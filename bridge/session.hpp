@@ -24,6 +24,7 @@ struct Stream {
     std::weak_ptr<rtc::PeerConnection> peer;
     Ring to_socket{262144}, to_wire{131100};
     std::unique_ptr<Codec> codec;
+    std::string encoded_block, decoded_block;
     bool connecting=false, local_eof=false, remote_eof=false;
     bool sent_eof=false, socket_eof=false, dead=false;
     bool opening=false;

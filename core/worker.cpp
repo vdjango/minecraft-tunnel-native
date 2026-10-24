@@ -2,8 +2,9 @@
 #include "runtime.hpp"
 
 void Worker::post(std::function<void()> action) {
-    { std::lock_guard lock(mutex); commands.push_back(std::move(action)); }
-    wake.notify();
+    bool notify;
+    { std::lock_guard lock(mutex); notify = commands.empty(); commands.push_back(std::move(action)); }
+    if (notify) wake.notify();
 }
 void Worker::start() { thread = std::thread([this] { run(); }); }
 void Worker::rpc(const std::shared_ptr<Peer>& peer, Json request, std::function<void(const Json&)> callback) {
@@ -75,6 +76,7 @@ void Worker::run() {
         std::vector<PollFd> fds;
         std::vector<std::shared_ptr<Peer>> current;
         std::vector<Id> closing;
+        std::deque<std::function<void()>> actions;
         while (engine.running) {
             fds.clear();
             fds.reserve(peers.size() + 1);
@@ -88,11 +90,11 @@ void Worker::run() {
                 current.push_back(peer);
             }
             net_poll(fds.data(), fds.size(), progress ? 0 : 50);
-            wake.drain();
-            std::deque<std::function<void()>> actions;
+            if (fds.front().revents & POLLIN) wake.drain();
             { std::lock_guard lock(mutex); actions.swap(commands); }
             for (auto& action : actions) action();
             progress = !actions.empty();
+            actions.clear();
             for (size_t i = 0; i < current.size(); ++i) {
                 auto& peer = current[i];
                 if (peer->worker.load() != this || peer->dead) continue;

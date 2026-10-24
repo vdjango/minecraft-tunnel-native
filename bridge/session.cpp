@@ -58,7 +58,7 @@ Session::Session(Profile profile,std::string selected_role,std::string selected_
 Session::~Session(){stop();}
 Json Session::start(){auto future=ready_.get_future();thread_=std::thread([this]{run();});if(future.wait_for(std::chrono::seconds(30))!=std::future_status::ready){stop();throw Failure(-32021,"Room connection timed out");}return future.get();}
 void Session::stop(){running_=false;changed_.notify_all();wake_.notify();if(thread_.joinable()&&thread_.get_id()!=std::this_thread::get_id())thread_.join();}
-bool Session::post(std::function<void()> action){std::lock_guard guard(mutex_);if(!running_||commands_.size()>=512)return false;commands_.push_back(std::move(action));wake_.notify();return true;}
+bool Session::post(std::function<void()> action){std::lock_guard guard(mutex_);if(!running_||commands_.size()>=512)return false;const bool notify=commands_.empty();commands_.push_back(std::move(action));if(notify)wake_.notify();return true;}
 Json Session::status()const{std::lock_guard guard(mutex_);return {{"session",identity},{"role",role},{"room",room},{"state",state_},{"reason",reason_},{"info",room_info_},{"transport",role=="host"?(peer_started_?"auto":"relay"):(direct_?"p2p":"relay")},{"address",role=="client"?Json("127.0.0.1:"+std::to_string(listen_port_.load())):Json(nullptr)}};}
 void Session::become_ready(){
     if(online_)return;online_=true;{std::lock_guard guard(mutex_);state_="online";reason_.clear();}
@@ -228,7 +228,8 @@ void Session::run(){
             if(events)descriptors.push_back({stream->socket,events,0});
             if(stream->channel&&stream->to_socket.free()>=131100&&ssh_channel_poll(stream->channel,0)>0)buffered=true;
         }
-        net_poll(descriptors.data(),descriptors.size(),buffered?0:50);wake_.drain();
+        net_poll(descriptors.data(),descriptors.size(),buffered?0:50);
+        if(descriptors.front().revents&POLLIN)wake_.drain();
     }}catch(...){
         try{throw;}catch(const Failure& error){if(error.code==-32020)stop_reason_="room-closed";}catch(...){}
         transport_failed_=true;

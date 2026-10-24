@@ -103,15 +103,25 @@ public:
 
 class Ring {
     std::vector<char> bytes_;
-    size_t head_ = 0, used_ = 0;
+    size_t head_ = 0, tail_ = 0, used_ = 0;
 public:
     explicit Ring(size_t capacity) : bytes_(capacity) { if (!capacity) throw std::invalid_argument("zero ring capacity"); }
     size_t size() const { return used_; }
     size_t free() const { return bytes_.size() - used_; }
-    char* write_ptr() { return bytes_.data() + (head_ + used_) % bytes_.size(); }
-    size_t writable() const { return std::min(free(), bytes_.size() - (head_ + used_) % bytes_.size()); }
+    char* write_ptr() { return bytes_.data() + tail_; }
+    size_t writable() const { return std::min(free(), bytes_.size() - tail_); }
     const char* read_ptr() const { return bytes_.data() + head_; }
     size_t readable() const { return std::min(used_, bytes_.size() - head_); }
-    void produced(size_t count) { if(count>free())throw std::out_of_range("ring overflow");used_ += count; }
-    void consumed(size_t count) { if(count>used_)throw std::out_of_range("ring underflow");head_ = (head_ + count) % bytes_.size(); used_ -= count; }
+    void produced(size_t count) {
+        if (count > free()) throw std::out_of_range("ring overflow");
+        used_ += count;
+        tail_ += count;
+        if (tail_ >= bytes_.size()) tail_ -= bytes_.size();
+    }
+    void consumed(size_t count) {
+        if (count > used_) throw std::out_of_range("ring underflow");
+        head_ += count;
+        if (head_ >= bytes_.size()) head_ -= bytes_.size();
+        used_ -= count;
+    }
 };
