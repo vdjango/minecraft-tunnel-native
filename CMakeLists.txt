@@ -1,5 +1,5 @@
 ﻿cmake_minimum_required(VERSION 3.24)
-project(buggcraft_native VERSION 0.3.2 LANGUAGES C CXX)
+project(buggcraft_native VERSION 0.3.3 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -97,6 +97,7 @@ if(WIN32)
   file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/install-runtime-$<CONFIG>.cmake"
        INPUT "${CMAKE_CURRENT_BINARY_DIR}/install-runtime.in.cmake")
   install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/install-runtime-$<CONFIG>.cmake")
+  buggcraft_install_windows_crypto()
 endif()
 install(FILES LICENSE THIRD_PARTY_NOTICES.md DESTINATION share/buggcraft-native)
 find_file(NATIVE_OPENSSL_LICENSE NAMES copyright LICENSE.txt LICENSE LICENSE.md

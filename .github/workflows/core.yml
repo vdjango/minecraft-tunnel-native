@@ -117,6 +117,8 @@ jobs:
           name: native-build-diagnostics-${{ matrix.os }}
           path: |
             native-build.log
+            build/CMakeCache.txt
+            build/install-runtime-*.cmake
             build/CMakeFiles/CMakeConfigureLog.yaml
             build/Testing/Temporary/LastTest.log
             windows-protocol-tests.log

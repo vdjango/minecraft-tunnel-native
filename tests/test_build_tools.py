@@ -53,6 +53,7 @@ file(GLOB native_crypto_runtime_debug "${{CMAKE_SOURCE_DIR}}/debug/*.dll")
 add_executable(probe main.c)
 set_target_properties(probe PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${{CMAKE_BINARY_DIR}}/out/$<CONFIG>")
 buggcraft_stage_windows_crypto(probe)
+buggcraft_install_windows_crypto()
 ''', encoding='utf-8')
             build = root / 'build'
             for config in ('Release', 'Debug'):
@@ -63,6 +64,15 @@ buggcraft_stage_windows_crypto(probe)
                     self.assertEqual(result.returncode, 0, result.stdout)
                 for name in ('libssl.dll', 'libcrypto.dll'):
                     self.assertEqual((build / 'out' / config / name).read_bytes(),
+                                     (config.lower() + ':' + name).encode())
+                install = root / ('installed ' + config)
+                result = subprocess.run(['cmake', '--install', str(build), '--config', config,
+                                         '--prefix', str(install)],
+                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                        text=True, errors='replace', timeout=30)
+                self.assertEqual(result.returncode, 0, result.stdout)
+                for name in ('libssl.dll', 'libcrypto.dll'):
+                    self.assertEqual((install / 'bin' / name).read_bytes(),
                                      (config.lower() + ':' + name).encode())
 
 
