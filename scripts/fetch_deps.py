@@ -18,6 +18,7 @@ SOURCES = {
     'zlib': ('https://zlib.net/zlib-1.3.2.tar.gz', 'zlib-1.3.2',
              'bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16'),
 }
+LIBSSH_MIRROR_COMMIT = '07430deb9b97b751ec5ea5a7fc307f40bf042e0a'
 
 def fetch(item):
     name, (url, folder, expected) = item
@@ -31,6 +32,22 @@ def fetch(item):
             with urllib.request.urlopen(request, timeout=45) as response:
                 content = response.read()
         except OSError:
+            if name == 'libssh':
+                target = base / folder
+                if not target.exists():
+                    temporary = base / (folder + '.git-tmp')
+                    if temporary.exists():
+                        import shutil
+                        shutil.rmtree(temporary)
+                    subprocess.run([
+                        'git', 'clone', '--depth', '1', '--branch', 'libssh-0.12.2',
+                        'https://github.com/libssh/libssh-mirror.git', str(temporary),
+                    ], check=True)
+                    revision = git('rev-parse', 'HEAD', cwd=temporary)
+                    if revision != LIBSSH_MIRROR_COMMIT:
+                        raise ValueError(f'libssh mirror revision mismatch: {revision}')
+                    temporary.replace(target)
+                return f'libssh commit={LIBSSH_MIRROR_COMMIT} source={target}'
             if name not in ('json', 'zlib'):
                 raise
             mirror = ('https://cdn.jsdelivr.net/gh/nlohmann/json@v3.12.0/single_include/nlohmann/json.hpp'

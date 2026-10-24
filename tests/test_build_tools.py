@@ -8,7 +8,29 @@ import tempfile
 import unittest
 from unittest import mock
 
-from scripts import build_native, embed_protocol_data
+from scripts import build_native, embed_protocol_data, fetch_deps
+
+
+class DependencyFallbackTests(unittest.TestCase):
+    def test_libssh_official_mirror_timeout_uses_pinned_github_mirror(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def clone(arguments, **_kwargs):
+                checkout = Path(arguments[-1])
+                checkout.mkdir()
+                (checkout / '.git').mkdir()
+
+            item = ('libssh', fetch_deps.SOURCES['libssh'])
+            with (mock.patch.object(fetch_deps, 'ROOT', root),
+                  mock.patch.object(fetch_deps.urllib.request, 'urlopen', side_effect=TimeoutError()),
+                  mock.patch.object(fetch_deps.subprocess, 'run', side_effect=clone) as run,
+                  mock.patch.object(fetch_deps, 'git', return_value=fetch_deps.LIBSSH_MIRROR_COMMIT)):
+                result = fetch_deps.fetch(item)
+
+            self.assertIn('commit=' + fetch_deps.LIBSSH_MIRROR_COMMIT, result)
+            self.assertTrue((root / '.deps/libssh-0.12.2/.git').is_dir())
+            self.assertIn('https://github.com/libssh/libssh-mirror.git', run.call_args.args[0])
 
 
 @unittest.skipUnless(shutil.which('cmake'), 'CMake is required for runtime staging checks')
