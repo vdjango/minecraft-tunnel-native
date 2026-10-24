@@ -33,6 +33,47 @@ class DependencyFallbackTests(unittest.TestCase):
             self.assertIn('https://github.com/libssh/libssh-mirror.git', run.call_args.args[0])
 
 
+@unittest.skipUnless(shutil.which('cmake'), 'CMake is required for dependency integration checks')
+class BridgeZlibTests(unittest.TestCase):
+    def test_static_bridge_codec_coexists_with_imported_curl_dependency(self):
+        root = Path(__file__).resolve().parents[1]
+        if not (root / '.deps/zlib-1.3.2/CMakeLists.txt').is_file():
+            self.skipTest('Fetch native dependencies before this integration check')
+        # Keep compiler outputs in the build tree, including on Windows where
+        # execution from the per-user temporary directory may be restricted.
+        temporary_root = root / 'build/dependency-checks'
+        temporary_root.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='zlib-', dir=temporary_root) as temporary:
+            source = Path(temporary)
+            (source / 'probe.c').write_text('''#include <zlib.h>
+#include <string.h>
+int main(void) {
+    const char input[] = "Minecraft packet round trip";
+    unsigned char packed[128], restored[128];
+    uLongf packed_size = sizeof(packed), restored_size = sizeof(restored);
+    if (compress(packed, &packed_size, (const Bytef *)input, sizeof(input)) != Z_OK) return 1;
+    if (uncompress(restored, &restored_size, packed, packed_size) != Z_OK) return 2;
+    return restored_size != sizeof(input) || memcmp(input, restored, sizeof(input));
+}
+''', encoding='utf-8')
+            (source / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.24)
+project(bridge_zlib_integration C)
+add_library(ZLIB::ZLIB UNKNOWN IMPORTED)
+include("{(root / 'cmake/BridgeZlib.cmake').as_posix()}")
+add_executable(probe probe.c)
+target_link_libraries(probe PRIVATE zlibstatic)
+enable_testing()
+add_test(NAME compressed_round_trip COMMAND probe)
+''', encoding='utf-8')
+            build = source / 'build'
+            for command in (['cmake', '-S', str(source), '-B', str(build), '-DCMAKE_BUILD_TYPE=Release'],
+                            ['cmake', '--build', str(build), '--config', 'Release', '--parallel', '2'],
+                            ['ctest', '--test-dir', str(build), '-C', 'Release', '--output-on-failure']):
+                result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                        text=True, errors='replace', timeout=90)
+                self.assertEqual(result.returncode, 0, result.stdout)
+
+
 @unittest.skipUnless(shutil.which('cmake'), 'CMake is required for runtime staging checks')
 class WindowsRuntimeStagingTests(unittest.TestCase):
     def test_actual_cmake_rule_selects_all_dlls_for_each_configuration(self):

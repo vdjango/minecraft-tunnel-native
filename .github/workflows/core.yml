@@ -37,7 +37,9 @@ jobs:
       - name: Configure Windows
         if: runner.os == 'Windows'
         shell: pwsh
-        run: cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
+        run: |
+          cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows 2>&1 | Tee-Object -FilePath windows-configure.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Configure macOS
         if: runner.os == 'macOS'
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)"
@@ -121,6 +123,7 @@ jobs:
           name: native-build-diagnostics-${{ matrix.os }}
           path: |
             native-build.log
+            windows-configure.log
             build/CMakeCache.txt
             build/install-runtime-*.cmake
             build/CMakeFiles/CMakeConfigureLog.yaml
