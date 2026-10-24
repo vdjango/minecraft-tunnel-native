@@ -96,13 +96,31 @@ if(WIN32)
     foreach(curl_location_property IMPORTED_LOCATION_RELEASE IMPORTED_LOCATION_RELWITHDEBINFO IMPORTED_LOCATION_DEBUG IMPORTED_LOCATION)
       get_target_property(curl_runtime_location CURL::libcurl ${curl_location_property})
       if(curl_runtime_location AND EXISTS "${curl_runtime_location}")
+        if(curl_runtime_location MATCHES "\\.[dD][lL][lL]$")
+          set(native_curl_imports_dll TRUE)
+        endif()
         get_filename_component(curl_runtime_directory "${curl_runtime_location}" DIRECTORY)
         list(APPEND NATIVE_RUNTIME_DIRS "${curl_runtime_directory}")
         list(APPEND NATIVE_RUNTIME_DIRS "${curl_runtime_directory}/../bin")
       endif()
     endforeach()
     list(REMOVE_DUPLICATES NATIVE_RUNTIME_DIRS)
-    file(GLOB native_curl_runtime CONFIGURE_DEPENDS "${CURL_INCLUDE_DIR}/../bin/*curl*.dll")
+    if(native_curl_imports_dll)
+      # Config packages may expose only CURL_INCLUDE_DIRS. Use the imported
+      # target's exact, configuration-specific DLL instead of an empty glob.
+      set(native_curl_runtime "$<TARGET_FILE:CURL::libcurl>")
+    else()
+      foreach(curl_include IN LISTS CURL_INCLUDE_DIR CURL_INCLUDE_DIRS)
+        file(GLOB curl_runtime_files CONFIGURE_DEPENDS "${curl_include}/../bin/*curl*.dll")
+        list(APPEND native_curl_runtime ${curl_runtime_files})
+      endforeach()
+      list(REMOVE_DUPLICATES native_curl_runtime)
+    endif()
+    if(native_curl_runtime)
+      # Windows also ships a libcurl.dll in System32. Do not let dependency
+      # scanning substitute it for the curl selected by the build toolchain.
+      install(FILES ${native_curl_runtime} DESTINATION bin)
+    endif()
   endif()
   # FindOpenSSL uses UNKNOWN imported targets on Windows, so their runtime
   # DLLs are absent from TARGET_RUNTIME_DLLS. Stage the selected toolchain's
