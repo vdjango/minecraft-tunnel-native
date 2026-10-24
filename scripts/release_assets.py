@@ -109,7 +109,7 @@ def main() -> int:
     metadata.add_argument("--github-output", type=Path)
     archive = commands.add_parser("package")
     archive.add_argument("--runtime", type=Path, default=Path("package"))
-    archive.add_argument("--output", type=Path, default=Path("build/release"))
+    archive.add_argument("--output", type=Path, default=Path("build/release-assets"))
     archive.add_argument("--runner", choices=PLATFORMS, required=True)
     archive.add_argument("--version", required=True)
     verify = commands.add_parser("verify")

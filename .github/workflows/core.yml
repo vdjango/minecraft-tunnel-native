@@ -90,12 +90,12 @@ jobs:
         run: python scripts/release_assets.py package --runner '${{ matrix.os }}' --version '${{ steps.release.outputs.version }}'
       - name: Stage Ubuntu release installer
         if: runner.os == 'Linux'
-        run: cp build/debian/*.deb build/debian/*.deb.sha256 build/release/
+        run: cp build/debian/*.deb build/debian/*.deb.sha256 build/release-assets/
       - name: Retain release archives
         uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.os }}
-          path: build/release/*
+          path: build/release-assets/*
           if-no-files-found: error
       - name: Publish Ubuntu installer
         if: runner.os == 'Linux'
@@ -169,5 +169,20 @@ jobs:
             gh release upload "$RELEASE_TAG" release/* --clobber
           else
             gh release create "$RELEASE_TAG" release/* "${options[@]}" --draft
+          fi
+          if [[ "$RELEASE_TAG" == v0.3.4 ]]; then
+            stale_assets=(
+              buggcraft-bridge-api-tests.exe buggcraft-bridge-engine.lib
+              buggcraft-bridge.exe buggcraft-core.exe buggcraft-native-tests.exe
+              buggcraft-protocol-data-tests.exe buggcraft_bridge.dll buggcraft_bridge.exp
+              buggcraft_bridge.lib datachannel.dll libcrypto-3-x64.dll
+              libssl-3-x64.dll ssh.dll
+            )
+            existing_assets=$(gh release view v0.3.3 --json assets --jq '.assets[].name')
+            for asset in "${stale_assets[@]}"; do
+              if grep -Fxq "$asset" <<< "$existing_assets"; then
+                gh release delete-asset v0.3.3 "$asset" --yes
+              fi
+            done
           fi
           gh release edit "$RELEASE_TAG" --draft=false
