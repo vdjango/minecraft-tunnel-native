@@ -4,8 +4,7 @@
   <title>节点管理 · Buggcraft</title><script src="/theme.js"></script><link rel="stylesheet" href="/portal.css"><link rel="stylesheet" href="/console.css"><link rel="stylesheet" href="/theme.css"><script src="/admin-bandwidth.js" defer></script><script src="/admin.js" defer></script></head>
 <body class="console">
   <div class="ambient"></div>
-  <header class="shell topbar"><a class="brand" href="/"><span class="mark">B<span>·</span></span><span>BUGGCRAFT<small>NODE CONSOLE</small></span></a>
-    <nav><a href="/developers">开发文档</a><a href="/">← 返回节点首页</a></nav></header>
+  {{SITE_HEADER}}
   <main class="shell console-main">
     <div class="console-heading"><div class="eyebrow">YOUR NODE, YOUR DECISIONS</div><h1>管理你的节点。</h1><p id="console-subtitle"></p></div>
     <p class="feedback console-feedback" id="admin-feedback" role="status" aria-live="polite"></p>
@@ -65,12 +64,15 @@
           <label>保留空闲带宽 · %<input id="setting-reserve" type="number" min="20" max="80" step="1" required></label>
           <label>每位中转访客预算 · MB/s<input id="setting-player-budget" type="number" min="0.001" max="100" step="0.001" required></label>
         </div>
+        <label>可信反向代理网段（每行一个 CIDR）<textarea id="setting-proxies" rows="5" spellcheck="false" placeholder="仅在 Web 入口位于 Cloudflare 或自建反向代理后填写"></textarea></label>
+        <small>只有来源地址命中这些网段时才读取 CF-Connecting-IP 和 X-Forwarded-Proto。<a href="https://www.cloudflare.com/ips/" target="_blank" rel="noreferrer">Cloudflare 官方网段</a>请定期更新。</small>
         <details><summary>带宽单位与容量说明</summary><p>1 MB/s = 8 Mbps。填 0 关闭带宽预算限制；保留空闲用于区块加载峰值。</p></details>
 
 
         <button class="primary wide" type="submit">保存设置</button></form>
       </section>
       <section class="console-card" id="users"><span class="eyebrow muted">NETWORK USERS</span><h2>用户列表</h2><label>查找用户<input id="admin-user-filter" type="search" placeholder="用户名、账号 ID 或注册节点"></label><p id="admin-user-count"></p><div class="user-table-scroll"><table class="user-table"><thead><tr><th>用户</th><th>注册节点</th><th>同步状态</th><th>本地资料</th><th>副本</th><th>本地权限</th></tr></thead><tbody id="admin-accounts"></tbody></table></div></section>
+      <section class="console-card" id="players"><span class="eyebrow muted">LIVE PLAYERS</span><h2>在线玩家</h2><p id="admin-player-count"></p><div class="user-table-scroll"><table class="user-table"><thead><tr><th>玩家</th><th>角色</th><th>房间</th><th>传输路径</th><th>P2P ping</th><th>节点控制 RTT</th><th>游戏状态 RTT</th></tr></thead><tbody id="admin-players"></tbody></table></div></section>
       <section class="console-card" id="history"><span class="eyebrow muted">LOCAL HISTORY</span><h2>节点操作记录</h2><div id="node-history"></div></section>
     </div>
     <footer><span>BUGGCRAFT / 节点控制台</span><a href="/developers">开发文档</a></footer>

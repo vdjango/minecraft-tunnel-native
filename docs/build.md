@@ -8,7 +8,7 @@
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y git build-essential cmake pkg-config libssl-dev python3-venv dpkg-dev
+sudo apt-get install -y git build-essential cmake pkg-config libssl-dev libcurl4-openssl-dev python3-venv dpkg-dev
 git clone https://github.com/vdjango/minecraft-tunnel-native.git
 cd minecraft-tunnel-native
 python3 -m venv .venv
@@ -37,7 +37,7 @@ Ubuntu 24.04 使用系统 Python 3.12 的环境打包：
 MSVC 示例，在 Visual Studio 开发者 PowerShell 中执行，先配置好 vcpkg：
 
 ```powershell
-vcpkg install openssl:x64-windows
+vcpkg install openssl:x64-windows 'curl[openssl]:x64-windows'
 python scripts/fetch_deps.py
 cmake -S . -B build-msvc `
   -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `

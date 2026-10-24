@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "ssh.hpp"
+#include "profile_exchange.hpp"
 #include <libssh/server.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
@@ -49,6 +50,7 @@ Profile Profile::from_json(const Json& value) {
     if(ssh_pki_import_pubkey_base64(material.c_str(),type,&key)!=SSH_OK)throw Failure(-32602,"Invalid pinned key");ssh_key_free(key);return p;
 }
 Profile Profile::decode(const std::string& code) {
+    if(code.starts_with("buggnode2-"))return from_json(redeem_profile_code(code));
     if(code.size()>4096||!code.starts_with("buggnode1-"))throw Failure(-32602,"Invalid access code");
     return from_json(Json::parse(base64_decode(code.substr(10))));
 }

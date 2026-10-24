@@ -13,6 +13,19 @@ function renderUsers(){
     const td=document.createElement('td'),button=document.createElement('button');button.className='secondary';button.textContent=a.blocked?'恢复访问':'停用本地访问';button.onclick=async()=>{button.disabled=true;try{await api('/api/account/block',{account:a.account,blocked:!a.blocked});await loadAdmin(false);}catch(e){message(e);}finally{button.disabled=false;}};td.append(button);row.append(td);return row;
   }));
 }
+function renderPlayers(players=[]){
+  $('admin-player-count').textContent=players.length+' 个当前在线';
+  const roles={host:'房主',client:'访客'},paths={p2p:'P2P直连',relay:'节点中转',mixed:'混合',auto:'协商中',unknown:'待确认',unavailable:'不可用'};
+  const latency=value=>Number.isFinite(value)?value.toFixed(1)+' ms':'—';
+  $('admin-players').replaceChildren(...players.map(player=>{
+    const row=document.createElement('tr');
+    for(const value of [player.username,roles[player.role]||player.role,player.room,paths[player.path]||player.path,
+      latency(player.peer_rtt_ms),latency(player.control_rtt_ms),latency(player.game_rtt_ms)]){
+      const cell=document.createElement('td');cell.textContent=value;row.append(cell);
+    }
+    return row;
+  }));
+}
 $('admin-user-filter').oninput=renderUsers;
 const capacityFields = [['max-rooms','max_rooms'],['room-capacity','room_capacity'],['bandwidth','bandwidth_mb_s'],['reserve','reserve_percent'],['player-budget','per_player_mb_s']];
 async function api(path, data) {
@@ -74,6 +87,7 @@ async function loadAdmin(fill = true) {
     renderAdminBandwidth(state.bandwidth);
     $('login-form').hidden = true; $('admin-panel').hidden = false;
     renderNodes(state);
+    renderPlayers(state.players);
     accountRows=state.accounts;renderUsers();
     if (fill) {
       if (!$('mail').hidden) {
@@ -82,6 +96,7 @@ async function loadAdmin(fill = true) {
         $('mail-required').checked = mail.required;
       }
       $('setting-name').value = state.name; $('setting-public').checked = state.public_join;
+      $('setting-proxies').value=state.trusted_proxy_cidrs||'';
       $('setting-region').value=state.region||'';
       $('setting-drain').checked = state.draining; $('setting-registration').checked = state.registration_open;
       for (const [id, key] of capacityFields) $('setting-' + id).value = state.capacity[key];
@@ -99,7 +114,8 @@ $('settings-form').onsubmit = async event => {
   try {
     const capacity = Object.fromEntries(capacityFields.map(([id,key]) => [key,Number($('setting-' + id).value)]));
     await api('/api/settings', {name:$('setting-name').value,region:$('setting-region').value,public_join:$('setting-public').checked,
-      draining:$('setting-drain').checked,registration_open:$('setting-registration').checked,capacity});
+      draining:$('setting-drain').checked,registration_open:$('setting-registration').checked,capacity,
+      trusted_proxy_cidrs:$('setting-proxies').value});
     message('设置已保存。'); await loadAdmin(false);
   } catch (e) { message(e); } finally { button.disabled = false; }
 };

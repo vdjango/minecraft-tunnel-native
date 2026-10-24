@@ -10,16 +10,13 @@
 </head>
 <body class="console docs-page">
   <div class="ambient" aria-hidden="true"></div>
-  <header class="shell topbar">
-    <a class="brand" href="/"><span class="mark">B<span>·</span></span><span>BUGGCRAFT<small>DEVELOPER GUIDE</small></span></a>
-    <nav aria-label="网站导航"><a href="/">节点首页 ↗</a></nav>
-  </header>
+  {{SITE_HEADER}}
   <main class="shell docs-main"><div class="docs-layout">
     <aside class="docs-sidebar" aria-label="文档导航"><div class="docs-side-inner">
       <div class="docs-side-title">开发文档 <small>V1</small></div>
       <nav class="docs-toc" aria-label="章节目录">
         <a href="#overview">接入方式</a><a href="#quickstart">开始接入</a><a href="#directory-api">节点和房间</a>
-        <a href="#rooms-api">连接方式</a><a href="#friends-api">账号与好友</a><a href="#examples">语言示例</a><a href="#security-api">安全与测试</a>
+        <a href="#rooms-api">连接方式</a><a href="#mods-api">模组同步</a><a href="#friends-api">账号与好友</a><a href="#examples">语言示例</a><a href="#security-api">安全与测试</a>
       </nav>
       <div class="docs-side-files"><span>协议与参考代码</span><a href="#protocol">完整协议说明</a><a href="#examples">各语言接入示例</a></div>
     </div></aside>
@@ -75,7 +72,7 @@
         <div class="docs-section-heading"><span>04 / GAME CONNECTION</span><h2>同一房间可以混合使用 P2P 和中继</h2><p>路径由每位加入者分别选择和协商。一个访客 P2P 失败或主动选中继，不会让房间里的其他访客改变路径。</p></div>
         <div class="docs-flow" aria-label="游戏连接流程"><div><span>LAUNCHER</span><strong>标准 JSON-RPC</strong><small>启动或退出会话</small></div><b aria-hidden="true">→</b><div><span>LOCAL BRIDGE</span><strong>按访客选路径</strong><small>P2P 优先 / 中继</small></div><b aria-hidden="true">→</b><div><span>MINECRAFT</span><strong>127.0.0.1:端口</strong><small>原版 TCP 接口</small></div></div>
         <div class="docs-table-wrap"><table class="docs-table"><caption>房间接口 v1</caption><thead><tr><th scope="col">方法</th><th scope="col">参数与结果</th></tr></thead><tbody>
-          <tr><td><code>room.host</code></td><td><code>node</code>、<code>game_port</code>、<code>transport</code>；返回会话 ID、邀请码和房间状态。</td></tr>
+          <tr><td><code>room.host</code></td><td><code>node</code>、<code>game_port</code>、<code>transport</code>、可选 <code>game_directory</code>；返回会话 ID、邀请码和房间状态。传入 Minecraft 实例根目录后，桥扫描其中的 <code>mods</code> 并发布模组摘要。</td></tr>
           <tr><td><code>room.join</code></td><td><code>node</code>、<code>invite</code>、<code>transport</code>；返回会话 ID、本地回环地址和连接状态。</td></tr>
           <tr><td><code>room.close</code></td><td>使用会话 ID 关闭监听、P2P 连接、中继连接与后台任务。</td></tr>
           <tr><td><code>session.list</code></td><td>返回本进程中的活动会话、角色与当前传输状态。</td></tr>
@@ -84,16 +81,28 @@
         <div class="docs-note"><strong>隐私与路径选择</strong><p>P2P 建连会让通信双方获知彼此的网络候选地址。若用户不愿向房间对端提供自己的网络地址，选“仅通过节点中转”。中继能隐藏玩家之间的直接地址，但中继节点仍会看到连接端点和转发流量。</p></div>
       </section>
 
+      <section id="mods-api" class="docs-section">
+        <div class="docs-section-heading"><span>05 / MODS &amp; GAME PROFILE</span><h2>房间可以核对 Minecraft 版本与模组</h2><p>房主可发布版本信息和 JAR 清单，访客可查看并选择下载。桥负责校验与传输，是否安装、启用或重启游戏由启动器决定。</p></div>
+        <div class="docs-split"><article class="docs-info-card"><h3>房间信息</h3><p>房主的 <code>game_directory</code> 指向 Minecraft 实例根目录；桥扫描其 <code>mods</code> 子目录，并把模组数量、清单 SHA-256 和最多 24 个 JAR 预览写入房间信息。Minecraft 版本、协议号、加载器和加载器版本仍由启动器通过 <code>settings.game</code> 或 <code>room.retarget</code> 提供。</p></article><article class="docs-info-card"><h3>完整模组清单</h3><p>如果创建房间时没传 <code>game_directory</code>，房主可在 <code>game_port:0</code> 等待阶段调用 <code>mods.configure</code> 并传入实例根目录。桥扫描最多 1000 个 JAR；访客调用 <code>mods.manifest</code>，每页最多 50 项。</p></article></div>
+        <div class="docs-table-wrap"><table class="docs-table"><caption>模组传输接口</caption><thead><tr><th scope="col">方法</th><th scope="col">用途</th></tr></thead><tbody>
+          <tr><td><code>mods.configure</code></td><td>房主等待游戏启动时配置 Minecraft 实例根目录；桥读取其中的 <code>mods</code> 子目录并更新房间摘要。游戏端口启用后不能更改。</td></tr>
+          <tr><td><code>mods.manifest</code></td><td>读取目录。房主本地分页返回；访客先得到 transfer ID，再用 <code>mods.status</code> 轮询并分页读取。</td></tr>
+          <tr><td><code>mods.fetch</code></td><td>访客提交清单项及本机目标路径下载 JAR；单文件上限 2 GiB，最多 4 个并行传输。收到文件后桥再次核对 SHA-256，再写入目标目录。</td></tr>
+          <tr><td><code>mods.status</code> / <code>mods.cancel</code></td><td>查询传输进度或取消传输。</td></tr>
+        </tbody></table></div>
+        <div class="docs-note"><strong>不会自动修改游戏</strong><p>模组清单会自动同步给节点目录，用于显示和比对；版本号、协议号与加载器信息由启动器提供。桥不会替用户安装模组、覆盖已有文件、切换加载器或自动重启 Minecraft；启动器应先展示差异并取得用户操作，再决定下载目标目录。</p></div>
+      </section>
+
       <section id="friends-api" class="docs-section">
-        <div class="docs-section-heading"><span>05 / ACCOUNTS &amp; FRIENDS</span><h2>登录账号与匿名联机分开</h2><p>匿名接入可以添加节点和加入房间，但不显示好友入口。好友需要账号身份、对方同意以及可达的联邦目录。</p></div>
+        <div class="docs-section-heading"><span>06 / ACCOUNTS &amp; FRIENDS</span><h2>登录账号与匿名联机分开</h2><p>匿名接入可以添加节点和加入房间，但不显示好友入口。好友需要账号身份、对方同意以及可达的联邦目录。</p></div>
         <div class="docs-flow" aria-label="个人身份接入步骤"><div><span>01</span><strong>节点网页登录</strong><small>注册或登录</small></div><b aria-hidden="true">→</b><div><span>02</span><strong>领取个人启动器接入码</strong><small>主动导入启动器</small></div><b aria-hidden="true">→</b><div><span>03</span><strong>搜索并添加好友</strong><small>双方确认</small></div></div>
         <div class="docs-split"><article class="docs-info-card"><h3>跨节点用户名搜索</h3><p>联邦节点同步公开用户名、账号 ID 和公钥。用户名目录不包含密码；查询结果不代表已经获得好友或房间权限。</p></article><article class="docs-info-card"><h3>登录与备份</h3><p>跨节点登录需要用户启用并配置加密身份备份。没有备份时，账号登录仍依赖注册节点在线；仅同步用户名不能恢复账号。</p></article></div>
         <div class="docs-code"><span>高级接入：SSH 目录协议示例，需要个人身份授权；当前不属于 bridge 的 JSON-RPC 方法</span><pre><code>{"op":"account_lookup","identifier":"alex"}</code></pre></div>
-        <div class="docs-note"><strong>个人启动器接入码是授权凭据</strong><p>有效期最长 7 天。持有该码的设备可代表账号操作；使用系统安全存储保护接入码，不要写入日志、崩溃报告或同步到公开配置文件。</p></div>
+        <div class="docs-note"><strong>个人启动器接入码是授权凭据</strong><p>新版接入码只包含签发节点的 HTTPS 地址和随机兑换引用，不再把节点连接配置直接编码进字符串；桥通过 HTTPS 兑换，最长有效 7 天。旧版接入码仍可导入。兑换后桥仍需取得节点连接地址，因此这不是端到端隐藏服务器地址的加密方案。持有该码的设备可代表账号操作；使用系统安全存储保护接入码，不要写入日志或公开配置文件。</p></div>
       </section>
 
       <section id="examples" class="docs-section">
-        <div class="docs-section-heading"><span>06 / CODE EXAMPLES</span><h2>各语言复用同一个接口</h2><p>下列为应用内调用片段；接入码、邀请码和游戏启动函数由你的启动器提供。C/C++ 例子中的 BridgeProcess 是启动器自身的双向进程管道封装，Java 例子使用 Jackson，C# 使用 System.Text.Json。协议请求的格式和顺序相同。</p></div>
+        <div class="docs-section-heading"><span>07 / CODE EXAMPLES</span><h2>各语言复用同一个接口</h2><p>下列为应用内调用片段；接入码、邀请码和游戏启动函数由你的启动器提供。C/C++ 例子中的 BridgeProcess 是启动器自身的双向进程管道封装，Java 例子使用 Jackson，C# 使用 System.Text.Json。协议请求的格式和顺序相同。</p></div>
         <div class="docs-samples">
           <details class="docs-sample" open><summary><span>Python</span><small>subprocess + JSON</small></summary><pre><code>import json, subprocess
 p = subprocess.Popen([bridge_path], stdin=subprocess.PIPE,
@@ -164,7 +173,7 @@ await Rpc(4,"room.close",new { session=room.GetProperty("session").GetString() }
       </section>
 
       <section id="security-api" class="docs-section">
-        <div class="docs-section-heading"><span>07 / RELEASE CHECK</span><h2>上线前逐项验证</h2><p>请在自己部署的节点上完成端到端测试，并明确告诉用户连接状态和路径。</p></div>
+        <div class="docs-section-heading"><span>08 / RELEASE CHECK</span><h2>上线前逐项验证</h2><p>请在自己部署的节点上完成端到端测试，并明确告诉用户连接状态和路径。</p></div>
         <ul class="docs-checklist">
           <li>验证 SSH 节点公钥和 HTTPS 证书；身份不匹配时中止连接。</li>
           <li>接入码放入操作系统安全存储；日志隐藏 token、邀请码和签名私钥。</li>
@@ -174,7 +183,7 @@ await Rpc(4,"room.close",new { session=room.GetProperty("session").GetString() }
           <li>说明中继不会使房间会话自动迁移；节点恢复或更换后需重新加入。</li>
         </ul>
       </section>
-      <section id="protocol" class="docs-section"><div class="docs-section-heading"><span>08 / PROTOCOL REFERENCE</span><h2>完整协议参考</h2><p>与仓库中的协议文档同步，可直接在本页查阅。</p></div><pre class="protocol-reference">{{PROTOCOL}}</pre></section>
+      <section id="protocol" class="docs-section"><div class="docs-section-heading"><span>09 / PROTOCOL REFERENCE</span><h2>完整协议参考</h2><p>与仓库中的协议文档同步，可直接在本页查阅。</p></div><pre class="protocol-reference">{{PROTOCOL}}</pre></section>
       <footer class="docs-footer"><span>BUGGCRAFT / LAUNCHER GUIDE</span><a href="#guide-title">回到开头 ↑</a></footer>
     </div>
   </div></main>

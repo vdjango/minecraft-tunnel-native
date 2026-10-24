@@ -20,3 +20,6 @@ label{display:flex;flex-direction:column;gap:7px;margin:0 0 18px;color:var(--tex
 @media(max-width:760px){#admin-panel>.console-nav{grid-row:1}#admin-panel>.admin-live{grid-column:1;grid-row:2}#admin-panel>.console-card{grid-row:3}}
 
 @media(max-width:760px){.hero h1{font-size:32px}}
+
+/* Shared navigation on public, account and management pages. */
+.site-header.topbar{gap:20px;flex-wrap:wrap}.site-header.topbar nav{display:flex;flex-wrap:wrap;gap:6px}.site-header.topbar nav a{color:var(--muted);white-space:nowrap}.site-header.topbar nav a[aria-current="page"]{color:var(--accent);background:var(--surface);border-radius:7px}@media(max-width:760px){.site-header.topbar{padding-top:16px;padding-bottom:16px;gap:12px}.site-header.topbar nav{width:100%;gap:3px}.site-header.topbar nav a{padding:7px 8px}.site-header.topbar .brand{font-size:16px}}

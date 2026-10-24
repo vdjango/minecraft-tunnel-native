@@ -4,7 +4,7 @@
 })();
 $('connect-form').onsubmit=async event=>{
   event.preventDefault();const button=event.submitter;button.disabled=true;$('connect-feedback').textContent='正在生成…';
-  try{const result=await api('/api/profile',{password:$('access-password').value});$('access-password').value='';
+  try{const result=await api('/api/profile',{password:$('access-password').value,format:Number($('access-code-format').value)});$('access-password').value='';
     if(result.identity==='account'){location.replace('/account/access');return;}
     $('player-code').value=result.code;$('connect-result').hidden=false;$('connect-feedback').textContent='匿名启动器接入码已生成，不含个人好友身份。';
   }catch(e){feedback('connect-feedback',e);}finally{button.disabled=false;}

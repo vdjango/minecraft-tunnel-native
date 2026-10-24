@@ -44,6 +44,10 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
         payload = b'verified native transfer\0' * 100000
         (mods / '大文件.jar').write_bytes(payload)
         host, guest, hosted, joined = await self.pair(directory)
+        published = hosted['info']['game']
+        self.assertEqual(published['mods_count'], 131)
+        self.assertEqual(len(published['mods_hash']), 64)
+        self.assertLessEqual(len(published['mods']), 24)
         result = await self.wait_transfer(guest, joined['session'], await self.call(
             guest, 'mods.manifest', dict(session=joined['session'])))
         self.assertEqual(result['state'], 'complete', result)

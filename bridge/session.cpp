@@ -18,26 +18,33 @@ Json Session::retarget(int port,Json game){
     if(role!="host"||port<1||port>65535)throw Failure(-32602,"Invalid game port");
     if(!running_)throw Failure(-32004,"Session stopped");
     if(!game.is_object())throw Failure(-32602,"Invalid game metadata");
-    auto applied=std::make_shared<std::promise<bool>>();auto future=applied->get_future();
+    auto applied=std::make_shared<std::promise<Json>>();auto future=applied->get_future();
     Json detected;
     try{detected=game_status(port,3000);}catch(...){throw Failure(-32020,"Minecraft world probe failed");}
     const auto expected=game.value("protocol",Json(nullptr));
     if(!expected.is_null()&&detected.value("protocol",Json(nullptr))!=expected)throw Failure(-32602,"Minecraft version does not match this room");
     game["protocol"]=detected.value("protocol",Json(nullptr));
     if(game.value("version",std::string{}).empty())game["version"]=detected.value("version",std::string{});
-    if(!post([this,port,game,applied]{game_port_=port;settings_["game"]=game;game_chat_.reset();start_game_chat();applied->set_value(true);}))throw Failure(-32004,"Session stopped");
+    if(!post([this,port,game,applied]() mutable {try{game.update(mods_->metadata());game_port_=port;settings_["game"]=game;game_chat_.reset();start_game_chat();applied->set_value(std::move(game));}catch(...){applied->set_exception(std::current_exception());}}))throw Failure(-32004,"Session stopped");
     if(future.wait_for(std::chrono::seconds(2))!=std::future_status::ready)throw Failure(-32000,"World update timed out");
+    game=future.get();
     auto info=request(Json{{"op","configure"},{"game",game}});
     request(Json{{"op","availability"},{"available",true}});{std::lock_guard guard(mutex_);room_info_=info;}return game;
 }
 Json Session::configure(Json settings){
     if(role!="host"||!settings.is_object())throw Failure(-32602,"Invalid room settings");
     if(!running_)throw Failure(-32004,"Session stopped");
-    auto applied=std::make_shared<std::promise<bool>>();auto future=applied->get_future();
-    if(!post([this,settings,applied]{settings_=settings;applied->set_value(true);}))throw Failure(-32004,"Session stopped");
+    if(settings.contains("game")&&!settings["game"].is_object())throw Failure(-32602,"Invalid game metadata");
+    auto applied=std::make_shared<std::promise<Json>>();auto future=applied->get_future();
+    if(!post([this,settings,applied]() mutable {try{
+        auto metadata=mods_->metadata();
+        if(!metadata.empty()){auto game=settings.value("game",Json::object());game.update(metadata);settings["game"]=std::move(game);}
+        settings_=settings;applied->set_value({{"settings",std::move(settings)},{"waiting",!game_port_}});
+    }catch(...){applied->set_exception(std::current_exception());}}))throw Failure(-32004,"Session stopped");
     if(future.wait_for(std::chrono::seconds(2))!=std::future_status::ready)throw Failure(-32000,"Room update timed out");
+    auto effective=future.get();settings=std::move(effective["settings"]);
     auto update=settings;update["op"]="configure";auto info=request(std::move(update));
-    if(!game_port_)request(Json{{"op","availability"},{"available",false}});
+    if(effective["waiting"].get<bool>())request(Json{{"op","availability"},{"available",false}});
     {std::lock_guard guard(mutex_);room_info_=info;}
     return info;
 }
@@ -74,7 +81,14 @@ void Session::setup(){
         mods_forward_=ssh_->forward("buggcraft-mods");
         if(compression_!="off"){auto capabilities=ping.value("capabilities",Json::array());if(std::find(capabilities.begin(),capabilities.end(),"relay-zstd-v1")!=capabilities.end()){zstd_forward_=ssh_->forward("buggcraft-zstd");zstd_=true;}}
         auto info=initial_request({{"op","describe"}});
-        if(!settings_.empty()){auto config=settings_;config["op"]="configure";info=initial_request(config);}
+        const auto mod_metadata=mods_->metadata();
+        if(!settings_.empty()||!mod_metadata.empty()){
+            auto config=settings_;
+            if(!mod_metadata.empty()){
+                Json game=config.value("game",Json::object());game.update(mod_metadata);config["game"]=std::move(game);
+            }
+            config["op"]="configure";info=initial_request(config);config.erase("op");settings_=std::move(config);
+        }
         if(!game_available_)info=initial_request({{"op","availability"},{"available",false}});
         {std::lock_guard guard(mutex_);room_info_=info;}
     }else{
@@ -300,9 +314,11 @@ Json Session::request(Json value){
 }
 Json Session::mods(const std::string& method,const Json& params){
     std::shared_ptr<ModTransfers> configured;
+    Json mod_metadata=Json::object();
     if(method=="mods.configure"){
         configured=std::make_shared<ModTransfers>();
         configured->configure(params.at("directory").get<std::string>());
+        mod_metadata=configured->metadata();
     }
     auto result=std::make_shared<std::promise<Json>>();auto future=result->get_future();
     if(!post([this,result,method,params,configured=std::move(configured)]() mutable {try{
@@ -314,7 +330,18 @@ Json Session::mods(const std::string& method,const Json& params){
         else throw Failure(-32601,"Mod transfer is only available to the host");
     }catch(...){result->set_exception(std::current_exception());}}))throw Failure(-32004,"Session stopped");
     if(future.wait_for(std::chrono::seconds(30))!=std::future_status::ready)throw Failure(-32000,"Mod operation timed out");
-    return future.get();
+    auto response=future.get();
+    if(method=="mods.configure"){
+        if(!mod_metadata.empty()){
+            auto current=std::make_shared<std::promise<Json>>();auto current_future=current->get_future();
+            if(!post([this,current]{current->set_value(settings_);}))throw Failure(-32004,"Session stopped");
+            if(current_future.wait_for(std::chrono::seconds(2))!=std::future_status::ready)throw Failure(-32000,"Room settings unavailable");
+            auto settings=current_future.get();Json game=settings.value("game",Json::object());
+            game.update(mod_metadata);settings["game"]=std::move(game);configure(std::move(settings));
+        }
+        response["metadata"]=std::move(mod_metadata);
+    }
+    return response;
 }
 
 }

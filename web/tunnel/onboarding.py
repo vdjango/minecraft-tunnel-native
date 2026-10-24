@@ -87,9 +87,10 @@ class SetupServer:
 
     async def submit(self, request):
         self.authorize(request.headers.get('X-Setup-Token'))
-        if not request.secure:
+        if request.scheme != 'https':
             raise web.HTTPForbidden(text='初始化必须使用 HTTPS。')
-        if request.headers.get('Origin', request.scheme + '://' + request.host) != request.scheme + '://' + request.host:
+        origin = f'{request.scheme}://{request.host}'
+        if request.headers.get('Origin', origin) != origin:
             raise web.HTTPForbidden(text='Origin rejected')
         if request.content_type != 'application/json':
             raise web.HTTPUnsupportedMediaType()

@@ -13,10 +13,19 @@ if(APPLE)
   set(OPENSSL_USE_STATIC_LIBS TRUE)
 endif()
 find_package(OpenSSL 3.0 REQUIRED)
+if(BUGGCRAFT_BRIDGE)
+  find_package(CURL 7.85 REQUIRED)
+endif()
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.deps/libssh-0.12.2/CMakeLists.txt")
   set(WITH_SERVER ON CACHE BOOL "" FORCE)
-  set(WITH_SFTP OFF CACHE BOOL "" FORCE)
+  # Ubuntu's libcurl uses this libssh SONAME for its own SFTP imports. Keep
+  # that ABI complete even though the node does not expose an SFTP service.
+  if(UNIX AND NOT APPLE AND BUGGCRAFT_BRIDGE)
+    set(WITH_SFTP ON CACHE BOOL "" FORCE)
+  else()
+    set(WITH_SFTP OFF CACHE BOOL "" FORCE)
+  endif()
   set(WITH_GSSAPI OFF CACHE BOOL "" FORCE)
   set(WITH_ZLIB OFF CACHE BOOL "" FORCE)
   set(WITH_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -75,6 +84,18 @@ install(TARGETS ${NATIVE_SSH_TARGET} RUNTIME DESTINATION bin LIBRARY DESTINATION
 if(WIN32)
   get_filename_component(NATIVE_COMPILER_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
   set(NATIVE_RUNTIME_DIRS "${NATIVE_COMPILER_DIR};${OPENSSL_ROOT_DIR}/bin;${OPENSSL_INCLUDE_DIR}/../bin")
+  if(BUGGCRAFT_BRIDGE)
+    foreach(curl_location_property IMPORTED_LOCATION_RELEASE IMPORTED_LOCATION_RELWITHDEBINFO IMPORTED_LOCATION_DEBUG IMPORTED_LOCATION)
+      get_target_property(curl_runtime_location CURL::libcurl ${curl_location_property})
+      if(curl_runtime_location AND EXISTS "${curl_runtime_location}")
+        get_filename_component(curl_runtime_directory "${curl_runtime_location}" DIRECTORY)
+        list(APPEND NATIVE_RUNTIME_DIRS "${curl_runtime_directory}")
+        list(APPEND NATIVE_RUNTIME_DIRS "${curl_runtime_directory}/../bin")
+      endif()
+    endforeach()
+    list(REMOVE_DUPLICATES NATIVE_RUNTIME_DIRS)
+    file(GLOB native_curl_runtime CONFIGURE_DEPENDS "${CURL_INCLUDE_DIR}/../bin/*curl*.dll")
+  endif()
   # FindOpenSSL uses UNKNOWN imported targets on Windows, so their runtime
   # DLLs are absent from TARGET_RUNTIME_DLLS. Stage the selected toolchain's
   # crypto beside each consumer before dependency scanning can pick a DLL
@@ -135,11 +156,11 @@ if(BUGGCRAFT_BRIDGE)
     --chat "${protocol_chat}" --legacy "${protocol_legacy}"
     --output "${CMAKE_CURRENT_BINARY_DIR}/generated/protocol_data.hpp"
     COMMAND_ERROR_IS_FATAL ANY)
-  add_library(buggcraft-bridge-engine STATIC bridge/runtime.cpp bridge/rpc.cpp bridge/local_game.cpp bridge/game_chat.cpp bridge/ssh.cpp bridge/session.cpp bridge/session_chat.cpp bridge/session_presence.cpp
+  add_library(buggcraft-bridge-engine STATIC bridge/runtime.cpp bridge/rpc.cpp bridge/local_game.cpp bridge/game_chat.cpp bridge/ssh.cpp bridge/profile_exchange.cpp bridge/session.cpp bridge/session_chat.cpp bridge/session_presence.cpp
     bridge/stream.cpp bridge/peer.cpp bridge/peer_health.cpp bridge/codec.cpp bridge/journal.cpp bridge/telemetry.cpp bridge/routing.cpp bridge/route_selector.cpp bridge/modpack.cpp bridge/social.cpp)
   target_include_directories(buggcraft-bridge-engine PRIVATE .deps/json/single_include .deps/zstd/lib "${CMAKE_CURRENT_BINARY_DIR}/generated")
   target_compile_definitions(buggcraft-bridge-engine PRIVATE BUGGCRAFT_VERSION="${PROJECT_VERSION}")
-  target_link_libraries(buggcraft-bridge-engine PUBLIC ${NATIVE_SSH_TARGET} datachannel libzstd_static zlibstatic OpenSSL::Crypto Threads::Threads)
+  target_link_libraries(buggcraft-bridge-engine PUBLIC ${NATIVE_SSH_TARGET} datachannel libzstd_static zlibstatic OpenSSL::Crypto CURL::libcurl Threads::Threads)
   set_target_properties(buggcraft-bridge-engine PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
   add_executable(buggcraft-bridge bridge/main.cpp)
   target_link_libraries(buggcraft-bridge PRIVATE buggcraft-bridge-engine)
@@ -155,6 +176,12 @@ if(BUGGCRAFT_BRIDGE)
   if(WIN32)
     buggcraft_stage_windows_crypto(buggcraft-bridge)
     buggcraft_stage_windows_crypto(buggcraft-bridge-library)
+    foreach(curl_dll IN LISTS native_curl_runtime)
+      foreach(consumer buggcraft-bridge buggcraft-bridge-library)
+        add_custom_command(TARGET ${consumer} POST_BUILD COMMAND ${CMAKE_COMMAND} -E
+          copy_if_different "${curl_dll}" "$<TARGET_FILE_DIR:${consumer}>")
+      endforeach()
+    endforeach()
   endif()
   add_custom_command(TARGET buggcraft-bridge POST_BUILD COMMAND ${CMAKE_COMMAND} -E
     copy_if_different $<TARGET_FILE:datachannel> $<TARGET_FILE_DIR:buggcraft-bridge>)

@@ -118,6 +118,7 @@ SSH 子系统名为 `buggcraft-rooms-v1`，使用 UTF-8 JSON Lines，一行一�
 |chat.send / chat.poll|会话句柄及 `text` / 会话句柄|聊天发送及状态读取|
 |session.events|`{"session":"…"}`|消费房间状态、聊天、游戏聊天和路径事件|
 |mods.manifest / mods.fetch / mods.status / mods.cancel|会话句柄及对应参数|异步整合包清单、分页、SHA-256 下载校验、进度及取消|
+|mods.configure|`{"session":"…","directory":"游戏实例根目录"}`|房主在游戏端口启用前扫描实例的 mods 子目录|
 |session.list|`{}`|当前会话状态；访客路径为 `p2p` 或 `relay`，房主为 `auto`（接受混合路径）或 `relay`|
 
 房间路径按访客分别建立。`transport:"auto"`（默认）尝试 P2P，无法建连时该访客使用中继；`transport:"relay"` 让该访客跳过 P2P。同一个房间可以同时有 P2P 和中继访客。房主也可以在 `room.host` 指定 `transport:"relay"`，此时该房间所有访客使用中继。启动器应允许每位访客选择连接策略，并显示 SDK 返回的实际路径。
@@ -125,6 +126,10 @@ SSH 子系统名为 `buggcraft-rooms-v1`，使用 UTF-8 JSON Lines，一行一�
 除 JSON-RPC 标准错误 `-32700`（JSON 解析）、`-32600`（请求）、`-32601`（方法）和 `-32602`（参数）外，`-32000` 表示节点连接失败，`-32004` 表示句柄不存在，`-32009` 表示活动会话阻止删除，`-32010` 表示资源上限，`-32020`/`-32021` 表示房间启动失败/超时。错误文本不包含凭据。更完整字段与发行包由 `/developers` 指引；当前发行包未提供受信任代码签名或 Apple 公证。
 
 桥支持好友委托签名、公开建房设置、房间解析、游戏聊天和整合包传输；网页登录仍由网页完成。`room.host.params.settings` 接收 `public`、`require_invite` 和游戏元数据；`game_port:0` 表示等待本机游戏世界，之后通过 `room.retarget` 指定端口。`room.resolve` 返回获准加入的公开房间密钥，再调用 `room.join`。账号材料不得交给其他网页。完整能力以初始化返回的方法列表为准。进程不向 stdout 主动推送通知，启动器轮询 `session.events` / `bridge.events` 和 `session.list`；关闭 stdin 后清理会话并退出。标准错误应持续读取，避免管道堵塞。
+
+房间游戏元数据可含 Minecraft `version` / `protocol`、`loader` / `loader_version`、`mods_hash`、`mods_count` 和最多 24 项公开模组预览。`room.host` 的 `game_directory` 为 Minecraft 实例根目录；如果提供，桥扫描其 `mods` 子目录并自动把模组摘要同步到节点房间目录。也可在房主等待游戏启动时调用 `mods.configure`，参数 `directory` 同样是实例根目录。桥计算 JAR 名称、大小和 SHA-256，完整清单最多 1000 项、按每页 50 项返回。访客通过 `mods.manifest` 创建读取任务，再轮询 `mods.status`；`mods.fetch` 接收清单项与本机 `.jar` 目标路径，最多 4 项并发、单文件不超过 2 GiB，完成后校验 SHA-256 并原子写入目标。Minecraft 版本、协议、加载器和加载器版本由启动器通过游戏元数据提供。桥只传输和校验文件，不负责加载器兼容判断、安装覆盖决策或重启游戏，必须由启动器明确处理。
+
+网页提供当前启动器兼容码与新版随机码两种选项。随机码需要新版原生桥及受信任的 HTTPS 网页证书。新版 `buggnode2-` 接入码包含 HTTPS 签发地址和随机引用，桥用 HTTPS 兑换节点配置；旧版 `buggnode1-` 仍兼容。新版避免从接入码字符串直接读出节点 IP，但兑换后的配置仍包含实际连接地址。Cloudflare 普通 HTTP 代理只代理网页请求；节点 SSH/游戏中继使用独立 TCP 端口，不能因为网站接入 CDN 就自动隐藏该端口的源站地址。若要隐藏原站 TCP 地址，需要专用 TCP 代理服务或继续通过中继架构提供服务。
 
 接入序列示例：
 
@@ -155,7 +160,7 @@ HTTP 请求/响应为 JSON，接口不开放 CORS；非本机明文 HTTP 拒绝�
 |---|---|
 |GET /api/status|公开名称、节点地区/心跳/节点间延迟、接纳提示、房间成员及游戏人数；不返回原始网卡带宽、IP、token 或私密房间资料|
 |GET /api/admin|需管理员 Cookie；返回节点设置、容量预算和服务器实时收发带宽|
-|POST /api/profile|节点访问密码 `{"password":"..."}`；开放领取或已有账号 Cookie 可传 `{}`；返回 `code,profile,fingerprint`|
+|POST /api/profile|节点访问密码 `{"password":"..."}`；开放领取或已有账号 Cookie 可传 `{}`。默认格式 1 返回 `code,profile,credential,fingerprint` 以兼容现有客户端；传 `"format":2` 返回 `buggnode2-` 随机引用码及 `credential,fingerprint`，不返回 profile。个人私钥仅在浏览器附加，不上传节点|
 |POST /api/account/enroll|开放注册时传 `{}`，返回 `account,nonce,message,iterations`|
 |POST /api/account/email-code|开放注册时传 `email,username,nonce`，绑定该次注册挑战，返回 `ticket,expires_in,retry_after`|
 |POST /api/account/register|`nonce,username,public_key,state,signature,copies,routing,routing_signature,proof`；要求邮箱时还须 `email_ticket,email_code`。校验初始身份与复制策略用户签名，返回 account。用户名为 3–32 位 ASCII 字母/数字/下划线/连字符，大小写不区分查重。完整生成方法参照 `/accounts.js`|

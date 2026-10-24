@@ -56,11 +56,43 @@ def atomic_json(path, value):
             os.unlink(temporary)
 
 
+def _trusted_proxy_ranges(state):
+    ranges = state.get('trusted_proxy_cidrs')
+    if ranges is None:
+        ranges = []
+        legacy = state.get('trusted_proxy_ips', [])
+        for value in legacy if isinstance(legacy, list) else []:
+            if not isinstance(value, str):
+                continue
+            try:
+                address = ipaddress.ip_address(value)
+                ranges.append(f'{address}/{address.max_prefixlen}')
+            except ValueError:
+                continue
+    if not isinstance(ranges, list):
+        return []
+    normalized = []
+    for value in ranges:
+        if not isinstance(value, str):
+            continue
+        try:
+            network = ipaddress.ip_network(value, strict=False)
+        except ValueError:
+            continue
+        if network.prefixlen and str(network) not in normalized:
+            normalized.append(str(network))
+        if len(normalized) == 100:
+            break
+    return normalized
+
+
 class Portal:
     def __init__(self, relay, federation, state_path):
         self.relay, self.federation = relay, federation
         self.path = Path(state_path)
         self.state = json.loads(self.path.read_text(encoding='utf-8'))
+        self.state['trusted_proxy_cidrs'] = _trusted_proxy_ranges(self.state)
+        self.state.setdefault('issued_profiles', {})
         self.federation.region = self.state.get('region','')
         self.started = time.monotonic()
         self.sessions = {}
@@ -83,7 +115,7 @@ class Portal:
             web.get('/', self.page), web.get('/admin', self.admin_page),
             web.get('/login', self.account_page), web.get('/register', self.account_page),
             web.get('/account', self.account_page),
-            web.get('/account/{section:access|profile|security|friends}', self.account_page),
+            web.get('/account/{section:access|profile|security|friends|players}', self.account_page),
             web.get('/connect', self.connect_page),
             web.get('/network', self.network_page), web.get('/network.js',self.asset),
             web.get('/admin-bandwidth.js',self.asset),
@@ -94,7 +126,7 @@ class Portal:
             web.get('/diagnostics.js', self.asset),
             web.get('/api/admin/diagnostics', self.diagnostics_sessions),
             web.get('/api/admin/diagnostics/{player}/{session}', self.diagnostics_events),
-            web.get('/admin/{section:nodes|network|settings|users|history|mail}', self.admin_page),
+            web.get('/admin/{section:nodes|network|settings|users|players|history|mail}', self.admin_page),
             web.get('/developers', self.developers_page), web.get('/portal.css', self.asset),
             web.get('/console.css', self.asset), web.get('/developers.css', self.asset),
             web.get('/launcher-example.py', self.launcher_example),
@@ -108,6 +140,8 @@ class Portal:
             web.post('/api/federation/leave', self.leave),
             web.post('/api/federation/block', self.block),
             web.post('/api/profile', self.profile),
+            web.post('/api/profile/redeem', self.profile_redeem),
+            web.get('/api/account/players', self.account_players),
         ])
         from .accounts_web import AccountAPI
         self.account_api = AccountAPI(self)
@@ -124,15 +158,14 @@ class Portal:
 
     @web.middleware
     async def guard(self, request, handler):
-        # No forwarded headers are trusted. TLS terminates here or use an SSH
-        # tunnel to loopback for administration.
+        request['external_scheme'] = self.external_scheme(request)
         protected = request.path.startswith('/api/') and request.path != '/api/status'
-        if protected and not request.secure and request.remote not in ('127.0.0.1', '::1'):
+        if protected and request['external_scheme'] != 'https' and request.remote not in ('127.0.0.1', '::1'):
             raise web.HTTPForbidden(text='请使用 HTTPS 或 SSH 本地转发访问管理和授权功能。')
         try:
             if request.method == 'POST':
                 origin = request.headers.get('Origin')
-                if origin and origin != request.scheme + '://' + request.host:
+                if origin and origin != self.external_origin(request):
                     raise web.HTTPForbidden(text='Origin rejected')
                 upload = bool(re.fullmatch(r'/api/feedback/[0-9a-f]{32}/attachments', request.path))
                 if upload:
@@ -155,26 +188,26 @@ class Portal:
             'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; "
                                        "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
         })
-        if request.secure:
+        if request['external_scheme'] == 'https':
             response.headers['Strict-Transport-Security'] = 'max-age=86400'
         if isinstance(response, web.HTTPException):
             raise response
         return response
 
     async def page(self, request):
-        return web.FileResponse(Path(__file__).with_name('web') / 'index.html')
+        return web.Response(text=self.page_text('index.html'), content_type='text/html')
 
     async def account_page(self, request):
-        return web.FileResponse(Path(__file__).with_name('web') / 'account.html')
+        return web.Response(text=self.page_text('account.html'), content_type='text/html')
 
     async def network_page(self,request):
-        return web.FileResponse(Path(__file__).with_name('web')/'network.html')
+        return web.Response(text=self.page_text('network.html'), content_type='text/html')
 
     async def connect_page(self, request):
         try:
             self.account_api.session(request)
         except web.HTTPUnauthorized:
-            return web.FileResponse(Path(__file__).with_name('web') / 'connect.html')
+            return web.Response(text=self.page_text('connect.html'), content_type='text/html')
         raise web.HTTPFound('/account/access')
 
     async def diagnostics_page(self, request):
@@ -184,8 +217,19 @@ class Portal:
         nav = (Path(__file__).with_name('web') / 'admin-nav.html').read_text(encoding='utf-8')
         return nav.replace('href="/admin/' + section + '"', 'href="/admin/' + section + '" aria-current="page"')
 
+    @staticmethod
+    def page_text(filename, *, management=False):
+        assets = Path(__file__).with_name('web')
+        active = '/admin' if management else {
+            'index.html':'/', 'account.html':'/account', 'network.html':'/network',
+            'connect.html':'/connect', 'developers.html':'/developers', 'feedback.html':'/feedback',
+        }.get(filename, '/admin')
+        header = (assets / 'site-header.html').read_text(encoding='utf-8')
+        header = header.replace('href="' + active + '"', 'href="' + active + '" aria-current="page"')
+        return (assets / filename).read_text(encoding='utf-8').replace('{{SITE_HEADER}}', header)
+
     def support_page(self, filename, section=None):
-        page = (Path(__file__).with_name('web') / filename).read_text(encoding='utf-8')
+        page = self.page_text(filename, management=bool(section))
         page = page.replace('{{ADMIN_NAV}}', self.management_nav(section) if section else '')
         page = page.replace('{{LAYOUT_CLASS}}', 'management-layout' if section else '')
         return web.Response(text=page, content_type='text/html')
@@ -208,20 +252,20 @@ class Portal:
     async def admin_page(self, request):
         section = request.match_info.get('section', 'nodes')
         selected = {'network': 'network-settings'}.get(section, section)
-        page = (Path(__file__).with_name('web') / 'admin.html').read_text(encoding='utf-8')
+        page = self.page_text('admin.html', management=True)
         page = page.replace('{{ADMIN_NAV}}', self.management_nav(section))
         titles = {'nodes': '节点列表', 'network': '连接网络', 'settings': '节点设置',
-                  'users': '用户列表', 'history': '操作记录', 'mail': '邮件服务'}
+                  'users': '用户列表', 'players': '在线玩家', 'history': '操作记录', 'mail': '邮件服务'}
         title = titles[section]
         page = page.replace('管理你的节点。', title).replace('<title>节点管理 ·', '<title>' + title + ' · 节点管理 ·')
         page = page.replace('href="/admin/' + section + '"', 'href="/admin/' + section + '" aria-current="page"')
-        for name in ('nodes', 'network-settings', 'settings', 'users', 'history', 'mail'):
+        for name in ('nodes', 'network-settings', 'settings', 'users', 'players', 'history', 'mail'):
             if name != selected:
                 page = page.replace('class="console-card" id="' + name + '"', 'class="console-card" hidden id="' + name + '"')
         return web.Response(text=page, content_type='text/html')
 
     async def developers_page(self, request):
-        page = (Path(__file__).with_name('web') / 'developers.html').read_text(encoding='utf-8')
+        page = self.page_text('developers.html')
         from .runtime import protocol_path
         protocol = protocol_path().read_text(encoding='utf-8')
         return web.Response(text=page.replace('{{PROTOCOL}}', html.escape(protocol)), content_type='text/html')
@@ -241,12 +285,16 @@ class Portal:
         available = [room for room in self.relay.rooms.values() if room.available]
         reported = [room for room in available if room.game_players is not None
                     and now - room.game_reported < 15]
+        paths = self.diagnostics.transport_counts()
         return {'name': self.federation.name, 'id': self.federation.id,
                 'status': 'maintenance' if self.relay.draining else 'online',
                 'uptime_seconds': int(time.monotonic() - self.started),
                 'rooms': len(self.relay.rooms), 'connections': len(self.relay.peers),
                 'players': sum(self.relay.capacity.members(k) for k in self.relay.rooms),
                 'players_include_p2p': True,
+                'p2p_players': paths['p2p'],
+                'relay_players': paths['relay'],
+                'unconfirmed_players': paths['unknown'],
                 'game_players': sum(room.game_players for room in reported),
                 'game_counts_reported': len(reported),
                 'game_counts_unknown': len(available) - len(reported),
@@ -261,20 +309,47 @@ class Portal:
                 'fingerprint': self.federation.key.get_fingerprint(),
                 'nodes': self.federation.health()}
 
+    def trusted_proxy(self, request):
+        try:
+            source=ipaddress.ip_address(request.remote or '')
+        except ValueError:
+            return False
+        ranges = self.state.get('trusted_proxy_cidrs', [])
+        if not isinstance(ranges, list):
+            return False
+        for value in ranges:
+            if not isinstance(value, str):
+                continue
+            try:
+                if source in ipaddress.ip_network(value, strict=False):
+                    return True
+            except ValueError:
+                continue
+        return False
+
+    def external_scheme(self, request):
+        if self.trusted_proxy(request) and request.headers.get('X-Forwarded-Proto', '').strip().lower() == 'https':
+            return 'https'
+        return request.scheme
+
+    def external_origin(self, request):
+        return self.external_scheme(request) + '://' + request.host
+
+    def client_address(self, request):
+        source=request.remote or 'unknown'
+        if self.trusted_proxy(request):
+            try:
+                return str(ipaddress.ip_address(request.headers.get('CF-Connecting-IP', '')))
+            except ValueError:
+                pass
+        return source
+
     async def status(self, request):
         return web.json_response(self.public_state())
 
     def throttle(self, request, limit=8):
         now = time.monotonic()
-        source = request.remote or 'unknown'
-        # Only explicitly configured proxies may supply a client address. A
-        # direct client cannot evade limits by inventing forwarding headers.
-        if source in self.state.get('trusted_proxy_ips', []):
-            forwarded = request.headers.get('X-Real-IP', '')
-            try:
-                source = str(ipaddress.ip_address(forwarded))
-            except ValueError:
-                pass
+        source = self.client_address(request)
         # Enrollment, email, login challenges and login are separate operations;
         # a normal registration must not exhaust its own subsequent login.
         key = (source, request.path)
@@ -312,7 +387,7 @@ class Portal:
         token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
         self.sessions[token] = {'csrf': csrf, 'expires': time.monotonic() + 3600}
         response = web.json_response({'csrf': csrf})
-        response.set_cookie('node_session', token, httponly=True, secure=request.secure,
+        response.set_cookie('node_session', token, httponly=True, secure=request['external_scheme'] == 'https',
                             samesite='Strict', max_age=3600, path='/')
         return response
 
@@ -348,6 +423,8 @@ class Portal:
                                   'capacity': self.relay.capacity.snapshot(),
                                   'registration_open': self.state.get('registration_open', False),
                                   'accounts': users,
+                                  'players': self.diagnostics.online_players(),
+                                  'trusted_proxy_cidrs': '\n'.join(self.state.get('trusted_proxy_cidrs', [])),
                                   'draining': self.relay.draining,
                                   'node_id': self.federation.id,
                                   'peers': [dict(node, blocked=node['id'] in self.federation.blocked,
@@ -370,6 +447,21 @@ class Portal:
         next_capacity = policy(data.get('capacity', self.relay.capacity.policy))
         region=data.get('region',self.state.get('region',''))
         if not isinstance(region,str) or len(region.strip())>80:raise ValueError('Invalid region')
+        if 'trusted_proxy_cidrs' in data:
+            proxies=data['trusted_proxy_cidrs']
+        else:
+            stored=self.state.get('trusted_proxy_cidrs',[])
+            proxies='\n'.join(value for value in stored if isinstance(value,str)) if isinstance(stored,list) else ''
+        if not isinstance(proxies,str) or len(proxies)>8192:raise ValueError('Invalid trusted proxy ranges')
+        proxy_ranges=[]
+        for line in proxies.splitlines():
+            line=line.strip()
+            if not line or line.startswith('#'):continue
+            try: network=ipaddress.ip_network(line,strict=False)
+            except ValueError:raise ValueError('Invalid trusted proxy range') from None
+            if network.prefixlen==0:raise ValueError('A default route cannot be trusted as a proxy')
+            if network not in proxy_ranges:proxy_ranges.append(network)
+            if len(proxy_ranges)>100:raise ValueError('Too many trusted proxy ranges')
         self.state['region']=region.strip()
         self.federation.region=region.strip()
         self.federation.routing_sample=None
@@ -377,6 +469,7 @@ class Portal:
         self.relay.capacity.configure(next_capacity)
         self.state['capacity'] = next_capacity
         self.state.update(public_join=public_join, draining=draining, registration_open=registration)
+        self.state['trusted_proxy_cidrs']=[str(network) for network in proxy_ranges]
         self.relay.draining = draining
         self.save()
         return web.json_response({'ok': True})
@@ -439,6 +532,9 @@ class Portal:
         return web.json_response({'ok': True})
 
     async def profile(self, request):
+        data = await request.json()
+        if not isinstance(data, dict) or type(data.get('format', 1)) is not int or data.get('format', 1) not in (1, 2):
+            raise web.HTTPBadRequest(text='Invalid access code format')
         account = None
         authorization = None
         try:
@@ -461,10 +557,45 @@ class Portal:
         profile = dict(self.federation.profile)
         if account:
             profile['token'] = self.account_api.store.credential(account, authorization)
-        code = 'buggnode1-' + base64.urlsafe_b64encode(
-            json.dumps(profile, separators=(',', ':')).encode()).decode().rstrip('=')
-        return web.json_response({'code': code, 'profile': profile, 'identity': 'account' if account else 'anonymous',
-                                  'fingerprint': self.federation.key.get_fingerprint()})
+        if data.get('format', 1) == 1:
+            code = 'buggnode1-' + base64.urlsafe_b64encode(json.dumps(profile, separators=(',', ':')).encode()).decode().rstrip('=')
+            return web.json_response({'code': code, 'profile': profile, 'credential': profile.get('token', ''),
+                'identity': 'account' if account else 'anonymous', 'fingerprint': self.federation.key.get_fingerprint()},
+                headers={'Cache-Control': 'no-store'})
+        issued = self.state.get('issued_profiles', {})
+        if not isinstance(issued, dict):
+            issued = {}
+        now = time.time()
+        issued = {key: value for key, value in issued.items()
+                  if isinstance(value, dict) and isinstance(value.get('expires'), (int, float))
+                  and value['expires'] > now and isinstance(value.get('profile'), dict)}
+        if len(issued) >= 4096:
+            issued = dict(sorted(issued.items(), key=lambda item: item[1]['expires'])[-3072:])
+        reference = secrets.token_urlsafe(32)
+        issued[reference] = {'expires': now + 7 * 86400, 'profile': profile}
+        self.state['issued_profiles'] = issued
+        self.save()
+        issuer = self.external_origin(request)
+        code = 'buggnode2-' + base64.urlsafe_b64encode(issuer.encode()).decode().rstrip('=') + '.' + reference
+        return web.json_response({'code': code, 'credential': profile.get('token', ''),
+                                  'identity': 'account' if account else 'anonymous',
+                                  'fingerprint': self.federation.key.get_fingerprint()},headers={'Cache-Control':'no-store'})
+
+    async def profile_redeem(self, request):
+        self.throttle(request, limit=16)
+        reference=(await request.json()).get('reference','')
+        if not isinstance(reference,str) or not re.fullmatch(r'[A-Za-z0-9_-]{32,64}',reference):
+            raise web.HTTPBadRequest(text='Invalid profile reference')
+        profiles=self.state.get('issued_profiles',{})
+        issued=profiles.get(reference) if isinstance(profiles,dict) else None
+        if (not isinstance(issued,dict) or not isinstance(issued.get('expires'),(int,float))
+                or not issued['expires']>time.time() or not isinstance(issued.get('profile'),dict)):
+            raise web.HTTPNotFound(text='Access code expired or unavailable')
+        return web.json_response({'profile':issued['profile']},headers={'Cache-Control':'no-store'})
+
+    async def account_players(self, request):
+        self.account_api.session(request)
+        return web.json_response({'players':self.diagnostics.online_players()},headers={'Cache-Control':'no-store'})
 
     async def start(self, host, port, ssl_context=None):
         self.federation.publish()

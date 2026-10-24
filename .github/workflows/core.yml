@@ -22,11 +22,11 @@ jobs:
           python -m unittest tests.test_build_tools tests.test_release_assets -v
       - name: Ubuntu build dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev ninja-build dpkg-dev
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev libcurl4-openssl-dev ninja-build dpkg-dev
       - name: Windows OpenSSL
         if: runner.os == 'Windows'
         shell: pwsh
-        run: vcpkg install openssl:x64-windows
+        run: vcpkg install openssl:x64-windows 'curl[openssl]:x64-windows'
       - name: macOS OpenSSL
         if: runner.os == 'macOS'
         run: brew install openssl@3
@@ -57,7 +57,7 @@ jobs:
           $env:BUGGCRAFT_BRIDGE_PACKAGE = "$pwd/package"
           python -u -m unittest tests.test_bridge_library.LibraryAbiTests -v 2>&1 | Tee-Object -FilePath windows-library-tests.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -u -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v 2>&1 | Tee-Object -FilePath windows-protocol-tests.log
+          python -u -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_profile_exchange tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v 2>&1 | Tee-Object -FilePath windows-protocol-tests.log
           $testStatus = $LASTEXITCODE
           if ($testStatus -ne 0) { exit $testStatus }
           python -u scripts/check_compatibility.py 2>&1 | Tee-Object -FilePath windows-compatibility.log
@@ -73,7 +73,7 @@ jobs:
           else
             export BUGGCRAFT_BRIDGE_LIBRARY="$PWD/package/lib/libbuggcraft_bridge.so"
           fi
-          python -u -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v 2>&1 | tee unix-protocol-tests.log
+          python -u -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_profile_exchange tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v 2>&1 | tee unix-protocol-tests.log
           test_status=${PIPESTATUS[0]}
           if [ "$test_status" -ne 0 ]; then exit "$test_status"; fi
           python -u scripts/check_compatibility.py 2>&1 | tee unix-compatibility.log

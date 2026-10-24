@@ -3,6 +3,7 @@ import asyncio
 import base64
 import importlib.util
 import json
+import re
 from pathlib import Path
 import secrets
 import sys
@@ -60,10 +61,10 @@ class GovernanceTests(unittest.IsolatedAsyncioTestCase):
     async def test_pages_are_public_but_admin_data_is_not(self):
         home = await (await self.client.get('/')).text()
         self.assertIn('href="/admin"', home)
-        self.assertIn('class="developer-nav" href="/developers"', home)
+        self.assertIn('href="/developers"', home)
         self.assertNotIn('class="entry-strip"', home)
         self.assertNotIn('id="account-dialog"', home)
-        self.assertIn('href="/login"', home)
+        self.assertIn('href="/account"', home)
         self.assertIn('href="/connect"', home)
         self.assertNotIn('admin-dialog', home)
         for path, expected in [('/admin','id="admin-peers"'),('/developers','account_lookup'),
@@ -84,6 +85,16 @@ class GovernanceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.get('/api/admin')).status, 401)
         self.assertEqual((await self.client.post('/api/federation/block', json=self.action())).status, 401)
         self.assertFalse(self.a.blocked)
+
+    async def test_all_pages_share_navigation_order_and_one_current_item(self):
+        expected=['/','/network','/connect','/developers','/feedback','/account','/admin']
+        for path in ('/','/network','/connect','/developers','/login','/register','/account',
+                     '/feedback','/admin','/admin/settings','/admin/diagnostics','/admin/feedback'):
+            response=await self.client.get(path)
+            self.assertEqual(response.status,200,path)
+            header=re.search(r'<header\b.*?</header>',await response.text(),re.S).group()
+            self.assertEqual(re.findall(r'href="([^"]+)"',header),expected,path)
+            self.assertEqual(header.count('aria-current="page"'),1,path)
 
     async def test_diagnostic_records_require_admin_and_polling_does_not_use_login_limit(self):
         self.assertEqual((await self.client.get('/api/admin/diagnostics')).status,401)
@@ -106,15 +117,15 @@ class GovernanceTests(unittest.IsolatedAsyncioTestCase):
         await self.login()
 
     async def test_configured_proxy_separates_users_and_malformed_headers_cannot_reset_limits(self):
-        self.portal.state.update(registration_open=True, trusted_proxy_ips=['127.0.0.1'])
+        self.portal.state.update(registration_open=True, trusted_proxy_cidrs=['127.0.0.1/32'])
         for _ in range(8):
-            response = await self.client.post('/api/account/enroll', json={}, headers={'X-Real-IP': '198.51.100.1'})
+            response = await self.client.post('/api/account/enroll', json={}, headers={'CF-Connecting-IP': '198.51.100.1'})
             self.assertEqual(response.status, 200)
-        self.assertEqual((await self.client.post('/api/account/enroll', json={}, headers={'X-Real-IP': '198.51.100.1'})).status, 429)
-        self.assertEqual((await self.client.post('/api/account/enroll', json={}, headers={'X-Real-IP': '198.51.100.2'})).status, 200)
+        self.assertEqual((await self.client.post('/api/account/enroll', json={}, headers={'CF-Connecting-IP': '198.51.100.1'})).status, 429)
+        self.assertEqual((await self.client.post('/api/account/enroll', json={}, headers={'CF-Connecting-IP': '198.51.100.2'})).status, 200)
         for _ in range(8):
-            self.assertEqual((await self.client.post('/api/account/enroll', json={}, headers={'X-Real-IP': 'invalid'})).status, 200)
-        self.assertEqual((await self.client.post('/api/account/enroll', json={}, headers={'X-Real-IP': 'also-invalid'})).status, 429)
+            self.assertEqual((await self.client.post('/api/account/enroll', json={}, headers={'CF-Connecting-IP': 'invalid'})).status, 200)
+        self.assertEqual((await self.client.post('/api/account/enroll', json={}, headers={'CF-Connecting-IP': 'also-invalid'})).status, 429)
 
     async def test_email_delivery_error_is_actionable_and_not_reported_as_sent(self):
         from unittest.mock import patch

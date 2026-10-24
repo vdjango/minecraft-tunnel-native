@@ -49,7 +49,7 @@ if __name__ == '__main__':
             execute(client, 'mkdir -p /tmp/buggcraft-native-validation\n'
                     'tar xzf /tmp/buggcraft-native-source.tar.gz -C /tmp/buggcraft-native-validation')
         elif args.action == 'build':
-            command = """cd /tmp/buggcraft-native-validation && nohup sh -c 'cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DWITH_SYMBOL_VERSIONING=OFF > build-configure.log 2>&1 && cmake --build build --parallel 2 > build-compile.log 2>&1; echo $? > build.status' > build-launch.log 2>&1 < /dev/null &"""
+            command = """cd /tmp/buggcraft-native-validation && nohup sh -c 'cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DWITH_SYMBOL_VERSIONING=ON > build-configure.log 2>&1 && cmake --build build --parallel 2 > build-compile.log 2>&1; echo $? > build.status' > build-launch.log 2>&1 < /dev/null &"""
             execute(client, command)
         else:
             command = Path(args.command_file).read_text(encoding='utf-8-sig') if args.command_file else args.command

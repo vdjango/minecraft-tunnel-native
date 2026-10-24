@@ -85,6 +85,28 @@ class PlayerLogTests(unittest.IsolatedAsyncioTestCase):
         session = self.logs.active[peer]
         self.assertEqual(self.logs.read(session['player'], session['session'])['events'][-1]['event'], 'recovered')
 
+    async def test_online_player_reports_expose_path_and_rtt(self):
+        self.relay.rooms = {'same-room': SimpleNamespace(title='Vanilla survival')}
+        self.relay.federation = SimpleNamespace(accounts=SimpleNamespace(
+            social=SimpleNamespace(name=lambda account: account)))
+        peer = self.peer('player', account='alice')
+        self.logs.connected(peer)
+        self.logs.report(peer, {'path': 'p2p', 'peer_rtt_ms': 18.25,
+                                'control_rtt_ms': 7, 'game_rtt_ms': 12})
+        player, = self.logs.online_players()
+        self.assertEqual(player['username'], 'alice')
+        self.assertEqual(player['room'], 'Vanilla survival')
+        self.assertEqual(player['path'], 'p2p')
+        self.assertEqual(player['peer_rtt_ms'], 18.25)
+        self.assertEqual(player['control_rtt_ms'], 7)
+        self.assertGreater(player['last_report_at'], 0)
+        self.assertEqual(self.logs.transport_counts(), {'p2p':1,'relay':0,'unknown':0})
+        self.logs.active[peer]['last_report'] -= 21
+        self.assertEqual(self.logs.transport_counts(), {'p2p':0,'relay':0,'unknown':1})
+        stale, = self.logs.online_players()
+        self.assertEqual(stale['path'], 'unknown')
+        self.assertIsNone(stale['peer_rtt_ms'])
+
     async def test_disk_unavailable_does_not_prevent_headless_lifecycle(self):
         self.root.write_text('not a directory', encoding='utf-8')
         lifecycle = self.logs.lifecycle(None)

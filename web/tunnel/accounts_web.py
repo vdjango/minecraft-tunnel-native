@@ -68,7 +68,7 @@ class AccountAPI:
         self.portal.throttle(request)
         uid = secrets.token_hex(16)
         account = uid + '.' + self.portal.federation.id
-        return web.json_response(dict(self.store.challenge('enroll', account, request.scheme + '://' + request.host),
+        return web.json_response(dict(self.store.challenge('enroll', account, self.portal.external_origin(request)),
                                       account=account, iterations=600000))
 
     async def register(self, request):
@@ -142,7 +142,7 @@ class AccountAPI:
         account = record['state']['account']
         if not self.allowed(account):
             raise web.HTTPUnauthorized(text='此账号已在本节点停用。')
-        challenge = self.store.challenge('login', account, request.scheme + '://' + request.host, data.get('delegation'))
+        challenge = self.store.challenge('login', account, self.portal.external_origin(request), data.get('delegation'))
         return web.json_response(dict(challenge, record=record))
 
     async def recover(self, request):
@@ -161,7 +161,7 @@ class AccountAPI:
         if len(temporary) >= 256:
             temporary.pop(next(iter(temporary)))
         temporary[account] = (time.monotonic() + 3600, record)
-        challenge = self.store.challenge('login', account, request.scheme + '://' + request.host, data.get('delegation'))
+        challenge = self.store.challenge('login', account, self.portal.external_origin(request), data.get('delegation'))
         return web.json_response(dict(challenge, record=record))
 
     async def login(self, request):
@@ -180,7 +180,7 @@ class AccountAPI:
         self.store.sessions[token] = {'account': account, 'csrf': csrf, 'expires': time.monotonic() + 3600,
                                       'authorization': (json.loads(challenge['message']), data['signature'])}
         response = web.json_response({'account': account, 'csrf': csrf})
-        response.set_cookie('account_session', token, httponly=True, secure=request.secure,
+        response.set_cookie('account_session', token, httponly=True, secure=self.portal.external_scheme(request) == 'https',
                             samesite='Strict', max_age=3600, path='/')
         return response
 

@@ -9,7 +9,13 @@ void Session::advance_presence(){
     if(game_probe_.valid()&&game_probe_.wait_for(std::chrono::milliseconds(0))==std::future_status::ready){
         try{
             auto probe=game_probe_.get();
-            if(probe.port==port){game_available_=probe.available;game_status_=std::move(probe.status);}
+            if(probe.port==port){
+                game_available_=probe.available;game_status_=std::move(probe.status);
+                auto latency=game_status_.is_object()?game_status_.value("latency_ms",Json(nullptr)):Json(nullptr);
+                event({{"type","latency"},{"latency_ms",latency},{"port",port},
+                       {"state",latency.is_number_integer()?"ready":probe.available?"timeout":"unavailable"},
+                       {"method","minecraft-status-ping"}});
+            }
         }catch(...){game_status_=nullptr;}
     }
     if(online_&&port>0&&!game_probe_.valid()&&Clock::now()>=next_game_probe_){
@@ -46,8 +52,21 @@ void Session::advance_presence(){
     {std::lock_guard guard(mutex_);diagnostics=room_info_.value("diagnostics",false);}
     if(diagnostics){
         auto latency=game_status_.is_object()?game_status_.value("latency_ms",Json(nullptr)):Json(nullptr);
+        Json peer_latency=nullptr;
+        double peer_latency_total=0;
+        size_t peer_latency_count=0;
+        for(const auto& watch:probes_)if(watch->heartbeat.enabled()&&watch->heartbeat.replies()>0){
+            peer_latency_total+=watch->heartbeat.rtt_ms();++peer_latency_count;
+        }
+        if(peer_latency_count)peer_latency=peer_latency_total/static_cast<double>(peer_latency_count);
+        std::string path=role=="host"?(peer_started_?"auto":"relay"):(direct_?"p2p":"relay");
+        if(role=="host"){
+            bool p2p=false,relay=false;
+            for(const auto& stream:streams_){p2p=p2p||bool(stream->data);relay=relay||bool(stream->channel);}
+            if(p2p&&relay)path="mixed";else if(p2p)path="p2p";else if(relay)path="relay";
+        }
         queue({{"op","diagnostics"},{"report",{{"control_rtt_ms",control_rtt_ms_},{"game_rtt_ms",latency},
-            {"path",role=="host"?(peer_started_?"auto":"relay"):(direct_?"p2p":"relay")}}}},false);
+            {"peer_rtt_ms",peer_latency},{"path",path}}}},false);
     }
 }
 }

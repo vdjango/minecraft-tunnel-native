@@ -185,13 +185,15 @@ $('account-connect').onclick=async()=>{
   const button=$('account-connect');button.disabled=true;
   try {
     if(!launcherKey) { $('account-unlock').click();return; }
-    const result=await api('/api/profile',{});
+    const result=await api('/api/profile',{format:Number($('access-code-format').value)});
     if(result.identity!=='account') throw new Error('登录已过期，请重新登录后生成个人启动器接入码。');
-    const claims=JSON.parse(textDecoder.decode(from64(result.profile.token.split('.')[1])));
+    const claims=JSON.parse(textDecoder.decode(from64(result.credential.split('.')[1])));
     const expected={kty:launcherKey.kty,crv:launcherKey.crv,x:launcherKey.x,y:launcherKey.y};
     if(JSON.stringify(ordered(claims.g?.d))!==JSON.stringify(ordered(expected))) throw new Error('账号已在其他标签页重新登录，请在当前页面验证密码后再生成接入码。');
-    result.profile.token+='~'+launcherKey.d;
-    $('player-code').value='buggnode1-'+bytes64(utf8.encode(JSON.stringify(result.profile)));
+    if(result.code.startsWith('buggnode1-')) {
+      const profile={...result.profile,token:result.credential+'~'+launcherKey.d};
+      $('player-code').value='buggnode1-'+bytes64(utf8.encode(JSON.stringify(profile)));
+    } else $('player-code').value=result.code+'~'+launcherKey.d;
     $('personal-result').hidden=false;$('connect-feedback').textContent='已生成。请妥善保管，不要发给他人。';
   }catch(e){feedback('account-feedback',e);}finally{button.disabled=false;}
 };

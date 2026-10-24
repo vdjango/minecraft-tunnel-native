@@ -55,6 +55,8 @@ class Diagnostics:
         self.active[peer] = dict(player=player, session=stamp + '-' + secrets.token_hex(6),
                                   username=username, role=peer.role, room=peer.room,
                                   authenticated=bool(account), started=time.time(),
+                                  path='unknown', control_rtt_ms=None, game_rtt_ms=None,
+                                  peer_rtt_ms=None, last_report_at=None,
                                   upload_bytes=0, download_bytes=0, last_upload=0, last_download=0,
                                   last_sample=time.monotonic(), closed=False)
         self.emit(peer, 'connected', **self.public_session(self.active[peer]))
@@ -91,7 +93,7 @@ class Diagnostics:
         if now - session.get('last_report', 0) < 2:
             raise ValueError('Diagnostics report too frequent')
         result = {}
-        for key in ('control_rtt_ms', 'game_rtt_ms'):
+        for key in ('control_rtt_ms', 'game_rtt_ms', 'peer_rtt_ms'):
             value = report.get(key)
             if value is not None:
                 if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 120000:
@@ -101,8 +103,43 @@ class Diagnostics:
             raise ValueError('Invalid diagnostic path')
         result['path'] = report['path']
         session['last_report'] = now
+        session.update({key: result.get(key) for key in
+                        ('control_rtt_ms', 'game_rtt_ms', 'peer_rtt_ms')})
+        session['path'] = result['path']
+        session['last_report_at'] = time.time()
         self.emit(peer, 'client_report', source='launcher_report', **result)
         return {'ok': True}
+
+    def transport_counts(self):
+        counts = {'p2p': 0, 'relay': 0, 'unknown': 0}
+        now = time.monotonic()
+        for peer, session in self.active.items():
+            if peer.role == 'client':
+                path = session['path'] if now - session.get('last_report', 0) <= 20 else 'unknown'
+                counts[path if path in ('p2p', 'relay') else 'unknown'] += 1
+        return counts
+
+    def online_players(self):
+        values = []
+        rooms = getattr(self.relay, 'rooms', {})
+        now = time.monotonic()
+        for peer, session in tuple(self.active.items()):
+            if peer.role not in ('host', 'client'):
+                continue
+            room = rooms.get(peer.room)
+            fresh = now - session.get('last_report', 0) <= 20
+            values.append({
+                'username': session['username'],
+                'role': session['role'],
+                'room': room.title if room else '房间暂不可用',
+                'started': session['started'],
+                'path': session['path'] if fresh else 'unknown',
+                'control_rtt_ms': session['control_rtt_ms'] if fresh else None,
+                'game_rtt_ms': session['game_rtt_ms'] if fresh else None,
+                'peer_rtt_ms': session['peer_rtt_ms'] if fresh else None,
+                'last_report_at': session['last_report_at'],
+            })
+        return sorted(values, key=lambda item: item['started'], reverse=True)[:1000]
 
     async def lifecycle(self, app):
         try:

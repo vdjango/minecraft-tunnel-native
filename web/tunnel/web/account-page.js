@@ -1,5 +1,5 @@
 'use strict';
-const views={overview:['用户中心','管理你的联机身份、好友与个人资料。'],access:['连接启动器','生成你的启动器接入码。'],friends:['我的好友','同一网络，不同节点，也能找到彼此。'],profile:['个人资料','昵称与备忘加密保存。'],security:['安全与备份','管理身份恢复文件和加密副本。']};
+const views={overview:['用户中心','管理你的联机身份、好友与个人资料。'],access:['连接启动器','生成你的启动器接入码。'],players:['在线玩家','查看当前节点的游戏连接状态。'],friends:['我的好友','同一网络，不同节点，也能找到彼此。'],profile:['个人资料','昵称与备忘加密保存。'],security:['安全与备份','管理身份恢复文件和加密副本。']};
 function accountView(view='overview') {
   if(!views[view]) view='overview';
   const [title,description]=views[view];
@@ -12,7 +12,25 @@ function accountView(view='overview') {
     link.onclick=event=>{event.preventDefault();accountView(link.dataset.accountView);};
   }
   $('account-feedback').textContent='';
+  if(view==='players') refreshOnlinePlayers().catch(e=>feedback('online-player-count',e));
 }
+async function refreshOnlinePlayers(){
+  const result=await api('/api/account/players');
+  const roles={host:'房主',client:'访客'},paths={p2p:'P2P直连',relay:'节点中转',mixed:'混合',auto:'协商中',unknown:'待确认',unavailable:'不可用'};
+  const players=result.players||[];$('online-player-count').textContent=players.length+' 个在线';
+  $('online-players').replaceChildren(...players.map(player=>{
+    const row=document.createElement('tr');
+    for(const value of [player.username,roles[player.role]||player.role,player.room,paths[player.path]||player.path,
+      Number.isFinite(player.peer_rtt_ms)?player.peer_rtt_ms.toFixed(1)+' ms':'—']){
+      const cell=document.createElement('td');cell.textContent=value;row.append(cell);
+    }
+    return row;
+  }));
+}
+setInterval(()=>{
+  if(location.pathname==='/account/players'&&!document.hidden&&!$('account-panel').hidden)
+    refreshOnlinePlayers().catch(()=>{});
+},5000);
 async function refresh() {
   const s=await api('/api/status');
   $('show-register').hidden=!s.registration_open;

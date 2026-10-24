@@ -52,7 +52,7 @@ struct ModTransfers::Transfer {
 ModTransfers::ModTransfers()=default;
 ModTransfers::~ModTransfers()=default;
 void ModTransfers::configure(const std::string& directory){
-    if(directory.empty()){root_.clear();catalog_=Json::array();return;}
+    if(directory.empty()){root_.clear();catalog_=Json::array();configured_=false;return;}
     auto root=std::filesystem::weakly_canonical(std::filesystem::u8path(directory)/"mods");
     Json catalog=Json::array();std::vector<std::filesystem::path> paths;
     if(std::filesystem::is_directory(root))for(const auto& entry:std::filesystem::directory_iterator(root)){
@@ -72,7 +72,26 @@ void ModTransfers::configure(const std::string& directory){
         catalog.push_back({{"name",name},{"size",size},{"sha256",digest_file(path)}});
     }
     if(catalog.dump().size()>maximum_manifest)throw Failure(-32602,"Mod manifest exceeds limit");
-    root_=std::move(root);catalog_=std::move(catalog);
+    root_=std::move(root);catalog_=std::move(catalog);configured_=true;
+}
+Json ModTransfers::metadata()const{
+    if(!configured_)return Json::object();
+    Json preview=Json::array();
+    for(const auto& item:catalog_){
+        if(preview.size()>=24)break;
+        if(item.at("name").get_ref<const std::string&>().size()<=64&&
+           item.at("size").get<uint64_t>()<=2147483647ull)preview.push_back(item);
+    }
+    Json result{{"mods_count",catalog_.size()},{"mods",std::move(preview)}};
+    if(!catalog_.empty()){
+        const auto serialized=catalog_.dump();unsigned char digest[EVP_MAX_MD_SIZE]{};unsigned length=0;
+        if(EVP_Digest(serialized.data(),serialized.size(),digest,&length,EVP_sha256(),nullptr)!=1||length!=32)
+            throw std::runtime_error("Mod manifest digest failed");
+        static constexpr char hex[]="0123456789abcdef";std::string value;value.reserve(64);
+        for(unsigned i=0;i<length;++i){value+=hex[digest[i]>>4];value+=hex[digest[i]&15];}
+        result["mods_hash"]=std::move(value);
+    }
+    return result;
 }
 void ModTransfers::accept(ssh_channel channel){
     if(serving_.size()>=4){free_channel(channel);return;}
