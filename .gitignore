@@ -5,6 +5,10 @@ __pycache__/
 *.pyc
 *.log
 validation-artifacts/
+docs/validation/
+docs/measurements/
+docs/validation-*.md
+docs/production-deployment-*.md
 
 runtime/
 package/

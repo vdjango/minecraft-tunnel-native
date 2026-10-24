@@ -58,4 +58,4 @@ int main(void) {
 
 ## 验证
 
-`ctest` 包含纯 C 消费者，覆盖参数错误、JSON 错误、通知、多 handle 与重复创建销毁。`tests.test_bridge_library` 覆盖库并发调用、完整安装搬迁、中文/空格目录、与 exe 双向混合联机、P2P/中转、聊天、个人接入码、Mod 校验/取消及高频控制与游戏数据并行。CI 对 Windows、Ubuntu、macOS ARM64/Intel 运行同一套测试；实际已完成的平台与限制见 [验证记录](validation/native-cutover-20261023.md)。
+`ctest` 包含纯 C 消费者，覆盖参数错误、JSON 错误、通知、多 handle 与重复创建销毁。`tests.test_bridge_library` 覆盖库并发调用、完整安装搬迁、中文/空格目录、与 exe 双向混合联机、P2P/中转、聊天、个人接入码、Mod 校验/取消及高频控制与游戏数据并行。CI 对 Windows、Ubuntu、macOS ARM64/Intel 运行同一套测试；各次构建的实际结果和失败日志见 [GitHub Actions](https://github.com/vdjango/minecraft-tunnel-native/actions/workflows/core.yml)。

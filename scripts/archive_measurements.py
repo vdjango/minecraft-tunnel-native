@@ -1,11 +1,11 @@
-"""Keep small, reproducible evidence with the source, excluding private profiles."""
+"""Summarize local benchmark evidence without adding generated files to Git."""
 import json
 from pathlib import Path
 import shutil
 import statistics
 
 ROOT = Path(__file__).resolve().parents[1]
-destination = ROOT / 'docs/measurements'
+destination = ROOT / 'validation-artifacts/measurements'
 destination.mkdir(parents=True, exist_ok=True)
 ubuntu = ROOT / 'validation-artifacts/ubuntu-20261023'
 for source, name in [('benchmark-ubuntu-final.json', 'ubuntu-aes-gcm.json'),

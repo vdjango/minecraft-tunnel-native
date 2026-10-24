@@ -111,7 +111,7 @@ sudo systemctl restart buggcraft-node
 | 4 个原版客户端短测 | 进服、移动、交互和重进通过；测试场景节省约 6.13% 应用字节 |
 | 65 个联邦节点故障测试 | 强制停止中间节点后，幸存节点、好友查找、新房间和备用入口通过 |
 
-这些数字是固定环境下的项目自测，不是第三方认证，也不能直接换算成公网玩家容量。65 个节点放在同一台 4 vCPU 机器上时，控制面延迟会明显增加。完整方法、限制和原始测量见[性能文档](docs/performance.md)和[部署验证记录](docs/validation/deployment-20261024.md)。
+这些数字是固定环境下的项目自测，不是第三方认证，也不能直接换算成公网玩家容量。65 个节点放在同一台 4 vCPU 机器上时，控制面延迟会明显增加。测试方法和边界见[性能说明](docs/performance.md)。
 
 ## 常见问题
 
@@ -137,8 +137,6 @@ sudo systemctl restart buggcraft-node
 - [启动器动态库和 C ABI](docs/bridge-library.md)
 - [协议说明](PROTOCOL_STANDARD.md)
 - [中转压缩](docs/relay-compression.md)
-- [心跳与掉线恢复验证](docs/validation/peer-recovery-20261024.md)
-- [联邦规模和安装验证](docs/validation/federation-install-20261024.md)
 - [部署、升级和回退](docs/deployment.md)
 
 本项目使用 [AGPL-3.0-or-later](LICENSE)。第三方组件和许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

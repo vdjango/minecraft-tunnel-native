@@ -1,68 +1,40 @@
-# 性能与验证
+# 性能测试
 
-本页索引项目公开的性能证据。数据来自项目自测，未经过独立第三方认证；报告分别记录测量日期、环境、负载、口径及可用的源码或二进制摘要。历史结果不能自动归属于后续提交。
+游戏转发由 C++ 节点核心和原生桥执行。性能取决于 CPU、加密算法、网络、同时连接数和 Minecraft 活动；发布包通过测试不等于某台服务器可以承载固定数量的玩家。
 
-2026-10-24 的当前部署、问题清单、客户端交付及验证范围见 [上线记录](validation/deployment-20261024.md)。
+## 测量方式
 
-## 节点转发对比
+比较实现或配置时，应固定源码版本、构建参数、加密算法、压缩策略、连接数和数据量，至少运行三轮，记录中位数和范围。
 
-环境：Ubuntu 24.04 LTS x86_64、4 vCPU、约 3.7 GiB RAM，Release 构建；libssh 0.12.2、OpenSSL 3.0.13、Python 3.12.3、AsyncSSH 2.24.1、cryptography 50.0.2。测量环境使用 psutil 7.2.2，复现时应记录实际依赖版本。
-
-方法：在同机回环网络运行独立节点和负载发生器，32 条流分布到 4 个房间，每流发送 32 MiB 并接收回显。两种实现固定使用 AES-128-GCM，关闭 SSH 压缩和游戏流 Zstandard，逐流校验长度、SHA-256 和 EOF。原生节点采用 4 个工作线程、每方向 64 KiB 环形缓冲。
-
-服务器 CPU/RSS 包含 Python 管理进程和原生子进程，不包含发生器；出口吞吐为应用载荷，上传及回显均经过节点出口，共 2 GiB。三轮结果：
-
-| 指标 | Python 中位数 | 原生中位数 |
-| --- | ---: | ---: |
-| 完成时间 | 23.6938 s | 11.7077 s |
-| 累计 CPU 时间 | 11.81 s | 8.19 s |
-| 应用载荷出口吞吐 | 86.44 MiB/s | 174.93 MiB/s |
-| 峰值 RSS | 150.27 MiB | 122.49 MiB |
-| 空载回声 RTT 中位数 | 0.604 ms | 0.333 ms |
-| 各轮 RTT p95 的中位数 | 0.817 ms | 0.407 ms |
-
-Python 三轮吞吐为 65.33–105.57 MiB/s，原生为 172.28–175.87 MiB/s。不能把回环测量当作物理网卡线速、公网延迟或核心极限吞吐。单流时原生总 RSS 为 51.27 MiB，Python 为 45.01 MiB，不能宣称所有负载下都更省内存。
-
-证据：[方法与环境](validation-20261023.md#ubuntu-性能对比)、[首轮 1/8/32 流](measurements/ubuntu-aes-gcm.json)、[复测 1](measurements/ubuntu-repeat1.json)、[复测 2](measurements/ubuntu-repeat2.json)、[三轮统计](measurements/ubuntu-32-stream-median.json)。
-
-## 持续负载与真实游戏
-
-| 验证 | 环境与负载 | 结论及证据 |
+| 测试 | 关注指标 | 入口 |
 | --- | --- | --- |
-| 30 分钟持续中转 | Ubuntu 回环，1 个节点、1 个房主桥、3 个访客桥，9 条大流和 3 条 RTT 流，3306 轮短连接及控制请求 | 1800.217 s，186.314 GiB 已校验回显，平均 105.992 MiB/s；[报告](validation/bridge-soak-30min-20261023.md)、[JSON](measurements/bridge-soak-30min-20261023.json) |
-| 4 个原版 GUI 客户端 | Windows Mojang 1.21.8，经独立 Ubuntu 中转，移动、挖掘、放置、重启访客 | 操作同步与重进通过；[报告](validation-20261023.md#真实原版多人游戏)、[JSON](measurements/vanilla-1.21.8.json) |
-| A 建房 / B 加入 | 两个原版 GUI 客户端，经 Ubuntu 中转；含 3 次死亡复活 | 操作与延迟分项记录；[报告](validation/player-pair-performance-20261023.md) |
-| 联邦中间节点失联 | 17 节点邀请长链，完成发现后停止中间 H 节点 | 存活节点目录与直查验证；[报告](validation/federation-chain-20261023.md) |
-| 联邦移除成员上限后的故障回归 | 65 个真实原生节点共用 4 vCPU 主机，强杀中间 H | 既有传输、新房间和备用入口通过；控制延迟明显增加，不能作为容量承诺；[报告](validation/federation-install-20261024.md) |
+| 节点中转 | 已校验应用载荷吞吐、CPU 时间、峰值 RSS、回声 RTT | `scripts/benchmark.py` |
+| 持续负载 | 吞吐时间窗口、RTT p50/p99/最大值、数据块最大间隔、断流与 EOF | `scripts/bridge_soak.py` |
+| A 建房 / B 加入 | 建房、加入、首次收发及重连耗时 | `scripts/vanilla_player_pair.py` |
+| 多玩家原版游戏 | 进服、移动、方块同步、死亡复活、断线后重进 | `scripts/vanilla_multiplayer.py`、`scripts/vanilla_player_pair.py` |
+| 联邦故障 | 中间节点退出后目录查询、新房间加入及既有连接 | `tests/test_federation_chain.py`、`tests/test_federation_resilience.py` |
 
-30 分钟测试校验了每次回显与结束 EOF，负载阶段未出现意外断流或探测超时；30 秒窗口吞吐为 101.85–108.58 MiB/s，最大探测 RTT 为 26.208 ms，最大大流数据块完成间隔为 30.574 ms。吞吐按收到并校验的回显字节计一次，双向应用负载为 372.629 GiB。
+回环吞吐不是物理网卡线速；同机 RTT 不能代表公网延迟。应用载荷字节也不同于包含 SSH、TCP、UDP 和重传的网卡流量。压缩收益应同时记录原始字节、编码字节和 CPU；不能用重复字符串压测推算 Minecraft 的实际节省比例。
 
-该测试没有运行 Minecraft GUI，不能与短时 GUI 实测合并描述为“30 分钟原版游戏实测”。其日志中存在 `clean_eof=false` 记录，外部完整性与 EOF 断言通过，报告保留了这一关闭时序问题；不能声称所有关闭状态均正常。
+## 持续负载
 
-配对基准中的同机 P2P 吞吐低于中转，详见对应报告。因此也不能宣称 P2P 在所有环境下都更快，或据回环候选连接成功推算公网 NAT 穿透率。
-
-## 压缩与带宽
-
-四个原版客户端短测在 Minecraft 默认 `network-compression-threshold=256` 下，应用字节从 515,041 降至 483,468，包含 BCZ1 帧头，节省约 6.13%。场景为平坦世界、进服及少量交互，统计还包含观察端与状态探测连接。
-
-这是应用流编码口径，不能当作 SSH/TCP 密文、网卡总流量或账单节省比例。已有压缩、加密、活动类型和数据分块都会影响收益。[压缩实现与限制](relay-compression.md)
-
-## 复现
-
-按 [构建指南](build.md) 安装原生运行目录及 `requirements.txt`，在仓库根目录运行。Ubuntu 示例：
+按[构建指南](build.md)安装完整原生运行目录及测试依赖，在 Ubuntu 的仓库根目录运行：
 
 ```bash
 export BUGGCRAFT_NATIVE_CORE="$PWD/runtime/bin/buggcraft-core"
 export BUGGCRAFT_BRIDGE_EXECUTABLE="$PWD/runtime/bin/buggcraft-bridge"
 
-# 对比转发；先检查脚本参数，根据目标环境设置负载并保留三轮结果
-.venv/bin/python scripts/benchmark.py --help
-
-# 30 分钟持续负载，9 条不限速大流
+# 30 分钟，3 位访客，每位 3 条不限速大流，另有延迟探测和短连接
 .venv/bin/python scripts/bridge_soak.py --seconds 1800 \
   --bulk-streams 3 --bulk-rate 0 --output validation-artifacts/bridge-soak.json
 ```
 
-运行前确认测试机器有足够资源与带宽，使用独立端口和目录。GUI 实测另需合法原版游戏资源、匹配版本的 Java 和图形环境，不属于上述回显压测。
+该负载不是 Minecraft GUI 游戏。原版游戏验证还需要合法游戏资源、匹配的 Java 和图形环境；应单独检查死亡复活、房间重进、连续游玩和多人同时操作。
 
-比较性能时应固定源码与构建参数、加密算法、压缩策略、流数、数据量和游戏活动，至少报告多轮范围。保留程序摘要、逐玩家日志、延迟分位数、吞吐时间窗口和资源采样，避免只展示平均吞吐而掩盖瞬时卡顿。
+运行前检查脚本的 `--help`，使用独立端口和目录，并确认机器有足够资源与带宽。回归必须同时校验数据内容与结束 EOF，不能仅统计平均吞吐；短暂停顿应通过最大延迟、分位数和时间窗口暴露。
+
+## 结果留存
+
+测试报告、测量 JSON、截图、逐玩家日志和排查记录保存在本地 `validation-artifacts/`，不提交到源代码仓库。分享结果时附源码提交、构建参数、机器与依赖版本、测试命令和统计口径，并清理凭据及玩家隐私。
+
+[GitHub Actions](https://github.com/vdjango/minecraft-tunnel-native/actions/workflows/core.yml)提供 Windows、Ubuntu、macOS ARM64/Intel 的构建与自动回归结果。CI 的短时多连接测试用于发现回归，不能替代公网实测或 30 分钟连续负载。压缩策略与限制见[中转压缩](relay-compression.md)。
