@@ -2,11 +2,46 @@ import ast
 import contextlib
 import io
 from pathlib import Path
+import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest import mock
 
 from scripts import build_native, embed_protocol_data
+
+
+@unittest.skipUnless(shutil.which('cmake'), 'CMake is required for runtime staging checks')
+class WindowsRuntimeStagingTests(unittest.TestCase):
+    def test_actual_cmake_rule_selects_all_dlls_for_each_configuration(self):
+        module = Path(__file__).resolve().parents[1] / 'cmake/StageWindowsCrypto.cmake'
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / 'crypto stage'
+            root.mkdir()
+            for config in ('release', 'debug'):
+                (root / config).mkdir()
+                for name in ('libssl.dll', 'libcrypto.dll'):
+                    (root / config / name).write_bytes((config + ':' + name).encode())
+            (root / 'main.c').write_text('int main(void) { return 0; }\n')
+            (root / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.24)
+project(crypto_staging C)
+include("{module.as_posix()}")
+file(GLOB native_crypto_runtime "${{CMAKE_SOURCE_DIR}}/release/*.dll")
+file(GLOB native_crypto_runtime_debug "${{CMAKE_SOURCE_DIR}}/debug/*.dll")
+add_executable(probe main.c)
+set_target_properties(probe PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${{CMAKE_BINARY_DIR}}/out/$<CONFIG>")
+buggcraft_stage_windows_crypto(probe)
+''', encoding='utf-8')
+            build = root / 'build'
+            for config in ('Release', 'Debug'):
+                for command in (["cmake", "-S", str(root), "-B", str(build), f"-DCMAKE_BUILD_TYPE={config}"],
+                                ["cmake", "--build", str(build), "--config", config, "--parallel", "2"]):
+                    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                            text=True, errors='replace', timeout=90)
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                for name in ('libssl.dll', 'libcrypto.dll'):
+                    self.assertEqual((build / 'out' / config / name).read_bytes(),
+                                     (config.lower() + ':' + name).encode())
 
 
 class ProtocolEmbeddingTests(unittest.TestCase):

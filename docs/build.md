@@ -108,11 +108,11 @@ Ubuntu 仍需提供系统 OpenSSL 3 运行库；macOS 构建将 OpenSSL 静态�
 准备正式版本时，先修改 `CMakeLists.txt` 的项目版本并提交，再推送对应标签：
 
 ```bash
-git tag v0.3.1
-git push origin v0.3.1
+git tag v0.3.2
+git push origin v0.3.2
 ```
 
-标签版本必须与 CMake 一致。也支持 `v0.3.1-rc.1`、`-beta.1`、`-alpha.1`，这些会标记为预发布。普通分支提交只保留构建产物，不创建 Release。
+标签版本必须与 CMake 一致。也支持 `v0.3.2-rc.1`、`-beta.1`、`-alpha.1`，这些会标记为预发布。普通分支提交只保留构建产物，不创建 Release。
 
 所有平台成功后，发布任务下载本次构建的归档，验证五个包及 SHA-256，再创建 Release 草稿、上传附件并发布。上传中途失败可以重跑发布任务，草稿会继续上传；已经发布的版本不会被覆盖。
 

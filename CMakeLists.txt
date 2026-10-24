@@ -1,5 +1,5 @@
 ﻿cmake_minimum_required(VERSION 3.24)
-project(buggcraft_native VERSION 0.3.1 LANGUAGES C CXX)
+project(buggcraft_native VERSION 0.3.2 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -85,20 +85,7 @@ if(WIN32)
   file(GLOB native_crypto_runtime_debug CONFIGURE_DEPENDS
     "${OPENSSL_INCLUDE_DIR}/../debug/bin/libcrypto*.dll"
     "${OPENSSL_INCLUDE_DIR}/../debug/bin/libssl*.dll")
-  function(buggcraft_stage_windows_crypto target)
-    if(native_crypto_runtime)
-      set(crypto_files ${native_crypto_runtime})
-      if(native_crypto_runtime_debug)
-        set(crypto_files
-          "$<$<CONFIG:Debug>:${native_crypto_runtime_debug}>"
-          "$<$<NOT:$<CONFIG:Debug>>:${native_crypto_runtime}>")
-      endif()
-      add_custom_command(TARGET ${target} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-          ${crypto_files} "$<TARGET_FILE_DIR:${target}>"
-        COMMAND_EXPAND_LISTS VERBATIM)
-    endif()
-  endfunction()
+  include(cmake/StageWindowsCrypto.cmake)
   buggcraft_stage_windows_crypto(buggcraft-core)
   if(MSVC)
     # These are redistributable VC runtime files, not arbitrary System32 DLLs.
