@@ -68,6 +68,9 @@ if(WIN32)
 endif()
 if(MSVC)
   target_compile_options(buggcraft-core PRIVATE /W4 /utf-8 /permissive-)
+  target_compile_definitions(buggcraft-core PRIVATE
+    _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
+    _SILENCE_CXX20_U8PATH_DEPRECATION_WARNINGS)
 else()
   target_compile_options(buggcraft-core PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
 endif()
@@ -219,6 +222,9 @@ if(BUGGCRAFT_BRIDGE)
   endif()
   if(MSVC)
     target_compile_options(buggcraft-bridge-engine PRIVATE /W4 /utf-8 /permissive-)
+    target_compile_definitions(buggcraft-bridge-engine PRIVATE
+      _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
+      _SILENCE_CXX20_U8PATH_DEPRECATION_WARNINGS)
   else()
     target_compile_options(buggcraft-bridge-engine PRIVATE -Wall -Wextra -Wpedantic)
   endif()

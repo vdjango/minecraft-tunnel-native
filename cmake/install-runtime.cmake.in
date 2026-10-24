@@ -10,7 +10,12 @@ file(GET_RUNTIME_DEPENDENCIES
   LIBRARIES ${runtime_libraries}
   RESOLVED_DEPENDENCIES_VAR dependencies
   UNRESOLVED_DEPENDENCIES_VAR missing
-  DIRECTORIES "$<TARGET_FILE_DIR:ssh>" "@CMAKE_CURRENT_BINARY_DIR@" ${runtime_directories}
+  # The bridge post-build step places toolchain DLLs beside the binaries.
+  # Include that directory so dependencies such as vcpkg's z.dll are copied
+  # into a relocated install instead of being resolved from the build host.
+  DIRECTORIES "$<TARGET_FILE_DIR:ssh>" "$<TARGET_FILE_DIR:buggcraft-core>"
+              "$<TARGET_FILE_DIR:buggcraft-bridge>" "@CMAKE_CURRENT_BINARY_DIR@"
+              ${runtime_directories}
   PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-"
   POST_EXCLUDE_REGEXES "[/\\][Ww][Ii][Nn][Dd][Oo][Ww][Ss][/\\]")
 if(missing)
