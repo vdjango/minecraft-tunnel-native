@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import tarfile
 import urllib.request
@@ -37,16 +38,15 @@ def fetch(item):
                 if not target.exists():
                     temporary = base / (folder + '.git-tmp')
                     if temporary.exists():
-                        import shutil
                         shutil.rmtree(temporary)
                     subprocess.run([
                         'git', 'clone', '--depth', '1', '--branch', 'libssh-0.12.2',
                         'https://github.com/libssh/libssh-mirror.git', str(temporary),
                     ], check=True)
-                    revision = git('rev-parse', 'HEAD', cwd=temporary)
-                    if revision != LIBSSH_MIRROR_COMMIT:
-                        raise ValueError(f'libssh mirror revision mismatch: {revision}')
                     temporary.replace(target)
+                revision = git('rev-parse', 'HEAD', cwd=target)
+                if revision != LIBSSH_MIRROR_COMMIT:
+                    raise ValueError(f'libssh mirror revision mismatch: {revision}')
                 return f'libssh commit={LIBSSH_MIRROR_COMMIT} source={target}'
             if name not in ('json', 'zlib'):
                 raise
