@@ -143,6 +143,15 @@ if(WIN32)
     include(InstallRequiredSystemLibraries)
     install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION bin)
   endif()
+  set(NATIVE_RUNTIME_EXECUTABLES "$<TARGET_FILE:buggcraft-core>")
+  set(NATIVE_RUNTIME_LIBRARIES)
+  if(BUGGCRAFT_BRIDGE)
+    list(APPEND NATIVE_RUNTIME_EXECUTABLES "$<TARGET_FILE:buggcraft-bridge>")
+    list(APPEND NATIVE_RUNTIME_LIBRARIES "$<TARGET_FILE:buggcraft-bridge-library>")
+    # Scan the selected curl DLL explicitly: a consumer alone can resolve
+    # System32/libcurl.dll, whose dependencies omit the required vcpkg z.dll.
+    list(APPEND NATIVE_RUNTIME_LIBRARIES ${native_curl_runtime})
+  endif()
   configure_file(cmake/install-runtime.cmake.in install-runtime.in.cmake @ONLY)
   file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/install-runtime-$<CONFIG>.cmake"
        INPUT "${CMAKE_CURRENT_BINARY_DIR}/install-runtime.in.cmake")

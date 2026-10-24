@@ -1,10 +1,6 @@
 set(runtime_directories "@NATIVE_RUNTIME_DIRS@")
-set(runtime_executables "$<TARGET_FILE:buggcraft-core>")
-set(runtime_libraries)
-if(@BUGGCRAFT_BRIDGE@)
-  list(APPEND runtime_executables "$<TARGET_FILE:buggcraft-bridge>")
-  list(APPEND runtime_libraries "$<TARGET_FILE:buggcraft-bridge-library>")
-endif()
+set(runtime_executables "@NATIVE_RUNTIME_EXECUTABLES@")
+set(runtime_libraries "@NATIVE_RUNTIME_LIBRARIES@")
 file(GET_RUNTIME_DEPENDENCIES
   EXECUTABLES ${runtime_executables}
   LIBRARIES ${runtime_libraries}
@@ -14,7 +10,7 @@ file(GET_RUNTIME_DEPENDENCIES
   # Include that directory so dependencies such as vcpkg's z.dll are copied
   # into a relocated install instead of being resolved from the build host.
   DIRECTORIES "$<TARGET_FILE_DIR:ssh>" "$<TARGET_FILE_DIR:buggcraft-core>"
-              "$<TARGET_FILE_DIR:buggcraft-bridge>" "@CMAKE_CURRENT_BINARY_DIR@"
+              "@CMAKE_CURRENT_BINARY_DIR@"
               ${runtime_directories}
   PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-"
   POST_EXCLUDE_REGEXES "[/\\][Ww][Ii][Nn][Dd][Oo][Ww][Ss][/\\]")
