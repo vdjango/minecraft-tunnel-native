@@ -119,6 +119,7 @@ jobs:
             build/Testing/Temporary/LastTest.log
             windows-protocol-tests.log
             windows-compatibility.log
+            package/bin/
           if-no-files-found: warn
 
   release:
