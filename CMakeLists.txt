@@ -1,5 +1,5 @@
 ﻿cmake_minimum_required(VERSION 3.24)
-project(buggcraft_native VERSION 0.3.0 LANGUAGES C CXX)
+project(buggcraft_native VERSION 0.3.1 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -75,12 +75,49 @@ install(TARGETS ${NATIVE_SSH_TARGET} RUNTIME DESTINATION bin LIBRARY DESTINATION
 if(WIN32)
   get_filename_component(NATIVE_COMPILER_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
   set(NATIVE_RUNTIME_DIRS "${NATIVE_COMPILER_DIR};${OPENSSL_ROOT_DIR}/bin;${OPENSSL_INCLUDE_DIR}/../bin")
+  # FindOpenSSL uses UNKNOWN imported targets on Windows, so their runtime
+  # DLLs are absent from TARGET_RUNTIME_DLLS. Stage the selected toolchain's
+  # crypto beside each consumer before dependency scanning can pick a DLL
+  # from the build machine's PATH or Windows directories.
+  file(GLOB native_crypto_runtime CONFIGURE_DEPENDS
+    "${OPENSSL_INCLUDE_DIR}/../bin/libcrypto*.dll"
+    "${OPENSSL_INCLUDE_DIR}/../bin/libssl*.dll")
+  file(GLOB native_crypto_runtime_debug CONFIGURE_DEPENDS
+    "${OPENSSL_INCLUDE_DIR}/../debug/bin/libcrypto*.dll"
+    "${OPENSSL_INCLUDE_DIR}/../debug/bin/libssl*.dll")
+  function(buggcraft_stage_windows_crypto target)
+    if(native_crypto_runtime)
+      set(crypto_files ${native_crypto_runtime})
+      if(native_crypto_runtime_debug)
+        set(crypto_files
+          "$<$<CONFIG:Debug>:${native_crypto_runtime_debug}>"
+          "$<$<NOT:$<CONFIG:Debug>>:${native_crypto_runtime}>")
+      endif()
+      add_custom_command(TARGET ${target} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${crypto_files} "$<TARGET_FILE_DIR:${target}>"
+        COMMAND_EXPAND_LISTS VERBATIM)
+    endif()
+  endfunction()
+  buggcraft_stage_windows_crypto(buggcraft-core)
+  if(MSVC)
+    # These are redistributable VC runtime files, not arbitrary System32 DLLs.
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+    include(InstallRequiredSystemLibraries)
+    install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION bin)
+  endif()
   configure_file(cmake/install-runtime.cmake.in install-runtime.in.cmake @ONLY)
   file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/install-runtime-$<CONFIG>.cmake"
        INPUT "${CMAKE_CURRENT_BINARY_DIR}/install-runtime.in.cmake")
   install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/install-runtime-$<CONFIG>.cmake")
 endif()
 install(FILES LICENSE THIRD_PARTY_NOTICES.md DESTINATION share/buggcraft-native)
+find_file(NATIVE_OPENSSL_LICENSE NAMES copyright LICENSE.txt LICENSE LICENSE.md
+  PATHS "${OPENSSL_INCLUDE_DIR}/../share/openssl" "${OPENSSL_INCLUDE_DIR}/.."
+  NO_DEFAULT_PATH)
+if(NATIVE_OPENSSL_LICENSE)
+  install(FILES "${NATIVE_OPENSSL_LICENSE}" DESTINATION share/buggcraft-native/licenses RENAME openssl.txt)
+endif()
 if(BUGGCRAFT_BRIDGE)
   set(NO_MEDIA ON CACHE BOOL "" FORCE)
   set(NO_WEBSOCKET ON CACHE BOOL "" FORCE)
@@ -127,6 +164,10 @@ if(BUGGCRAFT_BRIDGE)
   target_include_directories(buggcraft-bridge-library PUBLIC include)
   target_compile_definitions(buggcraft-bridge-library PRIVATE BUGGCRAFT_BRIDGE_EXPORTS)
   target_link_libraries(buggcraft-bridge-library PRIVATE buggcraft-bridge-engine)
+  if(WIN32)
+    buggcraft_stage_windows_crypto(buggcraft-bridge)
+    buggcraft_stage_windows_crypto(buggcraft-bridge-library)
+  endif()
   add_custom_command(TARGET buggcraft-bridge POST_BUILD COMMAND ${CMAKE_COMMAND} -E
     copy_if_different $<TARGET_FILE:datachannel> $<TARGET_FILE_DIR:buggcraft-bridge>)
   if(WIN32)
