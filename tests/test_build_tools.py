@@ -36,11 +36,17 @@ class DependencyFallbackTests(unittest.TestCase):
 @unittest.skipUnless(shutil.which('cmake'), 'CMake is required for runtime staging checks')
 class WindowsRuntimeStagingTests(unittest.TestCase):
     def test_actual_cmake_rule_selects_all_dlls_for_each_configuration(self):
+        self.check_runtime_install(True)
+
+    def test_install_without_separate_debug_runtime(self):
+        self.check_runtime_install(False)
+
+    def check_runtime_install(self, separate_debug):
         module = Path(__file__).resolve().parents[1] / 'cmake/StageWindowsCrypto.cmake'
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / 'crypto stage'
             root.mkdir()
-            for config in ('release', 'debug'):
+            for config in (('release', 'debug') if separate_debug else ('release',)):
                 (root / config).mkdir()
                 for name in ('libssl.dll', 'libcrypto.dll'):
                     (root / config / name).write_bytes((config + ':' + name).encode())
@@ -64,7 +70,7 @@ buggcraft_install_windows_crypto()
                     self.assertEqual(result.returncode, 0, result.stdout)
                 for name in ('libssl.dll', 'libcrypto.dll'):
                     self.assertEqual((build / 'out' / config / name).read_bytes(),
-                                     (config.lower() + ':' + name).encode())
+                                     ((config.lower() if separate_debug else 'release') + ':' + name).encode())
                 install = root / ('installed ' + config)
                 result = subprocess.run(['cmake', '--install', str(build), '--config', config,
                                          '--prefix', str(install)],
@@ -73,7 +79,7 @@ buggcraft_install_windows_crypto()
                 self.assertEqual(result.returncode, 0, result.stdout)
                 for name in ('libssl.dll', 'libcrypto.dll'):
                     self.assertEqual((install / 'bin' / name).read_bytes(),
-                                     (config.lower() + ':' + name).encode())
+                                     ((config.lower() if separate_debug else 'release') + ':' + name).encode())
 
 
 class ProtocolEmbeddingTests(unittest.TestCase):
