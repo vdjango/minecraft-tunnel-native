@@ -73,8 +73,12 @@ jobs:
           else
             export BUGGCRAFT_BRIDGE_LIBRARY="$PWD/package/lib/libbuggcraft_bridge.so"
           fi
-          python -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v
-          python scripts/check_compatibility.py
+          python -u -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v 2>&1 | tee unix-protocol-tests.log
+          test_status=${PIPESTATUS[0]}
+          if [ "$test_status" -ne 0 ]; then exit "$test_status"; fi
+          python -u scripts/check_compatibility.py 2>&1 | tee unix-compatibility.log
+          test_status=${PIPESTATUS[0]}
+          if [ "$test_status" -ne 0 ]; then exit "$test_status"; fi
       - name: Build Ubuntu installer
         if: runner.os == 'Linux'
         run: python scripts/build_deb.py --runtime package --version '${{ steps.release.outputs.deb_version }}'
@@ -124,6 +128,8 @@ jobs:
             windows-protocol-tests.log
             windows-compatibility.log
             windows-library-tests.log
+            unix-protocol-tests.log
+            unix-compatibility.log
             package/bin/
           if-no-files-found: warn
 
