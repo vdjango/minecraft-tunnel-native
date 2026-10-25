@@ -222,6 +222,12 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
             reader, writer = await asyncio.open_connection('127.0.0.1', port)
             payload = b'control-budget-game-data' * 2000
             try:
+                # Real game streams must pass the Minecraft handshake gate
+                # before bulk payloads; arbitrary bytes are correctly rejected.
+                writer.write(fixture.GAME_HANDSHAKE)
+                await writer.drain()
+                self.assertEqual(await asyncio.wait_for(
+                    reader.readexactly(len(fixture.GAME_HANDSHAKE)), 5), fixture.GAME_HANDSHAKE)
                 while not done.is_set():
                     started = time.perf_counter()
                     writer.write(payload)
