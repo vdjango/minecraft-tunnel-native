@@ -257,12 +257,13 @@ if(BUGGCRAFT_BRIDGE)
     buggcraft_stage_windows_crypto(buggcraft-bridge-library)
     buggcraft_stage_mingw_runtime(buggcraft-bridge)
     buggcraft_stage_mingw_runtime(buggcraft-bridge-library)
-    foreach(curl_dll IN LISTS native_curl_runtime)
+    if(native_curl_runtime)
       foreach(consumer buggcraft-bridge buggcraft-bridge-library)
         add_custom_command(TARGET ${consumer} POST_BUILD COMMAND ${CMAKE_COMMAND} -E
-          copy_if_different "${curl_dll}" "$<TARGET_FILE_DIR:${consumer}>")
+          copy_if_different "${native_curl_runtime}" "$<TARGET_FILE_DIR:${consumer}>"
+          COMMAND_EXPAND_LISTS VERBATIM)
       endforeach()
-    endforeach()
+    endif()
   endif()
   add_custom_command(TARGET buggcraft-bridge POST_BUILD COMMAND ${CMAKE_COMMAND} -E
     copy_if_different $<TARGET_FILE:datachannel> $<TARGET_FILE_DIR:buggcraft-bridge>)
