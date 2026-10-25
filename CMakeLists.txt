@@ -138,7 +138,7 @@ if(WIN32)
     if(native_curl_runtime)
       # Windows also ships a libcurl.dll in System32. Do not let dependency
       # scanning substitute it for the curl selected by the build toolchain.
-      install(FILES ${native_curl_runtime} DESTINATION bin)
+      install(FILES "${native_curl_runtime}" DESTINATION bin)
     endif()
   endif()
   # FindOpenSSL uses UNKNOWN imported targets on Windows, so their runtime
