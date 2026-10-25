@@ -16,6 +16,8 @@ import asyncssh
 from tunnel.diagnostics import Diagnostics
 from tests.network_proxy import BlackholeProxy
 
+GAME_HANDSHAKE = b'\x10\x00\xfd\x05\x09localhost\x63\xdd\x02'
+
 class BridgeTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         retained = os.environ.get('BUGGCRAFT_BRIDGE_SOAK_LOG_DIR')
@@ -117,6 +119,9 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
 
     async def exchange(self, joined, data=None):
         data = data if data is not None else secrets.token_bytes(1024*1024)
+        # The host now rejects streams which do not begin with Minecraft's
+        # actual handshake. Keep the bulk/EOF test behind that protocol gate.
+        data = GAME_HANDSHAKE + data
         reader, writer = await asyncio.open_connection('127.0.0.1',int(joined['address'].rsplit(':',1)[1]))
         async def send():
             writer.write(data); await writer.drain(); writer.write_eof()
@@ -147,7 +152,11 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         hn, gn = await self.add(host), await self.add(guest)
         hosted = await self.call(host,'room.host',{'node':hn,'game_port':self.port})
         direct = await self.call(guest,'room.join',{'node':gn,'invite':hosted['invite']})
-        self.assertEqual(direct['transport'],'p2p')
+        # A WebRTC offer/answer can complete before ICE connectivity does.
+        # The bridge deliberately returns relay availability first and retries
+        # direct negotiation in the background, so wait for the observable
+        # P2P state before asserting the mixed-path behavior.
+        direct = await self.wait_direct(guest,direct)
         relayed = await self.call(guest,'room.join',{'node':gn,'invite':hosted['invite'],'transport':'relay'})
         await asyncio.gather(self.exchange(direct),self.exchange(relayed))
         await self.call(host,'room.close',{'session':hosted['session']})

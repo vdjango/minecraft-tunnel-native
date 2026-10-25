@@ -95,8 +95,7 @@ void Worker::run() {
             for (auto& action : actions) action();
             progress = !actions.empty();
             actions.clear();
-            for (size_t i = 0; i < current.size(); ++i) {
-                auto& peer = current[i];
+            for (auto& peer : current) {
                 if (peer->worker.load() != this || peer->dead) continue;
                 progress |= pump(peer);
             }

@@ -3,6 +3,7 @@
 #include "journal.hpp"
 #include "../../bridge/progress.hpp"
 #include "../../bridge/route_score.hpp"
+#include "../../include/buggcraft/minecraft_handshake.hpp"
 #include <sstream>
 #include <random>
 #include <functional>
@@ -26,6 +27,13 @@ int main(){
     add_heartbeat_tests(cases);
     add_game_wire_tests(cases);
     auto add=[&](std::string name,std::function<void()> test){cases.emplace_back(std::move(name),std::move(test));};
+    add("minecraft_handshake_split_and_reject",[]{
+        const std::string valid{char(15),char(0),char(47),char(9),'l','o','c','a','l','h','o','s','t',char(99),char(221),char(2)};
+        for(size_t i=0;i<valid.size();++i)require(buggcraft::minecraft_handshake(std::string_view(valid).substr(0,i))==buggcraft::HandshakeState::partial,"split handshake rejected");
+        require(buggcraft::minecraft_handshake(valid)==buggcraft::HandshakeState::valid,"Minecraft handshake rejected");
+        auto non_handshake=valid;non_handshake[1]='\x01';require(buggcraft::minecraft_handshake(non_handshake)==buggcraft::HandshakeState::invalid,"non-handshake packet accepted");
+        auto invalid=valid;invalid.back()='\x03';require(buggcraft::minecraft_handshake(invalid)==buggcraft::HandshakeState::invalid,"invalid next state accepted");
+    });
     add("route_bandwidth_beats_small_latency_advantage",[]{
         bridge::RouteSample full{8,0,.98,1,true,true},free{30,0,.1,40,true,true};
         require(bridge::route_score(free)<bridge::route_score(full),"saturated node preferred");});

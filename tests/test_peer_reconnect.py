@@ -31,6 +31,12 @@ class PeerReconnectTests(unittest.IsolatedAsyncioTestCase):
         port = int(joined['address'].rsplit(':', 1)[1])
         reader, writer = await asyncio.open_connection('127.0.0.1', port)
         try:
+            # Keep the long-lived synthetic game socket behind the host's
+            # Minecraft handshake gate before exercising stream churn.
+            writer.write(fixture.GAME_HANDSHAKE)
+            await writer.drain()
+            self.assertEqual(await asyncio.wait_for(
+                reader.readexactly(len(fixture.GAME_HANDSHAKE)), 5), fixture.GAME_HANDSHAKE)
             for index in range(640):
                 with self.subTest(connection=index):
                     await self.exchange(joined, b'status-probe:' + index.to_bytes(4, 'big'))

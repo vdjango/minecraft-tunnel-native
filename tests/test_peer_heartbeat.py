@@ -62,6 +62,10 @@ class PeerHeartbeatTests(unittest.IsolatedAsyncioTestCase):
         port = int(joined['address'].rsplit(':', 1)[1])
         reader, writer = await asyncio.open_connection('127.0.0.1', port)
         self.addCleanup(writer.close)
+        writer.write(fixture.GAME_HANDSHAKE)
+        await writer.drain()
+        self.assertEqual(await asyncio.wait_for(
+            reader.readexactly(len(fixture.GAME_HANDSHAKE)), 5), fixture.GAME_HANDSHAKE)
         writer.write(b'old-stream')
         await writer.drain()
         self.assertEqual(await reader.readexactly(10), b'old-stream')
@@ -96,6 +100,10 @@ class PeerHeartbeatTests(unittest.IsolatedAsyncioTestCase):
         # Hold a relay game connection while the same session restores P2P.
         rr, rw = await asyncio.open_connection('127.0.0.1', port)
         self.addCleanup(rw.close)
+        rw.write(fixture.GAME_HANDSHAKE)
+        await rw.drain()
+        self.assertEqual(await asyncio.wait_for(
+            rr.readexactly(len(fixture.GAME_HANDSHAKE)), 5), fixture.GAME_HANDSHAKE)
         rw.write(b'relay-first')
         await rw.drain()
         self.assertEqual(await asyncio.wait_for(rr.readexactly(11), 5), b'relay-first')

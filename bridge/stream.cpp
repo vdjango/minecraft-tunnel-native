@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "session.hpp"
+#include "../include/buggcraft/minecraft_handshake.hpp"
 namespace bridge {
 Stream::~Stream(){
     if(!session.empty())log("stream_closed",{{"session",session},{"player",player},{"stream",trace},{"sent_bytes",sent},{"received_bytes",received},{"duration_ms",std::chrono::duration<double,std::milli>(Clock::now()-created).count()},{"max_stall_ms",max_stall_ms},{"clean_eof",sent_eof&&socket_eof}});
@@ -63,6 +64,17 @@ void Session::pump(Stream& stream){
             else if(count==SSH_ERROR){stream.dead=true;return;}
             else if(ssh_channel_is_eof(stream.channel)){if(stream.codec&&!stream.codec->complete())throw std::runtime_error("Truncated compressed stream");stream.remote_eof=true;}
         }
+    }
+    // Validate decrypted/decompressed visitor bytes at the host for every path.
+    // No bytes may reach the local Minecraft socket before the full handshake.
+    if(role=="host"&&!stream.handshake_validated){
+        const auto state=buggcraft::minecraft_handshake(std::string_view(stream.to_socket.read_ptr(),stream.to_socket.readable()));
+        if(state==buggcraft::HandshakeState::invalid ||
+           (state==buggcraft::HandshakeState::partial&&(stream.to_socket.size()>8192||stream.remote_eof||Clock::now()-stream.created>std::chrono::seconds(10)))){
+            stream.dead=true;log("stream_rejected",{{"session",identity},{"player",stream.player},{"stream",stream.trace},{"reason","minecraft-handshake"}});return;
+        }
+        if(state==buggcraft::HandshakeState::partial)return;
+        stream.handshake_validated=true;
     }
     if(stream.to_socket.size()){int count=net_send(stream.socket,stream.to_socket.read_ptr(),static_cast<int>(std::min<size_t>(65536,stream.to_socket.readable())));if(count>0){stream.to_socket.consumed(static_cast<size_t>(count));stream.received+=static_cast<size_t>(count);if(stream.data){std::array<std::byte,5> ack{std::byte{'A'}};auto amount=htonl(static_cast<uint32_t>(count));std::memcpy(ack.data()+1,&amount,4);stream.data->send(ack.data(),ack.size());}}else if(count<0&&!would_block()){stream.dead=true;return;}}
     if(stream.local_eof&&!stream.sent_eof&&!stream.to_wire.size()){

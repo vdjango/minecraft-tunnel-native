@@ -245,6 +245,11 @@ void Session::run(){
     }
     cleanup();
     if(!retry)break;
+    if(retries>=6){
+        stop_reason_="backup-unavailable";
+        event({{"type","offline"},{"reason",stop_reason_},{"error","所有缓存节点均不可用，请重新探测或更新接入码"}});
+        break;
+    }
     next_route();
     const unsigned wait_seconds=std::min(1u<<std::min(retries++,4u),10u);
     log("endpoint_reconnecting",{{"session",identity},{"attempt",retries},{"delay_seconds",wait_seconds}});
