@@ -177,6 +177,7 @@ void Session::read_controls(){
         flush(chat_,chat_output_);int count=ssh_channel_read_nonblocking(chat_,buffer,sizeof(buffer),0);
         if(count>0){chat_input_.append(buffer,static_cast<size_t>(count));if(chat_input_.size()>65536)throw std::runtime_error("Chat frame limit");size_t newline;while((newline=chat_input_.find('\n'))!=std::string::npos){auto value=Json::parse(chat_input_.substr(0,newline));chat_input_.erase(0,newline+1);
             auto type=value.value("type",std::string{});
+            if(type=="ready"&&role=="host"&&!game_chat_status_.empty())value["bridge"]=game_chat_status_;
             if(type=="message"&&(!game::plain_text(value.at("text").get<std::string>())||!game::plain_text(value.at("sender").get<std::string>(),32)))throw Failure(-32602,"Invalid chat event");
             auto request=value.value("request",Json(nullptr));if(request.is_string()){
                 auto found=chat_pending_.find(request.get<std::string>());if(found!=chat_pending_.end()){

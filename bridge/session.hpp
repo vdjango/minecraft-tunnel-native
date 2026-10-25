@@ -47,6 +47,7 @@ class Session:public std::enable_shared_from_this<Session> {
     std::string player_,chat_name_;
     bool game_chat_enabled_=false;
     std::string game_chat_name_;
+    std::string game_chat_status_;
     std::unique_ptr<GameChat> game_chat_;
     std::vector<Profile> alternatives_;
     size_t route_index_=0;
@@ -135,6 +136,7 @@ class Session:public std::enable_shared_from_this<Session> {
     void read_controls();
     void advance_chat();
     void start_game_chat();
+    void publish_game_chat_status(std::string status);
     void advance_requests();
     void advance_presence();
     void flush(ssh_channel channel,std::string& value);

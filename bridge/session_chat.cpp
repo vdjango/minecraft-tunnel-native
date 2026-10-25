@@ -2,13 +2,27 @@
 #include "session.hpp"
 #include "game_wire.hpp"
 namespace bridge {
+void Session::publish_game_chat_status(std::string status){
+    game_chat_status_=std::move(status);
+    event({{"type","bridge"},{"status",game_chat_status_}});
+    if(chat_stage_==2&&chat_output_.size()<24000)
+        chat_output_+=Json{{"op","bridge"},{"status",game_chat_status_}}.dump(-1,' ',true)+"\n";
+}
 void Session::start_game_chat(){
-    if(role!="host"||!game_chat_enabled_||!game_port_||game_chat_)return;
+    if(role!="host")return;
+    if(!game_chat_enabled_){publish_game_chat_status("房主未开启游戏聊天同步，大厅聊天可正常使用");return;}
+    if(!game_port_){
+        if(game_chat_status_!="等待房主开放世界，大厅聊天可正常使用")
+            publish_game_chat_status("等待房主开放世界，大厅聊天可正常使用");
+        return;
+    }
+    if(game_chat_)return;
+    publish_game_chat_status("正在连接游戏聊天，大厅聊天可正常使用");
     try{auto protocol=settings_.value("game",Json::object()).value("protocol",0);game_chat_=std::make_unique<GameChat>(game_port_,protocol,game_chat_name_,[this](Json value){post([this,value]{
         if(value.value("type","")=="bridge"){
-            event(value);if(chat_stage_==2&&chat_output_.size()<24000)chat_output_+=Json{{"op","bridge"},{"status",value.at("status")}}.dump(-1,' ',true)+"\n";
+            publish_game_chat_status(value.at("status").get<std::string>());
         }else if(chat_stage_==2&&chat_output_.size()<24000)chat_output_+=value.dump(-1,' ',true)+"\n";
-    });});}catch(...){event({{"type","bridge"},{"status","此游戏协议暂不支持游戏聊天，大厅聊天仍可使用"}});}
+    });});}catch(...){publish_game_chat_status("此游戏协议暂不支持游戏聊天，大厅聊天仍可使用");}
 }
 void Session::advance_chat(){
     for(auto it=chat_pending_.begin();it!=chat_pending_.end();)if(Clock::now()>it->second.deadline){it->second.result->set_exception(std::make_exception_ptr(Failure(-32000,"Chat acknowledgement timed out")));it=chat_pending_.erase(it);}else ++it;
@@ -17,7 +31,14 @@ void Session::advance_chat(){
     int result=chat_stage_==0?ssh_channel_open_session(chat_):ssh_channel_request_subsystem(chat_,"buggcraft-chat-v1");
     if(result==SSH_AGAIN)return;
     if(result!=SSH_OK){free_channel(chat_);chat_stage_=0;next_chat_=Clock::now()+std::chrono::seconds(3);return;}
-    if(++chat_stage_==2){chat_output_=Json{{"op","hello"},{"name",chat_name_}}.dump(-1,' ',true)+"\n";chat_input_.clear();}
+    if(++chat_stage_==2){
+        chat_output_=Json{{"op","hello"},{"name",chat_name_}}.dump(-1,' ',true)+"\n";
+        // Game login may finish before the chat subsystem opens. Always send
+        // the latest status after hello, including after channel reconnects.
+        if(role=="host"&&!game_chat_status_.empty())
+            chat_output_+=Json{{"op","bridge"},{"status",game_chat_status_}}.dump(-1,' ',true)+"\n";
+        chat_input_.clear();
+    }
     wake_.notify();
 }
 Json Session::chat(Json value){

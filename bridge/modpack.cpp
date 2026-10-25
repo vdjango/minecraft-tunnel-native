@@ -83,8 +83,15 @@ Json ModTransfers::metadata()const{
            item.at("size").get<uint64_t>()<=2147483647ull)preview.push_back(item);
     }
     Json result{{"mods_count",catalog_.size()},{"mods",std::move(preview)}};
-    if(!catalog_.empty()){
-        const auto serialized=catalog_.dump();unsigned char digest[EVP_MAX_MD_SIZE]{};unsigned length=0;
+    {
+        // The launcher identifies a mod set by sorted byte hashes, independent
+        // of filenames, JSON key order, and the preview's pagination limit.
+        std::vector<std::string> hashes;
+        for(const auto& item:catalog_)hashes.push_back(item.at("sha256").get<std::string>());
+        std::sort(hashes.begin(),hashes.end());
+        std::string serialized;
+        for(size_t i=0;i<hashes.size();++i){if(i)serialized+='\n';serialized+=hashes[i];}
+        unsigned char digest[EVP_MAX_MD_SIZE]{};unsigned length=0;
         if(EVP_Digest(serialized.data(),serialized.size(),digest,&length,EVP_sha256(),nullptr)!=1||length!=32)
             throw std::runtime_error("Mod manifest digest failed");
         static constexpr char hex[]="0123456789abcdef";std::string value;value.reserve(64);

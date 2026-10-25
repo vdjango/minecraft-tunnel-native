@@ -3,6 +3,7 @@ import asyncio
 import base64
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 import time
@@ -59,6 +60,10 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(page['offset'], len(items))
             items += page['items']
         await self.call(guest, 'mods.cancel', dict(session=joined['session'], transfer=result['transfer']))
+        expected_hash = hashlib.sha256('\n'.join(sorted(
+            item['sha256'] for item in items)).encode()).hexdigest()
+        self.assertEqual(published['mods_hash'], expected_hash,
+                         'Native room metadata must use the launcher mod-set hash')
         item = next(item for item in items if item['name'] == '大文件.jar')
         self.assertEqual(item['sha256'], hashlib.sha256(payload).hexdigest())
         target = self.logs / '下载目录'
@@ -112,6 +117,68 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(found[0]['sender'], '访客')
         self.assertEqual(found[0]['source'], 'lobby')
         await self.exchange(joined)
+
+    async def test_disabled_game_bridge_has_explicit_status_on_host_and_late_guest(self):
+        host, guest, hosted, joined = await self.pair()
+        for process, room in ((host, hosted), (guest, joined)):
+            found = False
+            async with asyncio.timeout(5):
+                while not found:
+                    events = (await self.call(process, 'session.events', dict(session=room['session'])))['events']
+                    found = any('未开启' in e.get('status', e.get('bridge', '')) for e in events)
+                    await asyncio.sleep(.02)
+        await self.call(guest, 'chat.send', dict(session=joined['session'], text='大厅仍可聊天'))
+
+    @unittest.skipUnless(os.environ.get('BUGGCRAFT_LAUNCHER_SOURCE') or
+                         (ROOT.parent / 'buggcraft/src/buggcraft').is_dir(), 'Launcher source required')
+    async def test_launcher_endpoints_validate_full_native_manifest_and_send_chat(self):
+        sys.path.insert(0, os.environ.get('BUGGCRAFT_LAUNCHER_SOURCE',
+                                       str(ROOT.parent / 'buggcraft/src/buggcraft')))
+        from hookup.native_transport import TunnelHost, TunnelClient
+        from hookup.native_routes import close
+        from hookup.profiles import RelayProfile
+        from hookup.modpack import fetch_manifest, manifest_hash
+        from hookup.rooms import instance_metadata
+        directory = self.logs / 'launcher-instance'
+        mods = directory / 'mods'
+        mods.mkdir(parents=True)
+        profile_dir = directory / 'versions/forge'
+        profile_dir.mkdir(parents=True)
+        (profile_dir / 'forge.json').write_text(json.dumps({'id': 'forge', 'clientVersion': '1.19.2',
+            'libraries': [{'name': 'net.minecraftforge:forge:1.19.2-43.3.5'}]}))
+        for i in range(110):
+            (mods / ('模组-' + str(i) + '.jar')).write_bytes(bytes([i]) * 31)
+        game = instance_metadata(directory, 'forge', directory)
+        host = TunnelHost(RelayProfile(**self.profile), game_port=self.port, game_directory=directory,
+                          room_settings={'game': game}, transport_policy='relay')
+        endpoints, tasks = [host], []
+        events = []
+        host.on_chat = events.append
+        try:
+            tasks.append(asyncio.create_task(host.run()))
+            async with asyncio.timeout(15):
+                while not host.connection:
+                    await asyncio.sleep(.02)
+            guest = TunnelClient(RelayProfile(**self.profile), host.invite, transport_policy='relay')
+            endpoints.append(guest)
+            guest_events = []
+            guest.on_chat = guest_events.append
+            tasks.append(asyncio.create_task(guest.run()))
+            async with asyncio.timeout(15):
+                while not guest.connection or not any(e.get('type') == 'ready' for e in guest_events):
+                    await asyncio.sleep(.02)
+            for endpoint in (host, guest):
+                items = await fetch_manifest(endpoint)
+                self.assertEqual(len(items), 110)
+                self.assertEqual(manifest_hash(items), game['mods_hash'])
+            await guest.send_chat('真实启动器聊天 😀')
+            async with asyncio.timeout(5):
+                while not any(e.get('text') == '真实启动器聊天 😀' for e in events):
+                    await asyncio.sleep(.02)
+        finally:
+            await asyncio.gather(*(endpoint.stop() for endpoint in endpoints))
+            await asyncio.gather(*tasks)
+            await close()
 
     async def test_personal_code_and_native_social_signature(self):
         from tunnel.federation import Federation
