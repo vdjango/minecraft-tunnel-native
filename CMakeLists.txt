@@ -119,7 +119,13 @@ if(WIN32)
       foreach(curl_directory IN LISTS native_curl_runtime_directories)
         file(GLOB curl_directory_runtime CONFIGURE_DEPENDS
           "${curl_directory}/*.dll")
-        list(APPEND native_curl_transitive_runtime ${curl_directory_runtime})
+        # Multi-config vcpkg targets expose both bin/ and debug/bin/. Never
+        # stage or scan both variants: they use identical OpenSSL DLL names.
+        if(curl_directory MATCHES "[/\\]debug[/\\]")
+          list(APPEND native_curl_transitive_runtime "$<$<CONFIG:Debug>:${curl_directory_runtime}>")
+        else()
+          list(APPEND native_curl_transitive_runtime "$<$<NOT:$<CONFIG:Debug>>:${curl_directory_runtime}>")
+        endif()
       endforeach()
       list(APPEND native_curl_runtime ${native_curl_transitive_runtime})
     else()
