@@ -86,7 +86,7 @@ class PlayerLogTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.logs.read(session['player'], session['session'])['events'][-1]['event'], 'recovered')
 
     async def test_online_player_reports_expose_path_and_rtt(self):
-        self.relay.rooms = {'same-room': SimpleNamespace(title='Vanilla survival')}
+        self.relay.rooms = {'same-room': SimpleNamespace(title='Vanilla survival', public=True)}
         self.relay.federation = SimpleNamespace(accounts=SimpleNamespace(
             social=SimpleNamespace(name=lambda account: account)))
         peer = self.peer('player', account='alice')

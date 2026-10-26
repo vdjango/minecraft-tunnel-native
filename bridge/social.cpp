@@ -8,6 +8,14 @@
 #include <openssl/core_names.h>
 namespace bridge {
 namespace {
+double social_timestamp() {
+    static std::mutex clock_mutex;
+    static double previous = 0;
+    std::lock_guard<std::mutex> guard(clock_mutex);
+    double current = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
+    previous = std::max(current, previous + 0.001);
+    return previous;
+}
 std::string decode(std::string value){
     if(value.empty()||value.size()>8192||value.size()%4==1)throw Failure(-32602,"Invalid personal credential");
     for(auto& ch:value){if(ch=='-')ch='+';else if(ch=='_')ch='/';else if(!std::isalnum(static_cast<unsigned char>(ch))&&ch!='='&&ch!='+'&&ch!='/')throw Failure(-32602,"Invalid personal credential");}
@@ -35,7 +43,7 @@ Json social_event(const Profile& profile,const Json& params){
     if(!key_context||EVP_PKEY_fromdata_init(key_context.get())!=1||EVP_PKEY_fromdata(key_context.get(),&raw_key,EVP_PKEY_KEYPAIR,key_params.get())!=1)throw Failure(-32602,"Delegated key unavailable");
     auto key=std::unique_ptr<EVP_PKEY,decltype(&EVP_PKEY_free)>(raw_key,EVP_PKEY_free);
     Json action=params.value("fields",Json::object());if(!action.is_object())throw Failure(-32602,"Invalid social fields");
-    action["op"]=params.at("operation");action["target"]=params.value("target",Json(nullptr));if(action["target"].is_null())action["target"]=claims.at("a");action["at"]=now;action["id"]=room_id(random_id());
+    action["op"]=params.at("operation");action["target"]=params.value("target",Json(nullptr));if(action["target"].is_null())action["target"]=claims.at("a");action["at"]=social_timestamp();action["id"]=room_id(random_id());
     auto bytes=action.dump(-1,' ',true);auto context=std::unique_ptr<EVP_MD_CTX,decltype(&EVP_MD_CTX_free)>(EVP_MD_CTX_new(),EVP_MD_CTX_free);size_t size=0;
     if(!context||EVP_DigestSignInit(context.get(),nullptr,EVP_sha256(),nullptr,key.get())!=1||EVP_DigestSign(context.get(),nullptr,&size,reinterpret_cast<const unsigned char*>(bytes.data()),bytes.size())!=1)throw Failure(-32602,"Social signature unavailable");
     std::string signature(size,'\0');if(EVP_DigestSign(context.get(),reinterpret_cast<unsigned char*>(signature.data()),&size,reinterpret_cast<const unsigned char*>(bytes.data()),bytes.size())!=1)throw Failure(-32602,"Social signature failed");

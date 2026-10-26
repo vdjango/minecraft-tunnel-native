@@ -74,6 +74,8 @@ with module.Bridge(sys.argv[2]) as bridge:
 
 @unittest.skipUnless(LIBRARY.is_file(), 'Build the native shared library first')
 class LibraryServicesTests(services.BridgeServicesTests):
+    wait_direct = fixture.BridgeTests.wait_direct
+
     async def asyncSetUp(self):
         await super().asyncSetUp()
         environment = patch.dict(os.environ, BUGGCRAFT_BRIDGE_LOG_DIR=str(self.logs / 'shared-library'))
