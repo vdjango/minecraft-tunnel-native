@@ -35,10 +35,12 @@ Json Session::configure(Json settings){
     if(role!="host"||!settings.is_object())throw Failure(-32602,"Invalid room settings");
     if(!running_)throw Failure(-32004,"Session stopped");
     if(settings.contains("game")&&!settings["game"].is_object())throw Failure(-32602,"Invalid game metadata");
+    if(settings.contains("allow_mod_transfer")&&!settings["allow_mod_transfer"].is_boolean())throw Failure(-32602,"Invalid mod transfer permission");
     auto applied=std::make_shared<std::promise<Json>>();auto future=applied->get_future();
     if(!post([this,settings,applied]() mutable {try{
         auto metadata=mods_->metadata();
         if(!metadata.empty()){auto game=settings.value("game",Json::object());game.update(metadata);settings["game"]=std::move(game);}
+        mods_->set_allowed(settings.value("allow_mod_transfer",false));
         settings_=settings;applied->set_value({{"settings",std::move(settings)},{"waiting",!game_port_}});
     }catch(...){applied->set_exception(std::current_exception());}}))throw Failure(-32004,"Session stopped");
     if(future.wait_for(std::chrono::seconds(2))!=std::future_status::ready)throw Failure(-32000,"Room update timed out");
@@ -53,7 +55,10 @@ Session::Session(Profile profile,std::string selected_role,std::string selected_
     if(alternatives_.size()>5)alternatives_.resize(5);
     alternatives_.erase(std::remove_if(alternatives_.begin(),alternatives_.end(),[this](const Profile& item){return item.host==profile_.host&&item.port==profile_.port;}),alternatives_.end());
     alternatives_.insert(alternatives_.begin(),profile_);
-    mods_=std::make_shared<ModTransfers>();if(role=="host")mods_->configure(game_directory);
+    mods_=std::make_shared<ModTransfers>();if(role=="host"){
+        mods_->configure(game_directory);
+        mods_->set_allowed(settings_.contains("allow_mod_transfer")&&settings_["allow_mod_transfer"].is_boolean()&&settings_["allow_mod_transfer"].get<bool>());
+    }
 }
 Session::~Session(){stop();}
 Json Session::start(){auto future=ready_.get_future();thread_=std::thread([this]{run();});if(future.wait_for(std::chrono::seconds(30))!=std::future_status::ready){stop();throw Failure(-32021,"Room connection timed out");}return future.get();}
@@ -332,8 +337,14 @@ Json Session::mods(const std::string& method,const Json& params){
         if(!online_)throw Failure(-32004,"Session reconnecting");
         if(method=="mods.configure"){
             if(role!="host"||game_port_)throw Failure(-32602,"Only a waiting host can change its mod directory");
+            configured->set_allowed(settings_.value("allow_mod_transfer",false));
             mods_=std::move(configured);result->set_value({{"configured",true}});
-        }else if(mods_)result->set_value(mods_->command(method,params,room,role=="host"));
+        }else if(mods_){
+            std::shared_ptr<rtc::DataChannel> peer_channel;
+            if(role=="client"&&direct_&&client_peer_&&client_peer_->state()==rtc::PeerConnection::State::Connected&&
+               (method=="mods.manifest"||method=="mods.fetch"))try{peer_channel=client_peer_->createDataChannel("mods");}catch(...){peer_channel.reset();}
+            result->set_value(mods_->command(method,params,room,role=="host",std::move(peer_channel)));
+        }
         else throw Failure(-32601,"Mod transfer is only available to the host");
     }catch(...){result->set_exception(std::current_exception());}}))throw Failure(-32004,"Session stopped");
     if(future.wait_for(std::chrono::seconds(30))!=std::future_status::ready)throw Failure(-32000,"Mod operation timed out");

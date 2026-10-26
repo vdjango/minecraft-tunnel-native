@@ -50,6 +50,7 @@ class Session:public std::enable_shared_from_this<Session> {
     std::string game_chat_status_;
     std::unique_ptr<GameChat> game_chat_;
     std::vector<Profile> alternatives_;
+    std::vector<Profile> stun_profiles_;
     size_t route_index_=0;
     std::condition_variable changed_;
     Json room_info_=Json::object();
@@ -80,6 +81,8 @@ class Session:public std::enable_shared_from_this<Session> {
     };
     std::vector<std::shared_ptr<PeerWatch>> probes_;
     std::shared_ptr<rtc::PeerConnection> client_peer_;
+    std::string peer_attempt_;
+    bool peer_attempts_supported_=false;
     ssh_channel signal_=nullptr, chat_=nullptr;
     unsigned chat_stage_=0;
     Clock::time_point next_chat_=Clock::now();
@@ -127,7 +130,7 @@ class Session:public std::enable_shared_from_this<Session> {
     void watch_peer(const std::shared_ptr<rtc::PeerConnection>&,const std::shared_ptr<rtc::DataChannel>&,std::string player);
     void fail_peer(const std::shared_ptr<rtc::PeerConnection>&,const std::string& reason,const std::string& player={});
     void receive_signal(const Json&);
-    std::shared_ptr<rtc::PeerConnection> create_peer(const std::string& key,bool client,std::string player={});
+    std::shared_ptr<rtc::PeerConnection> create_peer(const std::string& key,bool client,std::string player={},std::string attempt={});
     void add_data(const std::shared_ptr<rtc::DataChannel>&,NetSocket socket=invalid_socket,std::string player={},std::shared_ptr<rtc::PeerConnection> peer={});
     void accept_game();
     void accept_forward();
@@ -165,4 +168,5 @@ void copy_into(Ring& ring,std::string_view data);
 NetSocket connect_game(int port,bool& connecting);
 void half_close(NetSocket socket);
 void validate_sdp(const std::string& sdp);
+Json candidate_counts(const std::string& sdp);
 }

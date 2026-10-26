@@ -23,6 +23,8 @@ void Session::watch_peer(const std::shared_ptr<rtc::PeerConnection>& peer,const 
 }
 void Session::fail_peer(const std::shared_ptr<rtc::PeerConnection>& peer,const std::string& reason,const std::string& player){
     if(!peer)return;
+    auto local=peer->localDescription(),remote=peer->remoteDescription();
+    log("peer_failure_details",{{"session",identity},{"player",player.empty()?player_:player},{"reason",reason},{"attempt",role=="client"?peer_attempt_:std::string{}},{"peer_state",static_cast<int>(peer->state())},{"ice_state",static_cast<int>(peer->iceState())},{"gathering_state",static_cast<int>(peer->gatheringState())},{"has_local_description",local.has_value()},{"has_remote_description",remote.has_value()},{"local_candidates",local?candidate_counts(std::string(*local)):Json(nullptr)},{"remote_candidates",remote?candidate_counts(std::string(*remote)):Json(nullptr)}});
     bool changed=false;
     for(auto& watch:probes_)if(!watch->dead&&watch->peer.lock()==peer){watch->dead=true;changed=true;}
     for(auto& stream:streams_)if(stream->peer.lock()==peer)stream->dead=true;
@@ -47,7 +49,8 @@ void Session::start_client_peer(){
         for(auto& watch:probes_)if(watch->peer.lock()==client_peer_)watch->dead=true;
         client_peer_->resetCallbacks();client_peer_->close();
     }
-    client_peer_=create_peer({},true,player_);
+    peer_attempt_=random_id(12);
+    client_peer_=create_peer({},true,player_,peer_attempt_);
     rtc::DataChannelInit init;init.id=1;
     watch_peer(client_peer_,client_peer_->createDataChannel("probe",init),player_);
     peer_retry_={};peer_negotiating_=true;peer_deadline_=Clock::now()+std::chrono::seconds(12);

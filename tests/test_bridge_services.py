@@ -5,6 +5,8 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import ipaddress
+import socket
 import sys
 import time
 import unittest
@@ -19,14 +21,16 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
     call = fixture.BridgeTests.call
     add = fixture.BridgeTests.add
     exchange = fixture.BridgeTests.exchange
+    wait_direct = fixture.BridgeTests.wait_direct
 
-    async def pair(self, directory=None):
+    async def pair(self, directory=None, allow_mod_transfer=False, transport='relay'):
         host, guest = await self.process(), await self.process()
         hn, gn = await self.add(host), await self.add(guest)
         hosted = await self.call(host, 'room.host', dict(node=hn, game_port=self.port,
-            transport='relay', game_directory=str(directory or ''), chat_name='房主'))
+            transport=transport, game_directory=str(directory or ''), chat_name='房主',
+            settings={'allow_mod_transfer': allow_mod_transfer}))
         joined = await self.call(guest, 'room.join', dict(node=gn, invite=hosted['invite'],
-            transport='relay', chat_name='访客'))
+            transport=transport, chat_name='访客'))
         return host, guest, hosted, joined
 
     async def wait_transfer(self, process, session, result):
@@ -44,7 +48,7 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
             (mods / (str(i) + '-' + 'long-name-' * 12 + '.jar')).write_bytes(bytes([i]) * 2048)
         payload = b'verified native transfer\0' * 100000
         (mods / '大文件.jar').write_bytes(payload)
-        host, guest, hosted, joined = await self.pair(directory)
+        host, guest, hosted, joined = await self.pair(directory, allow_mod_transfer=True)
         published = hosted['info']['game']
         self.assertEqual(published['mods_count'], 131)
         self.assertEqual(len(published['mods_hash']), 64)
@@ -66,6 +70,7 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
                          'Native room metadata must use the launcher mod-set hash')
         item = next(item for item in items if item['name'] == '大文件.jar')
         self.assertEqual(item['sha256'], hashlib.sha256(payload).hexdigest())
+        self.assertEqual(item['sha1'], hashlib.sha1(payload).hexdigest())
         target = self.logs / '下载目录'
         target.mkdir()
         transfer = await self.call(guest, 'mods.fetch', dict(session=joined['session'],
@@ -77,12 +82,34 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
         await self.call(guest, 'mods.cancel', dict(session=joined['session'], transfer=transfer['transfer']))
         self.assertFalse(list(target.glob('*.part')))
 
+    async def test_host_must_authorize_fallback_mod_transfer(self):
+        directory = self.logs / 'permission-instance'
+        mods = directory / 'mods'
+        mods.mkdir(parents=True)
+        payload = b'host authorized mod'
+        source = mods / 'example.jar'
+        source.write_bytes(payload)
+        host, guest, hosted, joined = await self.pair(directory)
+        item = (await self.call(host, 'mods.manifest', dict(session=hosted['session'])))['items'][0]
+        target = self.logs / 'permission-download.jar'
+        failed = await self.wait_transfer(guest, joined['session'], await self.call(
+            guest, 'mods.fetch', dict(session=joined['session'], item=item, target=str(target))))
+        self.assertEqual(failed['state'], 'error')
+        self.assertIn('房主尚未允许', failed['error'])
+        self.assertFalse(target.exists())
+        await self.call(host, 'room.configure', dict(session=hosted['session'], settings={
+            'title':'授权测试', 'public':False, 'require_invite':True, 'allow_mod_transfer':True}))
+        complete = await self.wait_transfer(guest, joined['session'], await self.call(
+            guest, 'mods.fetch', dict(session=joined['session'], item=item, target=str(target))))
+        self.assertEqual(complete['state'], 'complete', complete)
+        self.assertEqual(target.read_bytes(), payload)
+
     async def test_hash_mismatch_and_cancellation_never_publish_partial_mod(self):
         directory = self.logs / 'instance'
         (directory / 'mods').mkdir(parents=True)
         source = directory / 'mods' / 'example.jar'
         source.write_bytes(b'a' * 200000)
-        host, guest, hosted, joined = await self.pair(directory)
+        host, guest, hosted, joined = await self.pair(directory, allow_mod_transfer=True)
         manifest = await self.call(host, 'mods.manifest', dict(session=hosted['session']))
         item = manifest['items'][0]
         source.write_bytes(b'b' * 200000)
@@ -98,6 +125,57 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
         await self.call(guest, 'mods.cancel', dict(session=joined['session'], transfer=transfer['transfer']))
         self.assertFalse(target.exists())
         self.assertFalse(list(self.logs.glob('*.part')))
+
+    async def test_direct_peer_mod_manifest_and_file_use_webrtc(self):
+        from tests.test_peer_stun_fallback import StunResponder, TcpOnlyRelay, SlowGate
+
+        loop = asyncio.get_running_loop()
+        local_ip = next((ip for ip in socket.gethostbyname_ex(socket.gethostname())[2]
+                         if not ipaddress.ip_address(ip).is_loopback), None)
+        if local_ip is None:
+            self.skipTest('A non-loopback IPv4 interface is required for ICE')
+        relay = await TcpOnlyRelay(self.node.port).start(local_ip)
+        self.addAsyncCleanup(relay.close)
+        self.profile = dict(self.profile, server_host=local_ip, server_port=relay.port)
+        alternative = await TcpOnlyRelay(self.node.port).start(local_ip)
+        alternative.allowed = [SlowGate(), SlowGate()]
+        self.addAsyncCleanup(alternative.close)
+        stun_transport, _ = await loop.create_datagram_endpoint(
+            StunResponder, local_addr=(local_ip, alternative.port))
+        self.addCleanup(stun_transport.close)
+        stun_port = stun_transport.get_extra_info('sockname')[1]
+
+        async def add_with_stun(process):
+            code = 'buggnode1-' + base64.urlsafe_b64encode(
+                json.dumps(self.profile).encode()).decode().rstrip('=')
+            alternative_profile = dict(self.profile, server_port=stun_port)
+            return (await self.call(process, 'node.add', {
+                'code': code, 'alternatives': [alternative_profile]}))['node']
+
+        directory = self.logs / 'p2p-mod-instance'
+        mods = directory / 'mods'
+        mods.mkdir(parents=True)
+        payload = os.urandom(2 * 1024 * 1024)
+        (mods / 'large.jar').write_bytes(payload)
+        host, guest = await self.process(), await self.process()
+        host_node, guest_node = await add_with_stun(host), await add_with_stun(guest)
+        hosted = await self.call(host, 'room.host', dict(node=host_node, game_port=self.port,
+            transport='auto', game_directory=str(directory), chat_name='Host',
+            settings={'allow_mod_transfer': True}))
+        joined = await self.call(guest, 'room.join', dict(node=guest_node, invite=hosted['invite'],
+            transport='auto', chat_name='Guest'))
+        joined = await self.wait_direct(guest, joined)
+        manifest = await self.wait_transfer(guest, joined['session'], await self.call(
+            guest, 'mods.manifest', dict(session=joined['session'])))
+        self.assertEqual(manifest['state'], 'complete', manifest)
+        self.assertEqual(manifest['path'], 'p2p', manifest)
+        item = manifest['items'][0]
+        target = self.logs / 'p2p-large.jar'
+        result = await self.wait_transfer(guest, joined['session'], await self.call(
+            guest, 'mods.fetch', dict(session=joined['session'], item=item, target=str(target))))
+        self.assertEqual(result['state'], 'complete', result)
+        self.assertEqual(result['path'], 'p2p', result)
+        self.assertEqual(target.read_bytes(), payload)
 
     async def test_chat_waits_for_ack_and_uses_authenticated_native_hello(self):
         host, guest, hosted, joined = await self.pair()
