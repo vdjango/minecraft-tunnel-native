@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "social.hpp"
+#include <algorithm>
+#include <chrono>
+#include <mutex>
 #include <openssl/ec.h>
 #include <openssl/evp.h>
 #include <openssl/objects.h>
