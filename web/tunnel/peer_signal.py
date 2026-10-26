@@ -72,14 +72,24 @@ class PeerSignalSession:
                 if not isinstance(message, dict):
                     raise ValueError('Invalid message')
                 kind, sdp = message.get('type'), message.get('sdp')
+                attempt = message.get('attempt')
+                files = message.get('files', False)
+                if type(files) is not bool:
+                    raise ValueError('Invalid file channel marker')
+                if attempt is not None and (not isinstance(attempt, str) or
+                        not 1 <= len(attempt) <= 64 or
+                        any(c not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-' for c in attempt)):
+                    raise ValueError('Invalid negotiation attempt')
                 if not isinstance(sdp, str) or not 1 <= len(sdp) <= 12288:
                     raise ValueError('Invalid SDP')
                 if self.peer.role == 'client' and kind == 'offer':
                     target = getattr(room.owner, 'peer_signal', None)
                 elif self.peer is room.owner and kind == 'answer':
-                    target = next((getattr(p, 'peer_signal', None) for p in self.peer.relay.peers
-                                   if p.authenticated and p.role == 'client' and p.room == self.peer.room
-                                   and p.chat_id == message.get('peer')), None)
+                    clients = [p for p in self.peer.relay.peers
+                               if p.authenticated and p.role == 'client' and
+                               p.room == self.peer.room and getattr(p, 'peer_signal', None)]
+                    target = next((getattr(p, 'peer_signal', None) for p in clients
+                                   if p.chat_id == message.get('peer')), None)
                     if target is None:
                         # A visitor can time out and leave while the host is
                         # gathering ICE candidates. Discard this late answer
@@ -91,8 +101,9 @@ class PeerSignalSession:
                     if getattr(self.peer.relay, 'diagnostics', None):
                         self.peer.relay.diagnostics.emit(self.peer, 'peer_' + kind)
                     from .diagnostics import player_identity
-                    target.send({'type': kind, 'peer': self.peer.chat_id, 'sdp': sdp,
-                                 'player': player_identity(self.peer)})
+                    target.send({'type': kind, 'peer': self.peer.chat_id, 'sdp': sdp, 'files': files,
+                                 'player': player_identity(self.peer),
+                                 **({'attempt': attempt} if attempt is not None else {})})
                 else:
                     self.send({'type': 'unavailable'})
             except (ValueError, TypeError, UnicodeError):

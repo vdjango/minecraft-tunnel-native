@@ -10,6 +10,7 @@ import socket
 import sys
 import time
 import unittest
+from unittest.mock import patch
 
 from tests import test_bridge as fixture
 ROOT = fixture.ROOT
@@ -22,6 +23,16 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
     add = fixture.BridgeTests.add
     exchange = fixture.BridgeTests.exchange
     wait_direct = fixture.BridgeTests.wait_direct
+
+    async def call_raw(self, process, method, params=None):
+        process.stdin.write((json.dumps(dict(jsonrpc='2.0', id=1, method=method,
+                                             params=params or {})) + '\n').encode())
+        await process.stdin.drain()
+        raw = await asyncio.wait_for(process.stdout.readline(), 35)
+        self.assertTrue(raw, 'Native bridge exited')
+        result = json.loads(raw)
+        self.assertEqual(result['id'], 1)
+        return result
 
     async def pair(self, directory=None, allow_mod_transfer=False, transport='relay'):
         host, guest = await self.process(), await self.process()
@@ -39,6 +50,17 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
                 await asyncio.sleep(.02)
                 result = await self.call(process, 'mods.status', dict(session=session, transfer=result['transfer']))
         return result
+
+    async def fetch_transfer(self, process, session, item, target):
+        """Wait for the independent file PeerConnection before starting a transfer."""
+        async with asyncio.timeout(20):
+            while True:
+                response = await self.call_raw(process, 'mods.fetch', dict(
+                    session=session, item=item, target=str(target)))
+                if 'result' in response:
+                    return await self.wait_transfer(process, session, response['result'])
+                self.assertEqual(response['error']['code'], -32021, response)
+                await asyncio.sleep(.25)
 
     async def test_native_manifest_pages_hash_download_and_simultaneous_game_data(self):
         directory = self.logs / '房主实例'
@@ -73,14 +95,12 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(item['sha1'], hashlib.sha1(payload).hexdigest())
         target = self.logs / '下载目录'
         target.mkdir()
-        transfer = await self.call(guest, 'mods.fetch', dict(session=joined['session'],
+        denied = await self.call_raw(guest, 'mods.fetch', dict(session=joined['session'],
             item=item, target=str(target / item['name'])))
-        result, _ = await asyncio.gather(self.wait_transfer(guest, joined['session'], transfer),
-            self.exchange(joined, b'continuous gameplay' * 250000))
-        self.assertEqual(result['state'], 'complete', result)
-        self.assertEqual((target / item['name']).read_bytes(), payload)
-        await self.call(guest, 'mods.cancel', dict(session=joined['session'], transfer=transfer['transfer']))
-        self.assertFalse(list(target.glob('*.part')))
+        self.assertEqual(denied['error']['code'], -32021)
+        self.assertIn('P2P', denied['error']['message'])
+        await self.exchange(joined, b'continuous gameplay' * 250000)
+        self.assertFalse(list(target.iterdir()))
 
     async def test_host_must_authorize_fallback_mod_transfer(self):
         directory = self.logs / 'permission-instance'
@@ -89,18 +109,16 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
         payload = b'host authorized mod'
         source = mods / 'example.jar'
         source.write_bytes(payload)
-        host, guest, hosted, joined = await self.pair(directory)
+        host, guest, hosted, joined = await self.direct_pair(directory, allow_mod_transfer=False)
         item = (await self.call(host, 'mods.manifest', dict(session=hosted['session'])))['items'][0]
         target = self.logs / 'permission-download.jar'
-        failed = await self.wait_transfer(guest, joined['session'], await self.call(
-            guest, 'mods.fetch', dict(session=joined['session'], item=item, target=str(target))))
+        failed = await self.fetch_transfer(guest, joined['session'], item, target)
         self.assertEqual(failed['state'], 'error')
         self.assertIn('房主尚未允许', failed['error'])
         self.assertFalse(target.exists())
         await self.call(host, 'room.configure', dict(session=hosted['session'], settings={
             'title':'授权测试', 'public':False, 'require_invite':True, 'allow_mod_transfer':True}))
-        complete = await self.wait_transfer(guest, joined['session'], await self.call(
-            guest, 'mods.fetch', dict(session=joined['session'], item=item, target=str(target))))
+        complete = await self.fetch_transfer(guest, joined['session'], item, target)
         self.assertEqual(complete['state'], 'complete', complete)
         self.assertEqual(target.read_bytes(), payload)
 
@@ -109,24 +127,34 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
         (directory / 'mods').mkdir(parents=True)
         source = directory / 'mods' / 'example.jar'
         source.write_bytes(b'a' * 200000)
-        host, guest, hosted, joined = await self.pair(directory, allow_mod_transfer=True)
+        host, guest, hosted, joined = await self.direct_pair(directory, allow_mod_transfer=True)
         manifest = await self.call(host, 'mods.manifest', dict(session=hosted['session']))
         item = manifest['items'][0]
         source.write_bytes(b'b' * 200000)
         target = self.logs / 'example.jar'
-        transfer = await self.call(guest, 'mods.fetch', dict(session=joined['session'], item=item, target=str(target)))
+        transfer = await self.call_raw(guest, 'mods.fetch', dict(session=joined['session'], item=item, target=str(target)))
+        while 'result' not in transfer:
+            self.assertEqual(transfer['error']['code'], -32021, transfer)
+            await asyncio.sleep(.25)
+            transfer = await self.call_raw(guest, 'mods.fetch', dict(session=joined['session'], item=item, target=str(target)))
+        transfer = transfer['result']
         result = await self.wait_transfer(guest, joined['session'], transfer)
         self.assertEqual(result['state'], 'error')
         self.assertIn('SHA256', result['error'])
         self.assertFalse(target.exists())
         await self.call(guest, 'mods.cancel', dict(session=joined['session'], transfer=transfer['transfer']))
         self.assertFalse(list(self.logs.glob('*.part')))
-        transfer = await self.call(guest, 'mods.fetch', dict(session=joined['session'], item=item, target=str(target)))
+        transfer = await self.call_raw(guest, 'mods.fetch', dict(session=joined['session'], item=item, target=str(target)))
+        while 'result' not in transfer:
+            self.assertEqual(transfer['error']['code'], -32021, transfer)
+            await asyncio.sleep(.25)
+            transfer = await self.call_raw(guest, 'mods.fetch', dict(session=joined['session'], item=item, target=str(target)))
+        transfer = transfer['result']
         await self.call(guest, 'mods.cancel', dict(session=joined['session'], transfer=transfer['transfer']))
         self.assertFalse(target.exists())
         self.assertFalse(list(self.logs.glob('*.part')))
 
-    async def test_direct_peer_mod_manifest_and_file_use_webrtc(self):
+    async def direct_pair(self, directory, allow_mod_transfer=True, limit=512):
         from tests.test_peer_stun_fallback import StunResponder, TcpOnlyRelay, SlowGate
 
         loop = asyncio.get_running_loop()
@@ -152,27 +180,55 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
             return (await self.call(process, 'node.add', {
                 'code': code, 'alternatives': [alternative_profile]}))['node']
 
+        host, guest = await self.process(), await self.process()
+        host_node, guest_node = await add_with_stun(host), await add_with_stun(guest)
+        hosted = await self.call(host, 'room.host', dict(node=host_node, game_port=self.port,
+            transport='auto', game_directory=str(directory), chat_name='Host',
+            settings={'allow_mod_transfer': allow_mod_transfer, 'mod_transfer_limit_kib':limit}))
+        joined = await self.call(guest, 'room.join', dict(node=guest_node, invite=hosted['invite'],
+            transport='auto', chat_name='Guest'))
+        joined = await self.wait_direct(guest, joined)
+        return host, guest, hosted, joined
+
+    async def test_direct_peer_mod_manifest_and_file_use_webrtc(self):
         directory = self.logs / 'p2p-mod-instance'
         mods = directory / 'mods'
         mods.mkdir(parents=True)
         payload = os.urandom(2 * 1024 * 1024)
         (mods / 'large.jar').write_bytes(payload)
-        host, guest = await self.process(), await self.process()
-        host_node, guest_node = await add_with_stun(host), await add_with_stun(guest)
-        hosted = await self.call(host, 'room.host', dict(node=host_node, game_port=self.port,
-            transport='auto', game_directory=str(directory), chat_name='Host',
-            settings={'allow_mod_transfer': True}))
-        joined = await self.call(guest, 'room.join', dict(node=guest_node, invite=hosted['invite'],
-            transport='auto', chat_name='Guest'))
-        joined = await self.wait_direct(guest, joined)
+        host, guest, hosted, joined = await self.direct_pair(directory)
         manifest = await self.wait_transfer(guest, joined['session'], await self.call(
             guest, 'mods.manifest', dict(session=joined['session'])))
         self.assertEqual(manifest['state'], 'complete', manifest)
-        self.assertEqual(manifest['path'], 'p2p', manifest)
+        # The manifest is metadata and may use the authenticated control
+        # channel; only file bytes are required to stay on the direct path.
+        self.assertEqual(manifest['path'], 'relay', manifest)
         item = manifest['items'][0]
         target = self.logs / 'p2p-large.jar'
-        result = await self.wait_transfer(guest, joined['session'], await self.call(
-            guest, 'mods.fetch', dict(session=joined['session'], item=item, target=str(target))))
+        result = None
+        from tunnel.peer_signal import PeerSignalSession
+        original_send = PeerSignalSession.send
+        file_attempts = set()
+        retries = 0
+        def delayed_answer(signal, value):
+            if value.get('files') and value.get('type') == 'answer':
+                file_attempts.add(value.get('attempt'))
+                asyncio.get_running_loop().call_later(1, original_send, signal, value)
+            else:
+                original_send(signal, value)
+        with patch.object(PeerSignalSession, 'send', delayed_answer):
+            async with asyncio.timeout(20):
+                while result is None:
+                    response = await self.call_raw(guest, 'mods.fetch', dict(
+                        session=joined['session'], item=item, target=str(target)))
+                    if 'result' in response:
+                        result = await self.wait_transfer(guest, joined['session'], response['result'])
+                    else:
+                        self.assertEqual(response['error']['code'], -32021, response)
+                        retries += 1
+                        await asyncio.sleep(.25)
+        self.assertGreaterEqual(retries, 3)
+        self.assertEqual(len(file_attempts), 1, 'Polling must not restart the file ICE negotiation')
         self.assertEqual(result['state'], 'complete', result)
         self.assertEqual(result['path'], 'p2p', result)
         self.assertEqual(target.read_bytes(), payload)

@@ -56,6 +56,25 @@ void Session::start_client_peer(){
     peer_retry_={};peer_negotiating_=true;peer_deadline_=Clock::now()+std::chrono::seconds(12);
     client_peer_->setLocalDescription(rtc::Description::Type::Offer);
 }
+void Session::start_file_peer(){
+    if(role!="client"||!signal_||!peer_available_)return;
+    if(file_peer_&&file_peer_->state()==rtc::PeerConnection::State::Connected)return;
+    if(file_negotiating_&&file_peer_&&Clock::now()<file_deadline_&&
+       file_peer_->state()!=rtc::PeerConnection::State::Failed&&
+       file_peer_->state()!=rtc::PeerConnection::State::Closed)return;
+    if(file_peer_){file_peer_->resetCallbacks();file_peer_->close();file_peer_.reset();}
+    file_channel_.reset();
+    file_attempt_=random_id(12);
+    file_peer_=create_peer({},true,player_,file_attempt_,true);
+    // A data channel is required before creating the initial SDP offer. The
+    // first channel is reused by the first file transfer; later files open
+    // additional SCTP streams on the same independent PeerConnection.
+    file_channel_=file_peer_->createDataChannel("mods");
+    file_negotiating_=true;
+    file_deadline_=Clock::now()+std::chrono::seconds(12);
+    file_peer_->setLocalDescription(rtc::Description::Type::Offer);
+    log("file_peer_offer_started",{{"session",identity},{"attempt",file_attempt_}});
+}
 void Session::advance_peers(){
     const auto now=Clock::now();
     for(auto& watch:probes_){
@@ -80,6 +99,15 @@ void Session::advance_peers(){
     }
     std::erase_if(probes_,[](const auto& watch){return watch->dead;});
     if(peer_negotiating_&&now>=peer_deadline_)fail_peer(client_peer_,"negotiation-timeout");
+    if(file_negotiating_&&file_peer_&&file_peer_->state()==rtc::PeerConnection::State::Connected){
+        file_negotiating_=false;
+        log("file_peer_connected",{{"session",identity},{"attempt",file_attempt_}});
+    }else if(file_negotiating_&&now>=file_deadline_){
+        log("file_peer_negotiation_timeout",{{"session",identity},{"attempt",file_attempt_}});
+        if(file_peer_){file_peer_->resetCallbacks();file_peer_->close();file_peer_.reset();}
+        file_channel_.reset();
+        file_negotiating_=false;
+    }
     if(!online_&&!peer_negotiating_&&now>=peer_deadline_){become_ready();log("peer_fallback",{{"session",identity},{"reason","signaling-timeout"}});}
     if(peer_retry_!=Clock::time_point{}&&now>=peer_retry_&&signal_&&peer_available_){
         log("peer_retry_started",{{"session",identity},{"attempt",peer_retries_}});

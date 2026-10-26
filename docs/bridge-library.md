@@ -2,6 +2,8 @@
 
 库与独立桥进程链接同一个 C++ 引擎，功能由 `bridge.initialize` 返回的 methods 列表定义。调用者只传递控制 JSON，C++ 线程直接处理 SSH、P2P、中转、压缩、游戏流、聊天和整合包下载。
 
+方法参数见[桥接协议](protocol/launcher-bridge.md)，版本/加载器和模组接口见[游戏环境同步](protocol/game-metadata.md)，重连状态、候选缓存与停止条件见[恢复与兼容](protocol/compatibility.md)。C ABI 不额外提供会话迁移保证。
+
 ## 文件与加载路径
 
 完整 `cmake --install` 目录包含：

@@ -3,7 +3,23 @@
 #include "local_game.hpp"
 #include "game_wire.hpp"
 #include <algorithm>
+#include <utility>
 namespace bridge {
+namespace {
+uint32_t mod_upload_limit(const Json& settings){
+    if(!settings.contains("mod_transfer_limit_kib"))return 512;
+    const auto& value=settings["mod_transfer_limit_kib"];
+    if(!value.is_number_integer())throw Failure(-32602,"Invalid mod upload limit");
+    if(value.is_number_unsigned()){
+        const auto limit=value.get<uint64_t>();
+        if(limit<64||limit>10240)throw Failure(-32602,"Mod upload limit must be between 64 and 10240 KiB/s");
+        return static_cast<uint32_t>(limit);
+    }
+    const auto limit=value.get<int64_t>();
+    if(limit<64||limit>10240)throw Failure(-32602,"Mod upload limit must be between 64 and 10240 KiB/s");
+    return static_cast<uint32_t>(limit);
+}
+}
 void Session::event(Json value){
     std::lock_guard guard(mutex_);
     chat_events_.push_back(std::move(value));
@@ -36,11 +52,12 @@ Json Session::configure(Json settings){
     if(!running_)throw Failure(-32004,"Session stopped");
     if(settings.contains("game")&&!settings["game"].is_object())throw Failure(-32602,"Invalid game metadata");
     if(settings.contains("allow_mod_transfer")&&!settings["allow_mod_transfer"].is_boolean())throw Failure(-32602,"Invalid mod transfer permission");
+    const auto upload_limit=mod_upload_limit(settings);
     auto applied=std::make_shared<std::promise<Json>>();auto future=applied->get_future();
-    if(!post([this,settings,applied]() mutable {try{
+    if(!post([this,settings,applied,upload_limit]() mutable {try{
         auto metadata=mods_->metadata();
         if(!metadata.empty()){auto game=settings.value("game",Json::object());game.update(metadata);settings["game"]=std::move(game);}
-        mods_->set_allowed(settings.value("allow_mod_transfer",false));
+        mods_->set_allowed(settings.value("allow_mod_transfer",false),upload_limit);
         settings_=settings;applied->set_value({{"settings",std::move(settings)},{"waiting",!game_port_}});
     }catch(...){applied->set_exception(std::current_exception());}}))throw Failure(-32004,"Session stopped");
     if(future.wait_for(std::chrono::seconds(2))!=std::future_status::ready)throw Failure(-32000,"Room update timed out");
@@ -57,7 +74,7 @@ Session::Session(Profile profile,std::string selected_role,std::string selected_
     alternatives_.insert(alternatives_.begin(),profile_);
     mods_=std::make_shared<ModTransfers>();if(role=="host"){
         mods_->configure(game_directory);
-        mods_->set_allowed(settings_.contains("allow_mod_transfer")&&settings_["allow_mod_transfer"].is_boolean()&&settings_["allow_mod_transfer"].get<bool>());
+        mods_->set_allowed(settings_.contains("allow_mod_transfer")&&settings_["allow_mod_transfer"].is_boolean()&&settings_["allow_mod_transfer"].get<bool>(),mod_upload_limit(settings_));
     }
 }
 Session::~Session(){stop();}
@@ -273,9 +290,13 @@ void Session::cleanup(){
     close_socket(listener_);listener_=invalid_socket;streams_.clear();
     for(auto& request:requests_){free_channel(request.channel);try{request.result->set_exception(std::make_exception_ptr(Failure(-32004,"Session stopped")));}catch(...){}}
     requests_.clear();
-    for(auto& [key,peer]:peers_){peer->resetCallbacks();peer->close();}peers_.clear();if(client_peer_){client_peer_->resetCallbacks();client_peer_->close();client_peer_.reset();}
+    for(auto& [key,peer]:peers_){peer->resetCallbacks();peer->close();}peers_.clear();
+    for(auto& [key,peer]:file_peers_){peer->resetCallbacks();peer->close();}file_peers_.clear();
+    if(client_peer_){client_peer_->resetCallbacks();client_peer_->close();client_peer_.reset();}
+    if(file_peer_){file_peer_->resetCallbacks();file_peer_->close();file_peer_.reset();}
+    file_channel_.reset();
     probes_.clear();free_channel(signal_);free_channel(chat_);peer_started_=false;direct_=false;zstd_=false;
-    peer_available_=false;peer_negotiating_=false;peer_retry_={};peer_retries_=0;
+    peer_available_=false;peer_negotiating_=false;peer_retry_={};peer_retries_=0;file_negotiating_=false;file_deadline_={};
     signal_input_.clear();signal_output_.clear();chat_input_.clear();chat_output_.clear();
     if(mods_)mods_->disconnect();raw_forward_=zstd_forward_=mods_forward_=0;ssh_.reset();{std::lock_guard guard(mutex_);commands_.clear();}unbind_log(identity);
 }
@@ -337,12 +358,20 @@ Json Session::mods(const std::string& method,const Json& params){
         if(!online_)throw Failure(-32004,"Session reconnecting");
         if(method=="mods.configure"){
             if(role!="host"||game_port_)throw Failure(-32602,"Only a waiting host can change its mod directory");
-            configured->set_allowed(settings_.value("allow_mod_transfer",false));
+            configured->set_allowed(settings_.value("allow_mod_transfer",false),mod_upload_limit(settings_));
             mods_=std::move(configured);result->set_value({{"configured",true}});
         }else if(mods_){
             std::shared_ptr<rtc::DataChannel> peer_channel;
-            if(role=="client"&&direct_&&client_peer_&&client_peer_->state()==rtc::PeerConnection::State::Connected&&
-               (method=="mods.manifest"||method=="mods.fetch"))try{peer_channel=client_peer_->createDataChannel("mods");}catch(...){peer_channel.reset();}
+            if(role=="client"&&direct_&&(method=="mods.manifest"||method=="mods.fetch")){
+                if(method=="mods.fetch"&&(!file_peer_||file_peer_->state()!=rtc::PeerConnection::State::Connected))
+                    start_file_peer();
+                if(file_peer_&&file_peer_->state()==rtc::PeerConnection::State::Connected){
+                    try{
+                        if(file_channel_&&file_channel_->isOpen())peer_channel=std::exchange(file_channel_,{});
+                        else peer_channel=file_peer_->createDataChannel("mods");
+                    }catch(...){peer_channel.reset();}
+                }
+            }
             result->set_value(mods_->command(method,params,room,role=="host",std::move(peer_channel)));
         }
         else throw Failure(-32601,"Mod transfer is only available to the host");

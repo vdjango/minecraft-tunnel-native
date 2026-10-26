@@ -68,6 +68,12 @@ struct ModTransfers::Transfer {
 };
 ModTransfers::ModTransfers()=default;
 ModTransfers::~ModTransfers()=default;
+void ModTransfers::set_allowed(bool allowed,uint32_t upload_limit_kib){
+    if(upload_limit_kib<64||upload_limit_kib>10240)throw Failure(-32602,"Invalid mod upload limit");
+    allow_transfers_=allowed;upload_limit_kib_=upload_limit_kib;
+    upload_tokens_=static_cast<double>(upload_limit_kib_)*1024.0;
+    upload_refill_=Clock::now();
+}
 void ModTransfers::configure(const std::string& directory){
     if(directory.empty()){root_.clear();catalog_=Json::array();configured_=false;return;}
     auto root=std::filesystem::weakly_canonical(std::filesystem::u8path(directory)/"mods");
@@ -153,6 +159,8 @@ Json ModTransfers::command(const std::string& method,const Json& params,const st
         return result;
     }
     if(method!="mods.fetch"&&method!="mods.manifest")throw Failure(-32601,"Unknown mod operation");
+    if(method=="mods.fetch"&&!host&&!peer_channel)
+        throw Failure(-32021,"P2P file channel is not connected; mod files are never sent through SSH relay");
     const auto active=std::count_if(transfers_.begin(),transfers_.end(),[](const auto& item){return item.second->state!="complete"&&item.second->state!="error";});
     if(active>=4||transfers_.size()>=16)throw Failure(-32010,"Mod transfer limit reached");
     auto transfer=std::make_shared<Transfer>();auto& t=*transfer;t.room=room;t.manifest=method=="mods.manifest";
@@ -205,15 +213,8 @@ void ModTransfers::pump(Transfer& t,Ssh& ssh){
             auto operation=header.value("op","");
             if(operation=="manifest"){t.pending=catalog_.dump();t.size=t.pending.size();t.pending=Json{{"size",t.size}}.dump()+"\n"+t.pending;t.received=t.size;}
             else if(operation=="file"){
-                if(!allow_transfers_){
-                    t.pending=Json{{"error","房主尚未允许房间成员从本机接收模组，请房主在房间设置中开启模组共享。"}}.dump()+"\n";
-                    t.size=t.pending.size();t.received=t.size;t.header=true;return;
-                }
-                auto digest=header.value("sha256","");auto item=std::find_if(catalog_.begin(),catalog_.end(),[&](const auto& value){return value.at("sha256")==digest;});
-                if(item==catalog_.end())throw Failure(-32602,"Unknown mod file");
-                auto path=std::filesystem::canonical(root_/std::filesystem::u8path(item->at("name").template get<std::string>()));
-                t.size=item->at("size").get<uint64_t>();if(path.parent_path()!=root_||std::filesystem::file_size(path)!=t.size)throw Failure(-32602,"Mod changed; reopen the room");
-                t.source.open(path,std::ios::binary);if(!t.source)throw Failure(-32000,"Mod cannot be opened");t.pending=Json{{"size",t.size}}.dump()+"\n";
+                t.pending=Json{{"error","Mod files require a direct P2P connection; SSH relay file transfer is disabled"}}.dump()+"\n";
+                t.size=t.pending.size();t.received=t.size;t.header=true;return;
             }else throw Failure(-32602,"Invalid mod operation");
             t.header=true;return;
         }
@@ -242,26 +243,15 @@ void ModTransfers::pump(Transfer& t,Ssh& ssh){
         log("mod_transfer_completed",{{"transfer",t.id},{"manifest",t.manifest},{"bytes",t.received}});
     }
 }
-void ModTransfers::pump_peer(Transfer& t){
+void ModTransfers::pump_peer(Transfer& t,uint64_t* upload_budget){
     if(t.state=="complete"||t.state=="error")return;
-    auto fallback=[&]{
-        if(t.server)throw Failure(-32000,"Peer mod channel disconnected");
-        if(t.peer_channel){t.peer_channel->resetCallbacks();t.peer_channel->close();t.peer_channel.reset();}
-        t.p2p=false;t.peer_closed=false;t.peer_overflow=false;t.request_sent=false;t.header=false;
-        t.input.clear();t.pending.clear();t.pending_binary=false;t.received=0;t.acknowledged=0;t.payload_offset=0;
-        t.size=t.manifest?0:t.expected_size;t.data=nullptr;t.manifest_body.clear();
-        t.pending=t.manifest?"{\"op\":\"manifest\"}\n":Json{{"op","file"},{"sha256",t.digest}}.dump()+"\n";
-        if(!t.manifest){
-            t.output.close();t.output.open(t.temporary,std::ios::binary|std::ios::trunc);
-            if(!t.output)throw Failure(-32602,"Mod destination cannot be written");
-            if(!t.hash||EVP_DigestInit_ex(t.hash.get(),EVP_sha256(),nullptr)!=1)throw Failure(-32000,"SHA256 unavailable");
-        }
-        t.state="opening";t.error.clear();t.deadline=Clock::now()+std::chrono::seconds(30);
-    };
-    if(Clock::now()>t.deadline){if(t.p2p&&!t.server){fallback();return;}throw Failure(-32000,"Mod transfer timed out");}
+    if(Clock::now()>t.deadline)throw Failure(-32000,"P2P mod transfer timed out; SSH relay fallback is disabled");
     if(t.peer_overflow)throw Failure(-32602,"Peer mod queue exceeded limit");
-    if(t.peer_closed||!t.peer_channel||t.peer_channel->isClosed()){fallback();return;}
-    if(!t.peer_channel->isOpen())return;
+    bool queued=false;
+    {std::lock_guard guard(t.peer_mutex);queued=!t.peer_input.empty();}
+    if(!t.peer_channel||((t.peer_closed||t.peer_channel->isClosed())&&!queued))
+        throw Failure(-32000,"P2P mod data channel disconnected; SSH relay fallback is disabled");
+    if(!t.peer_channel->isOpen()&&!queued)return;
     auto receive=[&]()->std::optional<rtc::message_variant>{
         std::lock_guard guard(t.peer_mutex);if(t.peer_input.empty())return std::nullopt;
         auto value=std::move(t.peer_input.front());t.peer_input.pop_front();
@@ -284,7 +274,7 @@ void ModTransfers::pump_peer(Transfer& t){
             auto digest=Json::parse(*request).value("sha256","");
             if(!allow_transfers_){
                 t.pending=Json{{"error","房主尚未允许房间成员从本机接收模组，请房主在房间设置中开启模组共享。"}}.dump();
-                t.rejected=true;
+                t.rejected=true;t.header=true;
             }else{
                 auto item=std::find_if(catalog_.begin(),catalog_.end(),[&](const auto& value){return value.at("sha256")==digest;});
                 if(item==catalog_.end())throw Failure(-32602,"Unknown mod file");
@@ -302,8 +292,11 @@ void ModTransfers::pump_peer(Transfer& t){
             if(t.peer_channel->bufferedAmount()>65536)return;
             t.peer_channel->send(t.pending);t.pending.clear();t.deadline=Clock::now()+std::chrono::seconds(30);
         }
-        if(t.rejected){if(t.peer_channel->bufferedAmount()==0)t.state="complete";return;}
+        // Keep the channel until the recipient consumes the rejection and
+        // closes it. A zero local buffer does not acknowledge remote receipt.
+        if(t.rejected)return;
         if(!t.header)return;
+        if(!t.manifest&&!allow_transfers_)throw Failure(-32000,"Host revoked mod sharing permission");
         while(auto message=receive()){
             auto text=std::get_if<std::string>(&*message);if(!text||text->size()>128)throw Failure(-32602,"Invalid mod acknowledgement");
             auto acknowledgement=Json::parse(*text);if(!acknowledgement.contains("ack")||!acknowledgement["ack"].is_number_unsigned())throw Failure(-32602,"Invalid mod acknowledgement");
@@ -312,8 +305,11 @@ void ModTransfers::pump_peer(Transfer& t){
             t.acknowledged+=amount;t.deadline=Clock::now()+std::chrono::seconds(30);
         }
         while(t.peer_channel->bufferedAmount()<262144&&t.received-t.acknowledged<262144){
+            if(upload_budget&&!*upload_budget)return;
             if(t.payload_offset>=t.size){if(t.acknowledged==t.received&&t.peer_channel->bufferedAmount()==0){t.state="complete";log("mod_transfer_completed",{{"transfer",t.id},{"manifest",t.manifest},{"bytes",t.received},{"path","p2p"}});}return;}
-            const auto amount=static_cast<size_t>(std::min<uint64_t>(16384,t.size-t.payload_offset));
+            auto amount=static_cast<size_t>(std::min<uint64_t>(16384,t.size-t.payload_offset));
+            if(upload_budget)amount=std::min<uint64_t>(amount,*upload_budget);
+            if(!amount)return;
             std::string block;
             if(t.manifest)block=t.manifest_body.substr(static_cast<size_t>(t.payload_offset),amount);
             else{
@@ -322,6 +318,7 @@ void ModTransfers::pump_peer(Transfer& t){
             }
             rtc::binary bytes(block.size());std::memcpy(bytes.data(),block.data(),block.size());
             t.peer_channel->send(std::move(bytes));t.payload_offset+=amount;t.received+=amount;
+            if(upload_budget)*upload_budget-=amount;
         }
         return;
     }
@@ -357,7 +354,20 @@ void ModTransfers::pump_peer(Transfer& t){
 }
 void ModTransfers::tick(Ssh& ssh){
     for(auto& [id,t]:transfers_)try{if(t->p2p)pump_peer(*t);else pump(*t,ssh);}catch(const std::exception& error){t->state="error";t->error=error.what();free_channel(t->channel);if(t->peer_channel)t->peer_channel->close();log("mod_transfer_failed",{{"transfer",id},{"bytes",t->received},{"path",t->p2p?"p2p":"relay"}});}
-    for(auto& t:serving_)try{if(t->p2p)pump_peer(*t);else pump(*t,ssh);}catch(...){t->state="error";free_channel(t->channel);if(t->peer_channel)t->peer_channel->close();}
+    const auto now=Clock::now();
+    const auto rate=static_cast<double>(upload_limit_kib_)*1024.0;
+    upload_tokens_=std::min(rate,upload_tokens_+std::chrono::duration<double>(now-upload_refill_).count()*rate);
+    upload_refill_=now;
+    uint64_t budget=static_cast<uint64_t>(upload_tokens_);const auto initial_budget=budget;
+    if(!serving_.empty()){
+        const auto start=serving_cursor_%serving_.size();
+        for(size_t i=0;i<serving_.size();++i){auto& t=serving_[(start+i)%serving_.size()];
+            try{if(t->p2p)pump_peer(*t,&budget);else pump(*t,ssh);}
+            catch(...){t->state="error";free_channel(t->channel);if(t->peer_channel)t->peer_channel->close();}
+        }
+        serving_cursor_=(start+1)%serving_.size();
+    }
+    upload_tokens_-=static_cast<double>(initial_budget-budget);
     std::erase_if(serving_,[](const auto& t){return t->state=="complete"||t->state=="error";});
 }
 void ModTransfers::disconnect(){

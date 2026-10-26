@@ -4,8 +4,8 @@ import json
 import unittest
 from unittest.mock import patch
 
-from tunnel.peer_signal import PeerSignalSession
 from tests import test_bridge as fixture
+from tunnel.peer_signal import PeerSignalSession
 
 
 class PeerSignalingAttemptTests(unittest.IsolatedAsyncioTestCase):

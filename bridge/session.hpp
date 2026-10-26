@@ -81,6 +81,12 @@ class Session:public std::enable_shared_from_this<Session> {
     };
     std::vector<std::shared_ptr<PeerWatch>> probes_;
     std::shared_ptr<rtc::PeerConnection> client_peer_;
+    std::shared_ptr<rtc::PeerConnection> file_peer_;
+    std::shared_ptr<rtc::DataChannel> file_channel_;
+    std::unordered_map<std::string,std::shared_ptr<rtc::PeerConnection>> file_peers_;
+    std::string file_attempt_;
+    bool file_negotiating_=false;
+    Clock::time_point file_deadline_{};
     std::string peer_attempt_;
     bool peer_attempts_supported_=false;
     ssh_channel signal_=nullptr, chat_=nullptr;
@@ -126,11 +132,12 @@ class Session:public std::enable_shared_from_this<Session> {
     void tick();
     void start_peer();
     void start_client_peer();
+    void start_file_peer();
     void advance_peers();
     void watch_peer(const std::shared_ptr<rtc::PeerConnection>&,const std::shared_ptr<rtc::DataChannel>&,std::string player);
     void fail_peer(const std::shared_ptr<rtc::PeerConnection>&,const std::string& reason,const std::string& player={});
     void receive_signal(const Json&);
-    std::shared_ptr<rtc::PeerConnection> create_peer(const std::string& key,bool client,std::string player={},std::string attempt={});
+    std::shared_ptr<rtc::PeerConnection> create_peer(const std::string& key,bool client,std::string player={},std::string attempt={},bool files=false);
     void add_data(const std::shared_ptr<rtc::DataChannel>&,NetSocket socket=invalid_socket,std::string player={},std::shared_ptr<rtc::PeerConnection> peer={});
     void accept_game();
     void accept_forward();

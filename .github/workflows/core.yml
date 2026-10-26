@@ -81,7 +81,7 @@ jobs:
           else
             export BUGGCRAFT_BRIDGE_LIBRARY="$PWD/package/lib/libbuggcraft_bridge.so"
           fi
-            python -u -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_peer_signaling_attempt tests.test_peer_stun_fallback tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_profile_exchange tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v 2>&1 | tee unix-protocol-tests.log
+          python -u -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_peer_signaling_attempt tests.test_peer_stun_fallback tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_profile_exchange tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v 2>&1 | tee unix-protocol-tests.log
           test_status=${PIPESTATUS[0]}
           if [ "$test_status" -ne 0 ]; then exit "$test_status"; fi
           python -u scripts/check_compatibility.py 2>&1 | tee unix-compatibility.log
