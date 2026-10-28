@@ -23,11 +23,64 @@ void add_heartbeat_tests(std::vector<std::pair<std::string,std::function<void()>
         }
         require(first.replies()==120&&first.rtt_ms()==25);
     });
+    cases.emplace_back("peer_heartbeat_extends_failure_window_for_high_rtt",[require]{
+        using P=bridge::PeerHeartbeat;const auto now=P::Clock::now();P peer(now);
+        require(peer.poll(now)=="BCH1?");peer.receive("BCH1!",now);
+        auto ping=peer.poll(now+std::chrono::seconds(5));require(ping=="BCP1:1");
+        peer.receive("BCA1:1",now+std::chrono::seconds(10));
+        require(peer.timeout_window()==std::chrono::seconds(35));
+        require(!peer.expired(now+std::chrono::seconds(44)));
+        require(peer.expired(now+std::chrono::seconds(45)));
+    });
+    cases.emplace_back("peer_heartbeat_delayed_pong_survives_next_probe_and_rejects_replay",[require]{
+        using P=bridge::PeerHeartbeat;const auto now=P::Clock::now();P peer(now);
+        peer.poll(now);peer.receive("BCH1!",now);
+        require(peer.poll(now+std::chrono::seconds(5))=="BCP1:1");
+        require(peer.poll(now+std::chrono::seconds(10))=="BCP1:2");
+        peer.receive("BCA1:1",now+std::chrono::seconds(11));
+        require(peer.replies()==1&&peer.rtt_ms()==6000);
+        require(peer.timeout_window()==std::chrono::seconds(39));
+        peer.receive("BCA1:2",now+std::chrono::seconds(12));
+        require(peer.replies()==2&&peer.rtt_ms()==2000);
+        peer.receive("BCA1:1",now+std::chrono::seconds(20));
+        peer.receive("BCA1:2",now+std::chrono::seconds(21));
+        peer.receive("BCA1:99",now+std::chrono::seconds(22));
+        require(peer.replies()==2&&peer.age_ms(now+std::chrono::seconds(22))==10000);
+        require(peer.expired(now+std::chrono::seconds(35)));
+        peer.receive("BCA1:2",now+std::chrono::seconds(36));
+        require(peer.expired(now+std::chrono::seconds(36)));
+    });
+    cases.emplace_back("peer_heartbeat_continuous_six_second_rtt_does_not_fall_back",[require]{
+        using P=bridge::PeerHeartbeat;const auto now=P::Clock::now();P peer(now);
+        peer.poll(now);peer.receive("BCH1!",now);
+        for(unsigned second=1;second<=600;++second){
+            const auto at=now+std::chrono::seconds(second);
+            peer.poll(at);
+            if(second>=11&&second%5==1)
+                peer.receive("BCA1:"+std::to_string((second-6)/5),at);
+            require(!peer.expired(at));
+        }
+        require(peer.replies()==118&&peer.rtt_ms()==6000);
+        require(peer.expired(now+std::chrono::seconds(636)));
+    });
     cases.emplace_back("peer_heartbeat_legacy_negotiation_is_bounded_and_never_false_expires",[require]{
         using P=bridge::PeerHeartbeat;const auto now=P::Clock::now();P peer(now);
         for(unsigned i=0;i<3;++i)require(peer.poll(now+std::chrono::seconds(5*i))=="BCH1?");
         require(!peer.poll(now+std::chrono::hours(1))&&peer.legacy(now+std::chrono::hours(1)));
         require(!peer.enabled()&&!peer.expired(now+std::chrono::hours(1)));
+    });
+    cases.emplace_back("peer_heartbeat_adaptive_timeout_is_capped_and_dead_peer_cannot_revive",[require]{
+        using P=bridge::PeerHeartbeat;const auto now=P::Clock::now();P peer(now);
+        peer.poll(now);peer.receive("BCH1!",now);
+        peer.poll(now+std::chrono::seconds(5));
+        peer.receive("BCA1:1",now+std::chrono::seconds(6));
+        peer.poll(now+std::chrono::seconds(10));
+        peer.receive("BCA1:2",now+std::chrono::seconds(24));
+        require(peer.timeout_window()==std::chrono::seconds(60));
+        peer.poll(now+std::chrono::seconds(25));
+        require(!peer.expired(now+std::chrono::seconds(83)));
+        peer.receive("BCA1:3",now+std::chrono::seconds(84));
+        require(peer.replies()==2&&peer.probes()==3&&peer.expired(now+std::chrono::seconds(84)));
     });
     cases.emplace_back("peer_heartbeat_replays_invalid_frames_and_one_way_ping_cannot_hide_loss",[require]{
         using P=bridge::PeerHeartbeat;const auto now=P::Clock::now();P peer(now);

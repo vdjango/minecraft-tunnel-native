@@ -161,17 +161,19 @@ void Session::accept_forward(){
 void Session::flush(ssh_channel channel,std::string& value){if(!channel||value.empty())return;int count=ssh_channel_write(channel,value.data(),static_cast<uint32_t>(std::min<size_t>(value.size(),65536)));if(count>0)value.erase(0,static_cast<size_t>(count));else if(count==SSH_ERROR)throw std::runtime_error("Control channel write failed");}
 void Session::read_controls(){
     char buffer[4096];
-    if(signal_)try{
+    if(signal_&&signal_stage_==2)try{
         flush(signal_,signal_output_);int count=ssh_channel_read_nonblocking(signal_,buffer,sizeof(buffer),0);
         if(count>0){signal_input_.append(buffer,static_cast<size_t>(count));if(signal_input_.size()>32768)throw std::runtime_error("Peer signal limit");size_t newline;while((newline=signal_input_.find('\n'))!=std::string::npos){auto line=signal_input_.substr(0,newline);signal_input_.erase(0,newline+1);try{receive_signal(Json::parse(line));}catch(...){log("peer_signal_rejected",{{"session",identity}});if(role=="client")become_ready();}}}
         else if(count==SSH_ERROR||ssh_channel_is_eof(signal_))throw std::runtime_error("Peer signaling closed");
     }catch(...){
         // A signaling subsystem failure is not an SSH transport failure.
         // Keep room/chat/relay channels and every unrelated player's streams.
-        direct_=false;peer_started_=false;peer_negotiating_=false;peer_retry_={};
+        peer_started_=false;peer_negotiating_=false;peer_retry_={};
         free_channel(signal_);signal_input_.clear();signal_output_.clear();
-        if(client_peer_)fail_peer(client_peer_,"signaling-closed");
-        become_ready();log("peer_signal_closed",{{"session",identity},{"ssh_preserved",true}});
+        signal_stage_=0;next_signal_=Clock::now()+std::chrono::seconds(2);
+        const bool preserved=client_peer_&&direct_&&client_peer_->state()==rtc::PeerConnection::State::Connected;
+        if(client_peer_&&!preserved)fail_peer(client_peer_,"signaling-closed");
+        become_ready();log("peer_signal_closed",{{"session",identity},{"ssh_preserved",true},{"p2p_preserved",preserved}});
     }
     if(chat_&&chat_stage_==2)try{
         flush(chat_,chat_output_);int count=ssh_channel_read_nonblocking(chat_,buffer,sizeof(buffer),0);
@@ -271,6 +273,7 @@ void Session::cleanup(){
     for(auto& [key,peer]:peers_){peer->resetCallbacks();peer->close();}peers_.clear();if(client_peer_){client_peer_->resetCallbacks();client_peer_->close();client_peer_.reset();}
     probes_.clear();free_channel(signal_);free_channel(chat_);peer_started_=false;direct_=false;zstd_=false;
     peer_available_=false;peer_negotiating_=false;peer_retry_={};peer_retries_=0;
+    signal_stage_=0;next_signal_={};
     signal_input_.clear();signal_output_.clear();chat_input_.clear();chat_output_.clear();
     if(mods_)mods_->disconnect();raw_forward_=zstd_forward_=mods_forward_=0;ssh_.reset();{std::lock_guard guard(mutex_);commands_.clear();}unbind_log(identity);
 }

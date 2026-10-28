@@ -7,7 +7,7 @@
 #include "rpc.hpp"
 #include <iostream>
 namespace bridge {
-struct Node{Profile profile;std::vector<Profile> alternatives;std::unique_ptr<RouteSelector> routes;};
+struct Node{Profile identity,profile;std::vector<Profile> alternatives;std::unique_ptr<RouteSelector> routes;};
 class Rpc {
     std::unordered_map<std::string,Node> nodes_;
     std::unordered_map<std::string,std::shared_ptr<Session>> sessions_;
@@ -34,9 +34,14 @@ public:
                     }
                 }catch(...){}
             }catch(...){if(value.alternatives.empty())throw;}
+            // Route discovery supplies endpoint credentials, not the user's identity.
+            // Federated nodes validate the original signed account credential.
+            value.identity=value.profile;
+            if(value.identity.token.starts_with("acct1."))
+                for(auto& alternative:value.alternatives)alternative.token=value.identity.token;
             value.routes=std::make_unique<RouteSelector>(value.profile,value.alternatives);
             try{value.routes->refresh(value.profile,value.alternatives);}catch(...){if(!verified)throw;log("route_probe_deferred");}
-            auto handle=random_id(12);Json result{{"node",handle},{"name",value.profile.name},{"identity",value.profile.token.starts_with("acct1")?"account":"anonymous"}};nodes_.emplace(handle,std::move(value));return result;}
+            auto handle=random_id(12);Json result{{"node",handle},{"name",value.profile.name},{"identity",value.identity.token.starts_with("acct1.")?"account":"anonymous"}};nodes_.emplace(handle,std::move(value));return result;}
         if(method=="node.routes"){auto& n=node(p);try{n.routes->refresh(n.profile,n.alternatives,p.value("refresh",false));}catch(...){}
             return {{"name",n.profile.name},{"routes",n.routes->status()},{"backups",n.alternatives.size()}};}
         if(method=="node.selected"){auto& n=node(p);try{n.routes->refresh(n.profile,n.alternatives);}catch(...){}
@@ -53,7 +58,7 @@ public:
             const auto started=Clock::now();
             if(method=="room.list"){auto offset=p.value("offset",Json(0));auto limit=p.value("limit",20);auto query=p.value("query",std::string{});if(!offset.is_number_integer()||offset.get<int64_t>()<0||offset.get<int64_t>()>4096||limit<1||limit>50||query.size()>400)throw Failure(-32602,"Invalid room pagination");request={{"op","list"},{"offset",offset},{"limit",limit},{"query",query}};}
             else if(method=="room.resolve")request={{"op","resolve"},{"id",p.at("id")}};
-            else if(method=="social.operate")request={{"op","social"},{"event",social_event(n.profile,p)}};
+            else if(method=="social.operate")request={{"op","social"},{"event",social_event(n.identity,p)}};
             else{request=p.at("request");if(!request.is_object())throw Failure(-32602,"Invalid request");}
             try{n.routes->refresh(n.profile,n.alternatives);}catch(...){}
             const auto before=n.profile;
@@ -63,7 +68,10 @@ public:
             }
             if(method=="room.list"){
                 result["connect_ms"]=std::chrono::duration<double,std::milli>(Clock::now()-started).count();
-                result["node_name"]=n.profile.name;result["node_latency_ms"]=result["connect_ms"];
+                result["node_name"]=n.profile.name;
+                const auto latency=n.routes->latency_ms(n.profile);
+                result["node_latency_ms"]=latency?Json(*latency):Json(nullptr);
+                result["node_latency_scope"]="directory_ping";
             }
             if(before.key!=n.profile.key||before.host!=n.profile.host||before.port!=n.profile.port){n.routes->failed(before);n.routes->recovered(before,n.profile);try{n.routes->refresh(n.profile,n.alternatives);}catch(...){}}
             return result;}

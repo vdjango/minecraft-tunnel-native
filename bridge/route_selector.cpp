@@ -79,6 +79,11 @@ Json RouteSelector::status()const{auto rows=Json::array();for(const auto& c:cand
     {"remaining_visitors",c.sample.remaining},{"accepting",c.sample.accepting},
     {"score",std::isfinite(route_score(c.sample))?Json(route_score(c.sample)):Json(nullptr)}});return rows;}
 Json RouteSelector::events(){auto value=std::move(events_);events_=Json::array();return value;}
+std::optional<double> RouteSelector::latency_ms(const Profile& profile)const{
+    if(refreshed_==Clock::time_point{}||Clock::now()-refreshed_>std::chrono::seconds(60))return {};
+    for(const auto& c:candidates_)if(same(c.profile,profile)&&c.sample.reachable)return c.sample.rtt_ms;
+    return {};
+}
 bool RouteSelector::admissible(const Profile& profile)const{
     for(const auto& c:candidates_)if(same(c.profile,profile))return std::isfinite(route_score(c.sample));
     return false;

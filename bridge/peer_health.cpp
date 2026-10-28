@@ -55,6 +55,19 @@ void Session::start_client_peer(){
 }
 void Session::advance_peers(){
     const auto now=Clock::now();
+    // Recover the rendezvous channel without blocking game forwarding or
+    // renegotiating an already connected data channel.
+    if(policy_!="relay"&&signal_stage_!=2&&now>=next_signal_){
+        if(signal_&&now>=signal_deadline_){free_channel(signal_);signal_stage_=0;next_signal_=now+std::chrono::seconds(3);return;}
+        if(!signal_){signal_=ssh_channel_new(ssh_->get());signal_stage_=0;signal_deadline_=now+std::chrono::seconds(5);}
+        if(signal_){
+            const int result=signal_stage_==0?ssh_channel_open_session(signal_):ssh_channel_request_subsystem(signal_,"buggcraft-peer-v1");
+            if(result==SSH_OK){
+                if(++signal_stage_==2){peer_started_=true;log("peer_signal_reconnected",{{"session",identity}});}
+                wake_.notify();
+            }else if(result!=SSH_AGAIN){free_channel(signal_);signal_stage_=0;next_signal_=now+std::chrono::seconds(3);}
+        }else next_signal_=now+std::chrono::seconds(3);
+    }
     for(auto& watch:probes_){
         if(watch->dead)continue;
         auto peer=watch->peer.lock();if(!peer){watch->dead=true;continue;}
@@ -65,7 +78,11 @@ void Session::advance_peers(){
         }
         if(!watch->channel->isOpen())continue;
         if(watch->heartbeat.expired(now)){
-            log("peer_heartbeat_timeout",{{"session",identity},{"player",watch->player},{"timeout_seconds",20},{"last_reply_age_ms",watch->heartbeat.age_ms(now)}});
+            log("peer_heartbeat_timeout",{{"session",identity},{"player",watch->player},
+                {"timeout_seconds",std::chrono::duration<double>(watch->heartbeat.timeout_window()).count()},
+                {"last_reply_age_ms",watch->heartbeat.age_ms(now)},
+                {"rtt_ms",watch->heartbeat.rtt_ms()},{"replies",watch->heartbeat.replies()},
+                {"probes",watch->heartbeat.probes()}});
             fail_peer(peer,"heartbeat-timeout",watch->player);continue;
         }
         if(watch->channel->bufferedAmount()<256)if(auto message=watch->heartbeat.poll(now))try{watch->channel->send(*message);}catch(...){fail_peer(peer,"probe-send-failed",watch->player);}

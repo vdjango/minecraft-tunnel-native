@@ -60,15 +60,19 @@ void Session::add_data(const std::shared_ptr<rtc::DataChannel>& channel,NetSocke
 }
 void Session::start_peer(){
     if(policy_=="relay")return;
-    try{signal_=ssh_->subsystem("buggcraft-peer-v1");peer_started_=true;peer_deadline_=Clock::now()+std::chrono::seconds(12);}catch(...){log("peer_fallback",{{"session",identity},{"reason","signaling-unavailable"}});}
+    try{signal_=ssh_->subsystem("buggcraft-peer-v1");signal_stage_=2;peer_started_=true;peer_deadline_=Clock::now()+std::chrono::seconds(12);}catch(...){next_signal_=Clock::now()+std::chrono::seconds(3);log("peer_fallback",{{"session",identity},{"reason","signaling-unavailable"}});}
 }
 void Session::receive_signal(const Json& value){
     auto type=value.value("type","");
     if(type=="ready"){peer_available_=value.value("available",false);if(role=="host")return;if(!peer_available_){become_ready();return;}
-        start_client_peer();
+        if(!direct_||!client_peer_||client_peer_->state()!=rtc::PeerConnection::State::Connected)start_client_peer();
     }else if(type=="answer"&&role=="client"&&client_peer_&&peer_negotiating_){auto sdp=value.at("sdp").get<std::string>();validate_sdp(sdp);client_peer_->setRemoteDescription(rtc::Description(sdp,"answer"));}
     else if(type=="offer"&&role=="host"){auto key=value.at("peer").get<std::string>();if(key.size()>64||(!peers_.contains(key)&&peers_.size()>=128))return;auto sdp=value.at("sdp").get<std::string>();validate_sdp(sdp);if(auto old=peers_.find(key);old!=peers_.end()){fail_peer(old->second,"peer-renegotiation",value.value("player","peer-"+key));peers_.erase(old);}auto pc=create_peer(key,false,value.value("player","peer-"+key));peers_[key]=pc;pc->setRemoteDescription(rtc::Description(sdp,"offer"));pc->setLocalDescription(rtc::Description::Type::Answer);}
-    else if(type=="left"&&role=="host"){auto key=value.value("peer","");if(auto it=peers_.find(key);it!=peers_.end()){it->second->close();peers_.erase(it);}}
+    else if(type=="left"&&role=="host"){auto key=value.value("peer","");if(auto it=peers_.find(key);it!=peers_.end()){
+        // A node sends left when only the signaling subsystem closes. Let the
+        // authenticated peer heartbeat decide whether an established path died.
+        if(it->second->state()!=rtc::PeerConnection::State::Connected){fail_peer(it->second,"signaling-left");peers_.erase(it);}
+    }}
     else if(type=="unavailable"&&role=="client")become_ready();
 }
 }

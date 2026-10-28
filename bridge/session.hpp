@@ -98,6 +98,9 @@ class Session:public std::enable_shared_from_this<Session> {
     int raw_forward_=0,zstd_forward_=0,mods_forward_=0;
     Clock::time_point peer_deadline_;
     Clock::time_point peer_retry_{};
+    Clock::time_point next_signal_{};
+    Clock::time_point signal_deadline_{};
+    unsigned signal_stage_=0;
     bool peer_negotiating_=false;
     unsigned peer_retries_=0;
     Clock::time_point next_presence_=Clock::now();

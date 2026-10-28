@@ -126,7 +126,7 @@ class PeerHeartbeatTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('relay', paths)
         self.assertEqual(paths[-1], 'p2p')
 
-    async def test_signaling_close_preserves_room_ssh_and_other_player(self):
+    async def test_signaling_close_preserves_active_p2p_stream_and_other_player(self):
         host, guest, hosted, joined = await self.pair()
         survivor = await self.process()
         sn = await self.add(survivor)
@@ -138,16 +138,31 @@ class PeerHeartbeatTests(unittest.IsolatedAsyncioTestCase):
         from tunnel.diagnostics import player_identity
         peer = next(peer for peer in self.node.peers
                     if peer.authenticated and player_identity(peer) == session['player'])
+        reader, writer = await asyncio.open_connection('127.0.0.1', int(joined['address'].rsplit(':', 1)[1]))
+        self.addCleanup(writer.close)
+        writer.write(fixture.GAME_HANDSHAKE)
+        await writer.drain()
+        self.assertEqual(await asyncio.wait_for(reader.readexactly(len(fixture.GAME_HANDSHAKE)), 5), fixture.GAME_HANDSHAKE)
+        original_signal = peer.peer_signal
         peer.peer_signal.close()
-        async with asyncio.timeout(5):
-            while (await self.state(guest, joined))['transport'] != 'relay':
-                await asyncio.sleep(.05)
-        await self.exchange(joined, b'relay-after-signaling-close' * 4096)
+        for _ in range(24):
+            writer.write(b'kept-direct-stream')
+            await writer.drain()
+            self.assertEqual(await asyncio.wait_for(reader.readexactly(18), 5), b'kept-direct-stream')
+            self.assertEqual((await self.state(guest, joined))['transport'], 'p2p')
+            await asyncio.sleep(.25)
+        self.assertIsNotNone(peer.peer_signal)
+        self.assertIsNot(peer.peer_signal, original_signal)
+        await self.exchange(joined, b'direct-after-signaling-close' * 4096)
         await self.exchange(stable, b'other-player-still-direct' * 4096)
         self.assertEqual((await self.state(survivor, stable))['transport'], 'p2p')
         self.assertEqual((await self.state(guest, joined))['address'], joined['address'])
         self.assertEqual(identities, {peer.chat_id for peer in self.node.peers if peer.authenticated})
         self.assertFalse(any(row['event'] == 'endpoint_disconnected' for row in self.rows(joined['session'])))
+        self.assertTrue(any(row['event'] == 'peer_signal_closed' and row.get('p2p_preserved')
+                            for row in self.rows(joined['session'])))
+        self.assertFalse(any(row['event'] == 'peer_fallback' and row.get('reason') == 'signaling-closed'
+                             for row in self.rows(joined['session'])))
 
 
 @unittest.skipUnless(library.LIBRARY.is_file(), 'Build the native shared library first')
