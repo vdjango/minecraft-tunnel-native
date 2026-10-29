@@ -83,6 +83,25 @@ jobs:
           python -u scripts/check_compatibility.py 2>&1 | tee unix-compatibility.log
           test_status=${PIPESTATUS[0]}
           if [ "$test_status" -ne 0 ]; then exit "$test_status"; fi
+      - name: Describe failed protocol assertions
+        if: failure()
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          for name in ('windows-library-tests.log', 'windows-protocol-tests.log', 'windows-compatibility.log',
+                       'unix-protocol-tests.log', 'unix-compatibility.log'):
+              file = Path(name)
+              if not file.is_file():
+                  continue
+              text = file.read_text(encoding='utf-8-sig', errors='replace')
+              for match in re.finditer(r'^(?:FAIL|ERROR): .+', text, re.M):
+                  end = text.find('\n======================================================================', match.end())
+                  detail = text[match.start():end if end >= 0 else len(text)][:4500]
+                  detail = detail.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                  print('::error title=Native regression assertion::' + detail)
+          PY
       - name: Build Ubuntu installer
         if: runner.os == 'Linux'
         run: python scripts/build_deb.py --runtime package --version '${{ steps.release.outputs.deb_version }}'
