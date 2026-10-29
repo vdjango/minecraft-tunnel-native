@@ -3,12 +3,12 @@
       const releasesUrl = new URL('release-history.json', location.href).href;
       const managedReleasesUrl = 'https://download.bugg.icu/api/launcher/releases';
       const platforms = {
-        windows: { title:'Windows', description:'Windows 10 / 11 · x64 · 单文件启动器', assetNames:['Buggcraft.exe'], checksum:'SHA256SUMS-windows-x64.txt', fallback:/windows.*\.(exe|zip)$/i },
+        windows: { title:'Windows', description:'Windows 10 / 11 · x64 · 解压 ZIP 后运行 Buggcraft.exe', assetNames:['Buggcraft-windows-x64.zip'], checksum:'SHA256SUMS-downloads.txt', fallback:/windows.*\.zip$/i },
         mac: { title:'macOS', description:'选择你的芯片类型，下载对应的 Buggcraft.app 压缩包。', checksums:{ arm64:'SHA256SUMS-macos-arm64.txt', x86_64:'SHA256SUMS-macos-x86_64.txt' }, fallback:null },
-        linux: { title:'Linux', description:'选择处理器架构，下载对应的 Linux 单文件程序。', checksums:{ arm64:'SHA256SUMS-linux-arm64.txt', x86_64:'SHA256SUMS-linux-x86_64.txt' } }
+        linux: { title:'Linux', description:'选择处理器架构，下载对应的 ZIP 压缩包。', checksums:{ arm64:'SHA256SUMS-downloads.txt', x86_64:'SHA256SUMS-downloads.txt' } }
       };
       const archNames = { arm64:'Buggcraft-macos-arm64.zip', x86_64:'Buggcraft-macos-x86_64.zip' };
-      const linuxArchNames = { arm64:'Buggcraft-linux-arm64', x86_64:'Buggcraft' };
+      const linuxArchNames = { arm64:'Buggcraft-linux-arm64.zip', x86_64:'Buggcraft-linux-x86_64.zip' };
       const root = document.documentElement;
       const query = new URLSearchParams(location.search);
       const requestedVersion = query.get('version') || '';
@@ -37,7 +37,7 @@
       }
       function asset(release, name, fallback) {
         const list = Array.isArray(release.assets) ? release.assets : [];
-        for (const candidate of (name ? [name] : [])) {
+        for (const candidate of (Array.isArray(name) ? name : name ? [name] : [])) {
           const exact = list.find(item => item.name === candidate);
           if (exact) return exact;
         }
@@ -47,7 +47,7 @@
         if (platform === 'mac') return asset(release, archNames[arch], new RegExp(`macos[-_].*${arch}.*\\.zip$`,'i'));
         if (platform === 'linux') return asset(release, linuxArchNames[arch]);
         const config = platforms[platform];
-        return asset(release, config.assetNames?.[0], config.fallback);
+        return asset(release, config.assetNames, config.fallback);
       }
       function mostRecentFor(platform, arch) {
         if (requestedVersion) {
@@ -84,7 +84,7 @@
       function renderArchitecture() {
         document.getElementById('platform-architecture').hidden=selectedPlatform==='windows';
         document.getElementById('platform-description').textContent=selectedPlatform==='linux'
-          ? `Linux ${selectedArch} · 单文件程序 · Ubuntu 24.04 构建目标` : platforms[selectedPlatform].description;
+          ? `Linux ${selectedArch} · 解压 ZIP 后运行 · Ubuntu 24.04 构建目标` : platforms[selectedPlatform].description;
         for(const button of document.querySelectorAll('.arch-button')) {
           const arm=button.dataset.arch==='arm64';
           button.textContent=selectedPlatform==='mac'?(arm?'Apple Silicon · M 系列':'Intel'):(arm?'ARM64':'x86_64');
@@ -121,11 +121,11 @@
         notes.href='#history-title'; notes.textContent='查看本地发行说明 ↓';
       }
       function historyFileLabel(name) {
-        if(name==='Buggcraft.exe' || /windows.*\.exe$/i.test(name)) return 'Windows';
+        if(name==='Buggcraft-windows-x64.zip' || name==='Buggcraft.exe' || /windows.*\.(exe|zip)$/i.test(name)) return 'Windows';
         if(name===archNames.arm64) return 'macOS · Apple Silicon';
         if(name===archNames.x86_64) return 'macOS · Intel';
-        if(name==='Buggcraft-linux-arm64') return 'Linux · ARM64';
-        if(name==='Buggcraft' || /^Buggcraft-linux/i.test(name)) return 'Linux · x86_64';
+        if(name==='Buggcraft-linux-arm64.zip' || name==='Buggcraft-linux-arm64') return 'Linux · ARM64';
+        if(name==='Buggcraft-linux-x86_64.zip' || name==='Buggcraft' || /^Buggcraft-linux/i.test(name)) return 'Linux · x86_64';
         return null;
       }
       function renderHistory() {
@@ -141,7 +141,8 @@
           const kind=document.createElement('span');kind.className='release-kind';kind.textContent=release.prerelease?'测试版':'正式版';
           summary.append(tag,date,kind);
           const downloads=document.createElement('div');downloads.className='history-assets';
-          const assets=(release.assets||[]).map(file=>({file,label:historyFileLabel(file.name)})).filter(item=>item.label);
+          const preferredNames = new Set(['windows','mac','linux'].flatMap(platform=>['arm64','x86_64'].map(arch=>platformAsset(release,platform,arch)?.name)).filter(Boolean));
+          const assets=(release.assets||[]).filter(file=>preferredNames.has(file.name)).map(file=>({file,label:historyFileLabel(file.name)})).filter(item=>item.label);
           for(const {file,label} of assets){const link=document.createElement('a');link.className='history-download';link.href=file.browser_download_url;link.textContent=`${label} · ${file.name} ↓`;downloads.append(link);}
           if(!assets.length){const note=document.createElement('span');note.className='history-date';note.textContent='此版本没有当前平台的安装文件。';downloads.append(note);}
           const notes=document.createElement('details');notes.className='release-notes';
