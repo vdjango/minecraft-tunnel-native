@@ -1,10 +1,12 @@
 import ast
 import contextlib
+import hashlib
 import io
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import tarfile
 import unittest
 from unittest import mock
 
@@ -12,6 +14,57 @@ from scripts import build_native, embed_protocol_data, fetch_deps
 
 
 class DependencyFallbackTests(unittest.TestCase):
+    def zlib_fixture(self):
+        content = io.BytesIO()
+        with tarfile.open(fileobj=content, mode='w:gz') as archive:
+            entry = tarfile.TarInfo('zlib-1.3.2/verified.txt')
+            entry.size = len(b'pinned zlib source')
+            archive.addfile(entry, io.BytesIO(b'pinned zlib source'))
+        value = content.getvalue()
+        return value, ('zlib', ('https://zlib.net/zlib-1.3.2.tar.gz',
+                              'zlib-1.3.2', hashlib.sha256(value).hexdigest()))
+
+    def test_http_success_with_invalid_archive_uses_verified_release_mirror(self):
+        content, item = self.zlib_fixture()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with (mock.patch.object(fetch_deps, 'ROOT', root),
+                  mock.patch.object(fetch_deps.urllib.request, 'urlopen',
+                      side_effect=[io.BytesIO(b'<html>upstream unavailable</html>'), io.BytesIO(content)]) as open_url):
+                fetch_deps.fetch(item)
+            self.assertEqual((root / '.deps/zlib-1.3.2/verified.txt').read_bytes(), b'pinned zlib source')
+            self.assertEqual((root / '.deps/zlib.tar.gz').read_bytes(), content)
+            self.assertEqual(open_url.call_args.args[0],
+                'https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.gz')
+
+    def test_invalid_origin_and_mirror_never_cache_or_extract_unverified_bytes(self):
+        _, item = self.zlib_fixture()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with (mock.patch.object(fetch_deps, 'ROOT', root),
+                  mock.patch.object(fetch_deps.urllib.request, 'urlopen',
+                      side_effect=[io.BytesIO(b'bad origin'), io.BytesIO(b'bad mirror')]),
+                  mock.patch.object(fetch_deps.tarfile, 'open') as extract):
+                with self.assertRaisesRegex(ValueError, 'SHA-256 mismatch: zlib'):
+                    fetch_deps.fetch(item)
+            extract.assert_not_called()
+            self.assertFalse((root / '.deps/zlib.tar.gz').exists())
+            self.assertFalse((root / '.deps/zlib-1.3.2').exists())
+
+    def test_corrupted_cached_archive_is_rejected_without_extraction(self):
+        _, item = self.zlib_fixture()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / '.deps').mkdir()
+            (root / '.deps/zlib.tar.gz').write_bytes(b'corrupted cache')
+            with (mock.patch.object(fetch_deps, 'ROOT', root),
+                  mock.patch.object(fetch_deps.urllib.request, 'urlopen') as open_url,
+                  mock.patch.object(fetch_deps.tarfile, 'open') as extract):
+                with self.assertRaisesRegex(ValueError, 'SHA-256 mismatch: zlib'):
+                    fetch_deps.fetch(item)
+            open_url.assert_not_called()
+            extract.assert_not_called()
+
     def test_libssh_official_mirror_timeout_uses_pinned_github_mirror(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

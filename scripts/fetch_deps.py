@@ -32,7 +32,11 @@ def fetch(item):
         try:
             with urllib.request.urlopen(request, timeout=45) as response:
                 content = response.read()
-        except OSError:
+            if hashlib.sha256(content).hexdigest() != expected:
+                raise ValueError('Dependency SHA-256 mismatch: ' + name)
+        except (OSError, ValueError):
+            # Some upstream/CDN failures return a successful HTTP status with
+            # an error page. Try the pinned mirror, then apply the same digest.
             if name == 'libssh':
                 target = base / folder
                 if not target.exists():
