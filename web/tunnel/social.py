@@ -4,6 +4,7 @@ import json
 import re
 import time
 from .accounts import canonical, verify
+from .room_lobby import manager_account
 
 ACCOUNT = re.compile(r'[0-9a-f]{32}\.[0-9a-f]{32}')
 MAX_EDGES = 4096
@@ -170,7 +171,7 @@ class Social:
             if not invitation or invitation['action']['id'] != action['ref'] or invitation['action']['at'] <= time.time() - 300:
                 raise ValueError('邀请已过期，请好友重新邀请。')
             room = self.store.federation.relay.rooms.get(invitation['action']['room'])
-            if not room or getattr(room.owner, 'account', None) != target or not room.available:
+            if not room or manager_account(room) != target or not room.available:
                 raise ValueError('好友的房间暂不可用。')
             return {'invite': 'bugg1-' + room.secret}
         self.ingest([event])

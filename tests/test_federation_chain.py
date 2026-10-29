@@ -98,6 +98,10 @@ class FederationChainTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.node.capacity.members(hosted['room']), 2)
         reader, writer = await asyncio.open_connection('127.0.0.1', int(joined['address'].rsplit(':', 1)[1]))
         self.addCleanup(writer.close)
+        writer.write(bridge_tests.GAME_HANDSHAKE)
+        await writer.drain()
+        self.assertEqual(await asyncio.wait_for(reader.readexactly(len(bridge_tests.GAME_HANDSHAKE)), 3),
+                         bridge_tests.GAME_HANDSHAKE)
         payload = secrets.token_bytes(65536)
         latencies = []
 

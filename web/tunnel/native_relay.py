@@ -71,6 +71,7 @@ class NativeChannel:
     def __init__(self, relay, peer, identity):
         self.relay, self.peer, self.identity = relay, peer, identity
         self.closed = self.paused = False
+        self.read_paused = False
         self.pending = 0
         self.handler = None
 
@@ -92,6 +93,18 @@ class NativeChannel:
         if self.pending < 65536 and self.paused:
             self.paused = False
             self.handler.resume_writing()
+
+    def pause_reading(self):
+        if not self.closed and not self.read_paused:
+            self.read_paused = True
+            self.relay.send(dict(op='channel_read_pause', session=self.peer.conn.identity,
+                                channel=self.identity, paused=True))
+
+    def resume_reading(self):
+        if not self.closed and self.read_paused:
+            self.read_paused = False
+            self.relay.send(dict(op='channel_read_pause', session=self.peer.conn.identity,
+                                channel=self.identity, paused=False))
 
     def close(self):
         if not self.closed:
@@ -254,11 +267,12 @@ class RelayServer(PythonRelay):
             if not self.closing and self.process.returncode is None:
                 self.process.kill()
 
-    def _disconnected(self, identity, reason='transport-closed'):
+    def _disconnected(self, identity, reason='transport-closed', transport=None):
         peer = self.native_peers.pop(identity, None)
         if not peer:
             return
         peer.disconnect_reason = reason
+        peer.transport_diagnostic = transport
         peer.conn.closed = True
         for key, channel in tuple(self.native_channels.items()):
             if channel.peer is peer:
@@ -301,7 +315,7 @@ class RelayServer(PythonRelay):
                 allowed = peer.authenticated and not peer.conn.closed
             return dict(allowed=bool(allowed))
         if op == 'disconnected':
-            self._disconnected(identity, value.get('reason', 'transport-closed'))
+            self._disconnected(identity, value.get('reason', 'transport-closed'), value.get('transport'))
             return
         if op == 'stats':
             self.native_stats.update(value)

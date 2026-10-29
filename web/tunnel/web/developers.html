@@ -16,7 +16,7 @@
       <div class="docs-side-title">开发文档 <small>V1</small></div>
       <nav class="docs-toc" aria-label="章节目录">
         <a href="#overview">接入方式</a><a href="#quickstart">开始接入</a><a href="#directory-api">节点和房间</a>
-        <a href="#rooms-api">连接方式</a><a href="#mods-api">模组同步</a><a href="#friends-api">账号与好友</a><a href="#examples">语言示例</a><a href="#security-api">安全与测试</a>
+        <a href="#rooms-api">连接方式</a><a href="#mods-api">游戏与内容同步</a><a href="#lobby-api">房间准备与授权</a><a href="#friends-api">账号与好友</a><a href="#examples">语言示例</a><a href="#security-api">安全与测试</a>
       </nav>
       <div class="docs-side-files"><span>协议与参考代码</span><a href="#protocol">完整协议说明</a><a href="#examples">各语言接入示例</a></div>
     </div></aside>
@@ -82,15 +82,25 @@
       </section>
 
       <section id="mods-api" class="docs-section">
-        <div class="docs-section-heading"><span>05 / MODS &amp; GAME PROFILE</span><h2>房间可以核对 Minecraft 版本与模组</h2><p>房主可发布版本信息和 JAR 清单，访客可查看并选择下载。桥负责校验与传输，是否安装、启用或重启游戏由启动器决定。</p></div>
-        <div class="docs-split"><article class="docs-info-card"><h3>房间信息</h3><p>房主的 <code>game_directory</code> 指向 Minecraft 实例根目录；桥扫描其 <code>mods</code> 子目录，并把模组数量、清单 SHA-256 和最多 24 个 JAR 预览写入房间信息。Minecraft 版本、协议号、加载器和加载器版本仍由启动器通过 <code>settings.game</code> 或 <code>room.retarget</code> 提供。</p></article><article class="docs-info-card"><h3>完整模组清单</h3><p>如果创建房间时没传 <code>game_directory</code>，房主可在 <code>game_port:0</code> 等待阶段调用 <code>mods.configure</code> 并传入实例根目录。桥扫描最多 1000 个 JAR；访客调用 <code>mods.manifest</code>，每页最多 50 项。</p></article></div>
+        <div class="docs-section-heading"><span>05 / GAME &amp; CONTENT</span><h2>统一游戏环境和内容清单</h2><p>等待房间可发布游戏、加载器和文件信息，让访客先准备客户端；资源包与光影属于可选内容。</p></div>
+        <div class="docs-split"><article class="docs-info-card"><h3>房间信息</h3><p><code>game_directory</code> 指向实例根目录。桥扫描 <code>mods</code>、<code>resourcepacks</code> 和 <code>shaderpacks</code>；版本及加载器由启动器提供。游戏版本、加载器类型和模组用于联机匹配，资源包与光影不会阻止加入。</p></article><article class="docs-info-card"><h3>完整清单</h3><p><code>mods.manifest</code> 默认读取模组；传入 <code>kind:resources</code> 获取可选资源和光影。每页最多 50 项，目录预览不是完整清单。等待阶段可以用 <code>mods.configure</code> 指定实例目录。</p></article></div>
         <div class="docs-table-wrap"><table class="docs-table"><caption>模组传输接口</caption><thead><tr><th scope="col">方法</th><th scope="col">用途</th></tr></thead><tbody>
-          <tr><td><code>mods.configure</code></td><td>房主等待游戏启动时配置 Minecraft 实例根目录；桥读取其中的 <code>mods</code> 子目录并更新房间摘要。游戏端口启用后不能更改。</td></tr>
+          <tr><td><code>mods.configure</code></td><td>房主等待游戏启动时配置 Minecraft 实例根目录并更新房间摘要。游戏端口启用后不能更改。</td></tr>
           <tr><td><code>mods.manifest</code></td><td>读取目录。房主本地分页返回；访客先得到 transfer ID，再用 <code>mods.status</code> 轮询并分页读取。</td></tr>
-          <tr><td><code>mods.fetch</code></td><td>访客提交清单项及本机目标路径下载 JAR；单文件上限 2 GiB，最多 4 个并行传输。收到文件后桥再次核对 SHA-256，再写入目标目录。</td></tr>
+          <tr><td><code>mods.fetch</code></td><td>访客提交清单项及目标路径，支持模组或 <code>kind:resources</code>。单文件上限 2 GiB、最多 4 个并行传输，校验后写入；仅已有 P2P 游戏直连时可请求文件。</td></tr>
           <tr><td><code>mods.status</code> / <code>mods.cancel</code></td><td>查询传输进度或取消传输。</td></tr>
         </tbody></table></div>
-        <div class="docs-note"><strong>不会自动修改游戏</strong><p>模组清单会自动同步给节点目录，用于显示和比对；版本号、协议号与加载器信息由启动器提供。桥不会替用户安装模组、覆盖已有文件、切换加载器或自动重启 Minecraft；启动器应先展示差异并取得用户操作，再决定下载目标目录。</p></div>
+        <div class="docs-note"><strong>下载源优先</strong><p>启动器先从用户设置的内容源下载并校验文件；来源不可用时，仅在游戏 P2P 已连接且房主授权共享的情况下使用 P2P 兜底，文件不会通过节点中转。环境清单与 <code>.buggpack</code> 使用一致的文件身份和校验语义；房间不会上传整合包或自动复制存档。</p></div>
+      </section>
+
+      <section id="lobby-api" class="docs-section">
+        <div class="docs-section-heading"><span>ROOM PREPARATION &amp; DIAGNOSTICS</span><h2>准备进度、管理与玩家授权</h2><p><code>room-lobby-v1</code> 支持无需启动游戏的准备房间。<code>game_port:0</code> 期间玩家可以聊天、安装并报告进度，开放局域网后再关联世界。</p></div>
+        <div class="docs-table-wrap"><table class="docs-table"><caption>通过 <code>room.request</code> 调用的房间操作</caption><thead><tr><th scope="col">操作</th><th scope="col">用途与权限</th></tr></thead><tbody>
+          <tr><td><code>members</code> / <code>member_update</code> / <code>member_path</code></td><td>获取成员和房主、世界提供者，报告自己的准备阶段、进度和连接路径；未知延迟保持未知。</td></tr>
+          <tr><td><code>member_kick</code> / <code>owner_offer</code> / <code>owner_answer</code></td><td>仅管理者可移出成员或发起转让；转让需目标本人确认，世界提供者和管理者可能不同。</td></tr>
+          <tr><td><code>logs_request</code> / <code>logs_answer</code> / <code>logs_append</code> / <code>logs_read</code> / <code>logs_revoke</code></td><td>房主申请查看安装日志，玩家明确允许后才可读取；撤回、断线或管理者改变会清理授权和缓存。</td></tr>
+        </tbody></table></div>
+        <div class="docs-note"><strong>主动提交诊断</strong><p>房主和房客均可确认后提交诊断。<code>feedback.submit</code> 使用已认证的个人节点和原生桥上传，节点保存私有附件并返回反馈编号；附件限 20 MiB，只有节点管理员可下载。普通准备进度不包含安装日志。</p></div>
       </section>
 
       <section id="friends-api" class="docs-section">

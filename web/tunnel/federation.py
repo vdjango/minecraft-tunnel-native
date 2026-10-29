@@ -100,8 +100,8 @@ class Federation:
         rooms = []
         for room_id, room in self.relay.rooms.items():
             item = {'id': room_id}
-            if room.public and room.port:
-                item['room'] = describe(room_id, room, preview=False, relay=self.relay)
+            if room.public:
+                item['room'] = describe(room_id, room, preview=True, relay=self.relay)
             rooms.append(item)
         body = {'id': self.id, 'profile': self.profile, 'name': self.name,
                 'issued': time.time(), 'rooms': rooms}
@@ -172,7 +172,7 @@ class Federation:
                     if 'room' not in item:
                         continue
                     room = item['room']
-                    if (not isinstance(room, dict) or len(canonical(room)) > 4096 or
+                    if (not isinstance(room, dict) or len(canonical(room)) > 32768 or
                             room.get('id') != item['id'] or
                             not isinstance(room.get('title'), str) or len(room['title']) > 80 or
                             room.get('public') is not True or

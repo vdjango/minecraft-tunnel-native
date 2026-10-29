@@ -5,6 +5,8 @@
 #include "local_game.hpp"
 #include "social.hpp"
 #include "rpc.hpp"
+#include "journal.hpp"
+#include "feedback.hpp"
 #include <iostream>
 namespace bridge {
 struct Node{Profile identity,profile;std::vector<Profile> alternatives;std::unique_ptr<RouteSelector> routes;};
@@ -17,9 +19,11 @@ class Rpc {
 public:
     ~Rpc(){for(auto& [id,s]:sessions_)s->stop();}
     Json dispatch(const std::string& method,const Json& p){
+        if(method=="bridge.diagnostics"){auto value=journal().snapshot();value["native_version"]=BUGGCRAFT_VERSION;return value;}
+        if(method=="feedback.submit"){auto& n=node(p);return submit_feedback(n.profile,p);}
         if(method=="bridge.initialize"){if(p.value("protocol",Json(1))!=1)throw Failure(-32602,"Unsupported bridge protocol version");
             return {{"protocol",1},{"name","buggcraft-bridge"},{"jsonrpc","2.0"},{"build",{{"protocol",1},{"implementation","cpp"},{"version",BUGGCRAFT_VERSION},{"signed",false}}},{"transports",{"auto","relay"}},{"mixed_rooms",true},
-                {"methods",{"node.add","node.remove","node.request","social.operate","node.routes","node.selected","node.failed","bridge.events","game.status","game.discover","game.announce","room.list","room.resolve","room.host","room.join","room.close","room.request","room.retarget","room.configure","mods.manifest","mods.fetch","mods.status","mods.cancel","mods.configure","chat.poll","chat.send","session.events","session.list"}},{"limits",{{"request_bytes",8192},{"nodes",16},{"sessions",8}}}};}
+                {"methods",{"bridge.diagnostics","node.add","node.remove","node.request","social.operate","node.routes","node.selected","node.failed","bridge.events","game.status","game.discover","game.announce","room.list","room.resolve","room.host","room.join","room.close","room.request","room.retarget","room.configure","mods.manifest","mods.fetch","mods.status","mods.cancel","mods.configure","feedback.submit","chat.poll","chat.send","session.events","session.list"}},{"limits",{{"request_bytes",8192},{"nodes",16},{"sessions",8}}}};}
         if(method=="node.add"){if(nodes_.size()>=16)throw Failure(-32010,"Node limit reached");if(!p.contains("code")||!p["code"].is_string())throw Failure(-32602,"code must be a string");Node value;value.profile=Profile::decode(p["code"].get<std::string>());
             auto imported=p.value("alternatives",Json::array());if(!imported.is_array()||imported.size()>5)throw Failure(-32602,"Invalid fallback profiles");
             for(const auto& item:imported)value.alternatives.push_back(Profile::from_json(item));
@@ -83,7 +87,7 @@ public:
             const auto before=n.profile;
             auto profile=host?n.profile:locate_room(n.profile,n.alternatives,room_id(secret));
             if(before.key!=n.profile.key||before.host!=n.profile.host||before.port!=n.profile.port){n.routes->failed(before);n.routes->recovered(before,n.profile);}
-            auto endpoint=std::make_shared<Session>(profile,host?"host":"client",secret,policy,port,settings,compression,n.alternatives,p.value("listen_port",0),p.value("announce",true),p.value("game_directory",std::string{}),p.value("chat_name",std::string("Player")),p.value("game_chat_enabled",false),p.value("game_chat_name",std::string{}));auto result=endpoint->start();sessions_[endpoint->identity]=endpoint;session_nodes_[endpoint->identity]=p["node"].get<std::string>();return result;}
+            auto endpoint=std::make_shared<Session>(profile,host?"host":"client",secret,policy,port,settings,compression,n.alternatives,p.value("listen_port",0),p.value("announce",true),p.value("game_directory",std::string{}),p.value("chat_name",std::string("Player")),p.value("game_chat_enabled",false),p.value("game_chat_name",std::string{}),p.value("ice_family",std::string("auto")));auto result=endpoint->start();sessions_[endpoint->identity]=endpoint;session_nodes_[endpoint->identity]=p["node"].get<std::string>();return result;}
         if(method=="room.close"){auto endpoint=session(p);endpoint->stop();sessions_.erase(endpoint->identity);session_nodes_.erase(endpoint->identity);return {{"closed",true}};}
         if(method=="room.request")return session(p)->request(p.at("request"));
         if(method=="session.events")return session(p)->events();

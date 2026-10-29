@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "runtime.hpp"
+#include "transport_diagnostics.hpp"
 
 void Worker::post(std::function<void()> action) {
     bool notify;
@@ -20,13 +21,17 @@ void Worker::remove_peer(Id id) {
     auto found = peers.find(id);
     if (found == peers.end()) return;
     found->second->dead = true;
+    // Capture the original error before closing channels can change libssh state.
+    const auto diagnostic=transport_diagnostics(found->second->session, found->second->traffic, found->second->heartbeat);
     std::vector<Id> closing;
     for (auto& [stream_id, stream] : streams)
         if (stream->client->id == id || stream->owner->id == id) closing.push_back(stream_id);
     for (Id stream : closing) remove_stream(stream);
     for (auto it = pending.begin(); it != pending.end();)
         if (it->second.peer == id) it = pending.erase(it); else ++it;
-    engine.emit({{"op", "disconnected"}, {"session", id}, {"reason", found->second->disconnect_reason}});
+    const auto& peer = found->second;
+    engine.emit({{"op", "disconnected"}, {"session", id}, {"reason", peer->disconnect_reason},
+                 {"transport", diagnostic}});
     engine.unroute(id);
     peers.erase(found);
     --engine.connections;
@@ -57,6 +62,7 @@ void Worker::receive(Json value) {
     auto control = peer->controls.find(value.value("channel", Id{0}));
     if (control == peer->controls.end()) return;
     if (op == "channel_close") control->second->closing = true;
+    else if (op == "channel_read_pause") control->second->read_paused = value.value("paused", false);
     else if (op == "channel_write") {
         auto bytes = decode(value.at("data").get<std::string>());
         if (bytes.size() + control->second->queued > max_control_buffer) {
@@ -107,7 +113,10 @@ void Worker::run() {
             auto now = Clock::now();
             for (auto& [id, request] : pending) if (request.expires < now) {
                 auto peer = peers.find(request.peer);
-                if (peer != peers.end()) peer->second->dead = true;
+                if (peer != peers.end() && !peer->second->dead) {
+                    peer->second->disconnect_reason = "control-rpc-timeout";
+                    peer->second->dead = true;
+                }
             }
             for (auto& [id, peer] : peers) if (peer->dead) closing.push_back(id);
             for (Id id : closing) remove_peer(id);

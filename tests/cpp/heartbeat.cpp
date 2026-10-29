@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "../../core/heartbeat.hpp"
+#include "../../core/transport_diagnostics.hpp"
 #include "../../bridge/peer_heartbeat.hpp"
 #include <functional>
 #include <stdexcept>
@@ -9,6 +10,25 @@
 void add_heartbeat_tests(std::vector<std::pair<std::string,std::function<void()>>>& cases) {
     using H=Heartbeat;
     const auto require=[](bool value){if(!value)throw std::runtime_error("heartbeat deadline mismatch");};
+    cases.emplace_back("heartbeat_diagnostics_distinguish_poll_stall_from_receive_silence",[require]{
+        const auto now=H::Clock::now(); H silent(0,now), stalled(0,now);
+        for(unsigned i=1;i<=20;++i) silent.poll(0,now+std::chrono::seconds(i));
+        require(stalled.poll(0,now+std::chrono::seconds(20))==H::Action::expired);
+        const auto end=now+std::chrono::seconds(20);
+        require(silent.receive_age_ms(0,end)==20000 && stalled.receive_age_ms(0,end)==20000);
+        require(silent.poll_gap_ms(end)==1000 && stalled.poll_gap_ms(end)==20000);
+        require(silent.probes()==3 && stalled.probes()==0);
+        require(silent.receive_age_ms(1,end)==0);
+        require(silent.poll(1,end)==H::Action::none);
+        require(silent.receive_age_ms(1,end)==0);
+    });
+    cases.emplace_back("ssh_transport_error_categories_never_copy_peer_text",[require]{
+        require(std::string(ssh_error_kind("Socket error: connection reset by peer"))=="socket-reset");
+        require(std::string(ssh_error_kind("Socket error: disconnected"))=="socket-eof");
+        require(std::string(ssh_error_kind("HMAC error"))=="packet-integrity");
+        require(std::string(ssh_error_kind("Received SSH_MSG_DISCONNECT: 11:private-account-token"))=="remote-disconnect");
+        require(std::string(ssh_error_kind("private-account-token Socket error: connection timed out"))=="unclassified");
+    });
     cases.emplace_back("peer_heartbeat_negotiates_and_survives_idle_with_matching_replies",[require]{
         using P=bridge::PeerHeartbeat;const auto now=P::Clock::now();P first(now),second(now);
         require(first.poll(now)=="BCH1?");

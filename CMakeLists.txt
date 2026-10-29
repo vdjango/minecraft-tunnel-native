@@ -223,7 +223,7 @@ if(BUGGCRAFT_BRIDGE)
     --output "${CMAKE_CURRENT_BINARY_DIR}/generated/protocol_data.hpp"
     COMMAND_ERROR_IS_FATAL ANY)
   add_library(buggcraft-bridge-engine STATIC bridge/runtime.cpp bridge/rpc.cpp bridge/local_game.cpp bridge/game_chat.cpp bridge/ssh.cpp bridge/profile_exchange.cpp bridge/session.cpp bridge/session_chat.cpp bridge/session_presence.cpp
-    bridge/stream.cpp bridge/peer.cpp bridge/peer_health.cpp bridge/codec.cpp bridge/journal.cpp bridge/telemetry.cpp bridge/routing.cpp bridge/route_selector.cpp bridge/modpack.cpp bridge/social.cpp)
+    bridge/stream.cpp bridge/peer.cpp bridge/peer_health.cpp bridge/codec.cpp bridge/journal.cpp bridge/telemetry.cpp bridge/routing.cpp bridge/route_selector.cpp bridge/modpack.cpp bridge/social.cpp bridge/feedback.cpp)
   target_include_directories(buggcraft-bridge-engine PRIVATE .deps/json/single_include .deps/zstd/lib "${CMAKE_CURRENT_BINARY_DIR}/generated")
   target_compile_definitions(buggcraft-bridge-engine PRIVATE BUGGCRAFT_VERSION="${PROJECT_VERSION}")
   target_link_libraries(buggcraft-bridge-engine PUBLIC ${NATIVE_SSH_TARGET} datachannel libzstd_static zlibstatic OpenSSL::Crypto CURL::libcurl Threads::Threads)

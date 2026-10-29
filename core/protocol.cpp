@@ -189,7 +189,7 @@ bool Worker::pump(Control& control, const std::shared_ptr<Peer>& peer) {
             }
         }
     }
-    if (!control.inflight && !control.eof && !control.closing) {
+    if (!control.inflight && !control.eof && !control.closing && !control.read_paused) {
         std::array<char, 16384> bytes;
         int count = ssh_channel_read_nonblocking(control.channel, bytes.data(), static_cast<uint32_t>(bytes.size()), 0);
         if (count > 0) {

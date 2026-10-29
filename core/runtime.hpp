@@ -40,7 +40,7 @@ using Msg = std::shared_ptr<Message>;
 struct Control {
     Id id;
     ssh_channel channel;
-    bool started = false, inflight = false, eof = false, closing = false;
+    bool started = false, inflight = false, eof = false, closing = false, read_paused = false;
     std::deque<std::string> output;
     size_t offset = 0, queued = 0;
     Control(Id identity, ssh_channel value) : id(identity), channel(value) {}

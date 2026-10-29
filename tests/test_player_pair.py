@@ -63,6 +63,8 @@ class PlayerPairTests(unittest.IsolatedAsyncioTestCase):
         async def measure(port):
             async def probes(duration=None, count=None):
                 reader, writer = await asyncio.open_connection('127.0.0.1', port)
+                writer.write(bridges.GAME_HANDSHAKE); await writer.drain()
+                self.assertEqual(await reader.readexactly(len(bridges.GAME_HANDSHAKE)), bridges.GAME_HANDSHAKE)
                 values = []
                 deadline = time.perf_counter() + duration if duration else None
                 try:
@@ -85,6 +87,8 @@ class PlayerPairTests(unittest.IsolatedAsyncioTestCase):
             started = time.perf_counter()
             async def bulk(index):
                 reader, writer = await asyncio.open_connection('127.0.0.1', port)
+                writer.write(bridges.GAME_HANDSHAKE); await writer.drain()
+                self.assertEqual(await reader.readexactly(len(bridges.GAME_HANDSHAKE)), bridges.GAME_HANDSHAKE)
                 body = secrets.token_bytes(65536 - 8)
                 window = asyncio.Semaphore(16)
                 sent = received = 0
@@ -153,7 +157,7 @@ class PlayerPairTests(unittest.IsolatedAsyncioTestCase):
                     before = time.perf_counter()
                     reader, writer = await asyncio.open_connection('127.0.0.1', int(joined['address'].rsplit(':', 1)[1]))
                     try:
-                        first = b'first-game-packet' * 8
+                        first = bridges.GAME_HANDSHAKE + b'first-game-packet' * 8
                         writer.write(first)
                         await writer.drain()
                         self.assertEqual(await asyncio.wait_for(reader.readexactly(len(first)), 10), first)

@@ -60,7 +60,7 @@ jobs:
           $env:BUGGCRAFT_BRIDGE_SOAK_LOG_DIR = "$pwd/build/protocol-player-logs"
           python -u -m unittest tests.test_bridge_library.LibraryAbiTests -v 2>&1 | Tee-Object -FilePath windows-library-tests.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -u -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_profile_exchange tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v 2>&1 | Tee-Object -FilePath windows-protocol-tests.log
+          python -u -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_peer_signaling_attempt tests.test_peer_stun_fallback tests.test_ipv4_p2p tests.test_relay_handshake tests.test_resource_metadata tests.test_room_lobby tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_profile_exchange tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v 2>&1 | Tee-Object -FilePath windows-protocol-tests.log
           $testStatus = $LASTEXITCODE
           if ($testStatus -ne 0) { exit $testStatus }
           python -u scripts/check_compatibility.py 2>&1 | Tee-Object -FilePath windows-compatibility.log
@@ -77,7 +77,7 @@ jobs:
           else
             export BUGGCRAFT_BRIDGE_LIBRARY="$PWD/package/lib/libbuggcraft_bridge.so"
           fi
-          python -u -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_profile_exchange tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v 2>&1 | tee unix-protocol-tests.log
+          python -u -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_peer_signaling_attempt tests.test_peer_stun_fallback tests.test_ipv4_p2p tests.test_relay_handshake tests.test_resource_metadata tests.test_room_lobby tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_profile_exchange tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v 2>&1 | tee unix-protocol-tests.log
           test_status=${PIPESTATUS[0]}
           if [ "$test_status" -ne 0 ]; then exit "$test_status"; fi
           python -u scripts/check_compatibility.py 2>&1 | tee unix-compatibility.log

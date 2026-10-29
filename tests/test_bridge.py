@@ -172,7 +172,7 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
             pattern = b'compressed EOF boundary '
             await self.exchange(joined, (pattern * ((size + len(pattern) - 1) // len(pattern)))[:size])
         reader, writer = await asyncio.open_connection('127.0.0.1', int(joined['address'].rsplit(':', 1)[1]))
-        payload = b'last compressed frame' * 200000
+        payload = GAME_HANDSHAKE + b'last compressed frame' * 200000
         async def send():
             writer.write(payload)
             await writer.drain()
@@ -280,8 +280,20 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(guest_peer.disconnect_reason, 'heartbeat-timeout')
         self.assertLess(time.monotonic() - started, 25)
         self.assertEqual(sum(p.role == 'client' for p in self.node.peers), 1)
-        self.assertTrue(any('heartbeat_timeout' in p.read_text(encoding='utf-8')
-                            for p in guest.player_logs.glob('*/*.jsonl')))
+        rows = [json.loads(line) for p in guest.player_logs.glob('*/*.jsonl')
+                for line in p.read_text(encoding='utf-8').splitlines()]
+        evidence = next(r['transport'] for r in rows if r.get('event') == 'heartbeat_timeout')
+        self.assertGreaterEqual(evidence['rx_age_ms'], 20000)
+        self.assertGreaterEqual(evidence['probe_attempts'], 3)
+        self.assertLess(evidence['poll_gap_ms'], 5000)
+        self.assertGreater(evidence['ssh_rx_packets'], 0)
+        await self.node.diagnostics.flush()
+        node_rows = [json.loads(line) for p in (self.logs / 'node').glob('*/*.jsonl')
+                     for line in p.read_text(encoding='utf-8').splitlines()]
+        recorded = next(r['transport'] for r in node_rows
+                        if r.get('event') == 'disconnected' and r.get('reason') == 'heartbeat_timeout')
+        self.assertGreaterEqual(recorded['rx_age_ms'], 20000)
+        self.assertGreaterEqual(recorded['probe_attempts'], 3)
         await self.exchange(stable)
         await self.call(guest, 'room.close', {'session':joined['session']})
 
@@ -335,6 +347,9 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         async def transfer(index, probe):
             port = int(joined[index]['address'].rsplit(':', 1)[1])
             reader, writer = await asyncio.open_connection('127.0.0.1', port)
+            writer.write(GAME_HANDSHAKE)
+            await writer.drain()
+            self.assertEqual(await asyncio.wait_for(reader.readexactly(len(GAME_HANDSHAKE)), 5), GAME_HANDSHAKE)
             payload = (b'position-update' * 8 if probe else
                        (b'chunk-data' * 6554)[:65536] if index == 0 else secrets.token_bytes(65536))
             previous = time.perf_counter()

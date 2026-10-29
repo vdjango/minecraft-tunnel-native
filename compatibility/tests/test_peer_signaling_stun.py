@@ -51,7 +51,7 @@ class PeerSignalTests(unittest.TestCase):
         owner.peer_signal = host_session
         client_session.data_received((json.dumps({'type': 'offer', 'sdp': 'offer-sdp'}) + '\n').encode(), None)
         self.assertEqual(host_wire.frames[-1], {'type': 'offer', 'peer': client.chat_id,
-            'sdp': 'offer-sdp', 'player': 'anonymous-' + client.chat_id})
+            'sdp': 'offer-sdp', 'files': False, 'player': 'anonymous-' + client.chat_id})
         host_session.data_received((json.dumps({'type': 'answer', 'peer': client.chat_id,
                                                 'sdp': 'answer-sdp'}) + '\n').encode(), None)
         self.assertEqual(client_wire.frames[-1]['sdp'], 'answer-sdp')

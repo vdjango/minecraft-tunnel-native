@@ -10,12 +10,18 @@
 #include <unordered_map>
 #ifdef _WIN32
 #include <windows.h>
+#else
+#include <unistd.h>
 #endif
 namespace bridge {
 namespace {
 bool safe(const std::string& text) {
     return !text.empty() && text.size()<=90 &&
            text.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")==std::string::npos;
+}
+bool critical_event(const std::string& event) {
+    return event!="sample" && event!="stream_sample" && event!="peer_heartbeat" &&
+           event!="client_report" && event!="file_progress";
 }
 bool sensitive(std::string key) {
     std::transform(key.begin(), key.end(), key.begin(), [](unsigned char ch) {
@@ -83,12 +89,36 @@ bool Journal::write(std::string player,std::string session,std::string event,nlo
     if(!safe(player)||!safe(session)||!safe(event)||!fields.is_object()){++dropped_;return false;}
     redact(fields);
     fields["at"]=std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
+#ifdef _WIN32
+    fields["process_id"]=GetCurrentProcessId();
+#else
+    fields["process_id"]=getpid();
+#endif
+    const bool critical=critical_event(event);
     fields["event"]=std::move(event);fields["player"]=player;fields["session"]=session;
-    std::string row=fields.dump(-1,' ',true)+"\n";
+    const auto steady=std::chrono::steady_clock::now().time_since_epoch();
+    fields["monotonic_ms"]=std::chrono::duration_cast<std::chrono::milliseconds>(steady).count();
     std::lock_guard lock(mutex_);
-    if(stopping_||row.size()>8192||queue_.size()>=2048||queued_bytes_+row.size()>2*1024*1024){++dropped_;return false;}
-    queued_bytes_+=row.size();queue_.push_back({std::move(player),std::move(session),std::move(row)});
+    fields["sequence"]=++sequence_;
+    fields["journal_dropped"]=dropped_.load();fields["journal_write_errors"]=errors_.load();
+    std::string row=fields.dump(-1,' ',true)+"\n";
+    if(stopping_||row.size()>8192){++dropped_;return false;}
+    while(queue_.size()>=2048||queued_bytes_+row.size()>2*1024*1024){
+        auto victim=critical?std::find_if(queue_.begin(),queue_.end(),[](const Row& item){return !item.critical;}):queue_.end();
+        if(victim==queue_.end()){++dropped_;return false;}
+        queued_bytes_-=victim->text.size();queue_.erase(victim);++dropped_;
+    }
+    queued_bytes_+=row.size();queue_.push_back({std::move(player),std::move(session),std::move(row),critical});
     changed_.notify_one();return true;
+}
+nlohmann::json Journal::snapshot(unsigned timeout_ms){
+    std::unique_lock lock(mutex_);
+    const bool flushed=flushed_.wait_for(lock,std::chrono::milliseconds(std::min(timeout_ms,2000u)),
+                                        [this]{return queue_.empty()&&!writing_;});
+    return {{"schema",1},{"flushed",flushed},{"pending_events",queue_.size()+in_flight_},
+            {"dropped_events",dropped_.load()},{"write_errors",errors_.load()},
+            {"retention_days",days_},{"max_bytes",max_bytes_},{"rotate_bytes",rotate_bytes_},
+            {"critical_events",true}};
 }
 void Journal::append(const Row& row){
     auto directory=root_/row.player;
@@ -149,7 +179,18 @@ void Journal::prune(){
     std::sort(files.begin(),files.end(),[](const File& a,const File& b){return a.time<b.time;});
     const auto cutoff=std::filesystem::file_time_type::clock::now()-std::chrono::hours(24*days_);
     size_t remaining=files.size();
-    for(const auto& file:files)if(total>max_bytes_||file.time<cutoff||remaining>4096){std::filesystem::remove(file.path);total-=file.size;--remaining;}
+    // Samples must not consume the space reserved for incident evidence.
+    uintmax_t ordinary=0;
+    for(const auto& file:files)if(file.path.filename().string().find(".events.")==std::string::npos)ordinary+=file.size;
+    for(const auto& file:files){
+        const bool critical=file.path.filename().string().find(".events.")!=std::string::npos;
+        if(file.time<cutoff||remaining>4096||(!critical&&ordinary>max_bytes_*3/4)){
+            std::filesystem::remove(file.path);total-=file.size;--remaining;if(!critical)ordinary-=file.size;
+        }
+    }
+    for(const auto& file:files)if(total>max_bytes_&&std::filesystem::exists(file.path)){
+        std::filesystem::remove(file.path);total-=file.size;
+    }
     for(const auto& folder:std::filesystem::directory_iterator(root_))
         if(!folder.is_symlink()&&folder.is_directory()&&std::filesystem::is_empty(folder))std::filesystem::remove(folder);
 }
@@ -158,12 +199,16 @@ void Journal::run(){
     for(;;){
         std::deque<Row> batch;
         {std::unique_lock lock(mutex_);changed_.wait_for(lock,std::chrono::milliseconds(250),[this]{return stopping_||!queue_.empty();});
-         batch.swap(queue_);queued_bytes_=0;if(stopping_&&batch.empty())break;}
+         batch.swap(queue_);queued_bytes_=0;writing_=!batch.empty();in_flight_=batch.size();if(stopping_&&batch.empty())break;}
         std::map<std::pair<std::string,std::string>,Row> grouped;
         for(auto& row:batch){
             auto key=std::make_pair(row.player,row.session);
             auto found=grouped.try_emplace(key,Row{row.player,row.session,{}}).first;
             found->second.text+=row.text;
+            if(row.critical){
+                auto incident=grouped.try_emplace(std::make_pair(row.player,row.session+".events"),Row{row.player,row.session+".events",{}}).first;
+                incident->second.text+=row.text;
+            }
         }
         for(const auto& entry:grouped)try{append(entry.second);}catch(...){
             const auto failures=++errors_;
@@ -173,6 +218,7 @@ void Journal::run(){
             const auto failures=++errors_;
             if(failures==1||failures%100==0)std::cerr<<"bridge journal cleanup failed ("<<failures<<"); game forwarding continues\n";
         }next_prune=std::chrono::steady_clock::now()+std::chrono::seconds(30);}
+        {std::lock_guard lock(mutex_);writing_=false;in_flight_=0;}flushed_.notify_all();
     }
     try{prune();}catch(...){++errors_;}
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "runtime.hpp"
 #include "ssh.hpp"
+#include "webrtc_diagnostics.hpp"
 #include <rtc/rtc.hpp>
 #include <mutex>
 #include <thread>
@@ -21,7 +22,9 @@ void acquire_runtime(){
     }
     try{
         rtc::SetThreadPoolSize(std::clamp(std::thread::hardware_concurrency(),2u,4u));
-        rtc::InitLogger(rtc::LogLevel::Warning,[](rtc::LogLevel,const std::string&){log("webrtc_warning");});
+        rtc::InitLogger(rtc::LogLevel::Warning,[](rtc::LogLevel level,const std::string& message){
+            try{log("webrtc_warning",webrtc_warning_fields(static_cast<int>(level),message));}catch(...){}
+        });
         runtime_users=1;
     }catch(...){ssh_finalize();
 #ifdef _WIN32

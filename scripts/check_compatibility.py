@@ -11,7 +11,7 @@ tunnel.relay.RelayServer = RelayServer
 
 MODULES = ['test_relay_security', 'test_capacity', 'test_peer_wire',
            'test_peer_signaling_stun', 'test_heartbeat', 'test_account_replication',
-           'test_federation_integrity', 'test_player_diagnostics']
+           'test_federation_integrity', 'test_player_diagnostics', 'test_feedback_native']
 if __name__ == '__main__':
     suite = unittest.defaultTestLoader.loadTestsFromNames(
         ['tests.' + name for name in (sys.argv[1:] or MODULES)])

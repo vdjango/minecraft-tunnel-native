@@ -43,7 +43,9 @@ class HeartbeatTests(unittest.IsolatedAsyncioTestCase):
             for fed in self.feds:
                 fed.task = asyncio.create_task(fed.run())
             async with asyncio.timeout(8):
-                while any(len(f.live()) != 3 for f in self.feds):
+                # Receiving a signed announcement precedes completing the
+                # outgoing exchange. Wait for both observable outcomes.
+                while any(len(f.live()) != 3 or not f.last_success for f in self.feds):
                     await asyncio.sleep(.05)
         self.assertTrue(all(f.last_success for f in self.feds))
 

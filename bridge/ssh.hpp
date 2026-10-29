@@ -29,13 +29,14 @@ class Ssh {
     ssh_counter_struct traffic_{};
     Heartbeat heartbeat_;
 public:
-    explicit Ssh(const Profile&, const std::string& user, const std::string& secret = {},int timeout_seconds=4);
+    explicit Ssh(const Profile&, const std::string& user, const std::string& secret = {},int timeout_seconds=4,const std::string& member_token={});
     ~Ssh();
     Ssh(const Ssh&) = delete;
     ssh_session get() const { return session_; }
     NetSocket fd() const { return static_cast<NetSocket>(ssh_get_fd(session_)); }
     bool alive() const { return ssh_is_connected(session_) != 0; }
     bool heartbeat();
+    Json diagnostics() const;
     int retry(const std::function<int()>& operation, int seconds = 5);
     ssh_channel subsystem(const char* name);
     Json request(Json value,int timeout_seconds=10);
