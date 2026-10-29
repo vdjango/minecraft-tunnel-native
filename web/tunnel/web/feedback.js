@@ -17,7 +17,7 @@ function renderIssues(){
   $('issues-prev').disabled=page===0;$('issues-next').disabled=(page+1)*30>=total;$('issue-page').textContent='第 '+(page+1)+' 页 · 共 '+total+' 条';
 }
 async function loadList(){const result=await feedbackAPI('/api/feedback?page='+page+'&mine='+(mine?'1':'0')+'&q='+encodeURIComponent($('issue-search').value.trim())+'&status='+encodeURIComponent($('issue-filter').value));viewer=result.viewer;issues=result.issues;total=result.total;
-  $('feedback-login').hidden=true;$('feedback-content').hidden=false;$('new-issue').hidden=false;$('feedback-admin-link').hidden=!viewer.admin;$('my-issues').hidden=viewer.admin;
+  $('feedback-login').hidden=true;$('feedback-content').hidden=false;$('new-issue').hidden=false;if($('feedback-admin-link'))$('feedback-admin-link').hidden=!viewer.admin;$('my-issues').hidden=viewer.admin;
   $('new-issue').textContent=viewer.admin?'以用户身份提交问题':'＋ 提交问题';
   for(const nav of document.querySelectorAll('.user-feedback-nav'))nav.hidden=adminMode;
   $('sync-state').textContent=(result.last_sync?'最近同步 '+new Date(result.last_sync*1000).toLocaleTimeString():'本节点记录 · 等待联邦同步')+(result.cleanup_pending?' · '+result.cleanup_pending+' 个问题的附件等待删除重试':'');renderIssues();}

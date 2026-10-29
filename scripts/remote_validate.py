@@ -10,11 +10,10 @@ WORKSPACE = ROOT.parent
 sys.path.insert(0, str(WORKSPACE / '.test-tools'))
 
 def connect():
-    helper = WORKSPACE / 'multiplayer-tests' / 'remote.py'
-    spec = importlib.util.spec_from_file_location('workspace_remote', helper)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.connect()[0]
+    from domain_ops import connect as trusted_connect
+    client = trusted_connect('81.68.225.236')
+    client.get_transport().set_keepalive(20)
+    return client
 
 def execute(client, command, timeout=45):
     _, out, err = client.exec_command(command, timeout=timeout)

@@ -6,6 +6,7 @@ import time
 import asyncssh
 
 from .account_replication import validate_header
+from .friend_codes import matches_account
 
 LOG = logging.getLogger(__name__)
 PROBE_FANOUT = 2
@@ -32,8 +33,7 @@ class AccountLookup:
                 for account, entry in sorted(entries.items())
                 if entry['certificate']['home'] not in fed.blocked
                 and not fed.relay.account_blocked(account)
-                and (account == identifier or
-                     entry['certificate']['username'].casefold() == identifier.casefold())][:8]
+                and matches_account(identifier, account, entry['certificate']['username'])][:8]
 
     async def lookup(self, identifier):
         # Ingest already verified both signatures. A cache hit never needs a
@@ -101,7 +101,7 @@ class AccountLookup:
                         cert = entry['certificate']
                         if (cert['home'] in fed.blocked or cert['home'] not in fed.records or
                                 fed.relay.account_blocked(account) or
-                                (account != identifier and cert['username'].casefold() != key)):
+                                not matches_account(identifier, account, cert['username'])):
                             continue
                         learned = fed.accounts.replication.accept(entry) or learned
                     except (ValueError, TypeError, KeyError, asyncssh.Error):

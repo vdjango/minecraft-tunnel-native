@@ -110,7 +110,7 @@ class RouteSelectionTests(unittest.IsolatedAsyncioTestCase):
                 original(session, data, datatype)
         with patch.object(DirectorySession, 'data_received', delayed):
             result = await self.call(bridge, 'room.list', {'node': node})
-        self.assertEqual(result['node_latency_scope'], 'directory_ping')
+        self.assertEqual(result['node_latency_method'], 'application-echo')
         self.assertIsInstance(result['node_latency_ms'], (float, int))
         self.assertGreater(result['connect_ms'] - result['node_latency_ms'], 200)
 

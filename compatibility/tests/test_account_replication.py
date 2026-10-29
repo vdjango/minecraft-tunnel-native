@@ -165,11 +165,14 @@ class ReplicationTests(unittest.IsolatedAsyncioTestCase):
             store.ingest([dict(record=record, proof=self.feds[0].proof(self.feds[0].id))])
             self.assertNotIn(account, store.records)
 
-    async def test_network_directory_rejects_duplicate_username(self):
+    async def test_network_directory_retains_duplicate_usernames_by_account_id(self):
         first, _ = self.account(1, username='same')
         await self.rounds()
-        with self.assertRaises(ValueError):
-            self.account(1, home=1, username='SAME')
+        second, _ = self.account(1, home=1, username='SAME')
+        await self.rounds()
+        self.assertNotEqual(first['state']['account'], second['state']['account'])
+        with self.assertRaisesRegex(ValueError, '重名'):
+            await self.stores[2].replication.resolve('same')
         self.assertEqual(await self.stores[2].replication.resolve(first['state']['account']), first)
 
     async def test_shortage_reports_actual_count_and_preserves_last_copy(self):

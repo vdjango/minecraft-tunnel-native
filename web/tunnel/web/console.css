@@ -6,3 +6,7 @@
 @media(max-width:760px){nav>a.developer-nav{display:inline}.entry-strip{align-items:flex-start;flex-direction:column;gap:14px;padding:19px}.entry-strip .secondary{width:100%;justify-content:center}.friend-entry{padding-bottom:22px}}
 .topbar:has(#open-admin){height:auto;min-height:112px;flex-wrap:wrap;gap:14px;padding-top:22px;padding-bottom:22px}.hero>div{min-width:0}.hero h1{overflow-wrap:anywhere;letter-spacing:-1px;font-size:clamp(32px,4.6vw,56px)}
 @media(max-width:760px){.topbar:has(#open-admin){min-height:85px;padding-top:16px;padding-bottom:16px}.topbar:has(#open-admin) nav{flex-wrap:wrap;gap:14px}.hero h1{font-size:36px}.hero-actions{flex-wrap:wrap;gap:14px}}
+#cloudflare-proxy-status{margin-top:10px}
+#cloudflare-proxy-status[data-state=success]{color:var(--mint)}
+#cloudflare-proxy-status[data-state=error]{color:#f1c89d}
+#cloudflare-proxy-status[data-state=pending]{color:var(--muted)}

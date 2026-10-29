@@ -46,7 +46,11 @@ jobs:
       - name: Build native runtime
         run: python -u scripts/build_native.py
       - run: ctest --test-dir build --build-config Release --output-on-failure
-      - run: cmake --install build --config Release --prefix package
+      - name: Install native runtime
+        shell: pwsh
+        run: |
+          cmake --install build --config Release --prefix package 2>&1 | Tee-Object -FilePath install-runtime.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run: python -m pip install -r requirements.txt
       - name: Windows protocol checks
         if: runner.os == 'Windows'
@@ -152,6 +156,7 @@ jobs:
             windows-protocol-tests.log
             windows-compatibility.log
             windows-library-tests.log
+            install-runtime.log
             unix-protocol-tests.log
             unix-compatibility.log
             package/bin/

@@ -66,16 +66,17 @@ public:
             else{request=p.at("request");if(!request.is_object())throw Failure(-32602,"Invalid request");}
             try{n.routes->refresh(n.profile,n.alternatives);}catch(...){}
             const auto before=n.profile;
-            auto result=directory_request(n.profile,n.alternatives,request);
+            double node_latency=-1;
+            const bool measure=method=="room.list"||request.value("op",std::string{})=="ping";
+            auto result=directory_request(n.profile,n.alternatives,request,measure?&node_latency:nullptr);
+            if(measure){result["node_latency_ms"]=node_latency>=0?Json(node_latency):Json(nullptr);
+                result["node_latency_method"]="application-echo";}
             if(method=="room.resolve"&&!result.contains("secret")&&result.contains("profile")&&!result["profile"].is_null()){
                 const auto owner=Profile::from_json(result["profile"]);Ssh direct(owner,"directory:rooms");result=direct.request(request);
             }
             if(method=="room.list"){
                 result["connect_ms"]=std::chrono::duration<double,std::milli>(Clock::now()-started).count();
                 result["node_name"]=n.profile.name;
-                const auto latency=n.routes->latency_ms(n.profile);
-                result["node_latency_ms"]=latency?Json(*latency):Json(nullptr);
-                result["node_latency_scope"]="directory_ping";
             }
             if(before.key!=n.profile.key||before.host!=n.profile.host||before.port!=n.profile.port){n.routes->failed(before);n.routes->recovered(before,n.profile);try{n.routes->refresh(n.profile,n.alternatives);}catch(...){}}
             return result;}

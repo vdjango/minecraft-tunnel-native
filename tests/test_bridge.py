@@ -354,6 +354,11 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
                        (b'chunk-data' * 6554)[:65536] if index == 0 else secrets.token_bytes(65536))
             previous = time.perf_counter()
             try:
+                # Pass the same Minecraft protocol gate as real game clients
+                # before the synthetic sustained-load frames.
+                writer.write(GAME_HANDSHAKE)
+                await writer.drain()
+                self.assertEqual(await asyncio.wait_for(reader.readexactly(len(GAME_HANDSHAKE)), 5), GAME_HANDSHAKE)
                 while time.perf_counter() < deadline:
                     started = time.perf_counter()
                     writer.write(payload)

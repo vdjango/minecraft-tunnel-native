@@ -113,12 +113,30 @@ ssh_channel Ssh::subsystem(const char* name) {
 Json Ssh::request(Json value,int timeout_seconds) {
     auto channel=subsystem("buggcraft-rooms-v1");
     try {
+        auto result=exchange(channel,value,timeout_seconds);free_channel(channel);return result;
+    }catch(...){free_channel(channel);throw;}
+}
+Json Ssh::exchange(ssh_channel channel,const Json& value,int timeout_seconds) {
         auto data=value.dump()+"\n";size_t offset=0;
         while(offset<data.size()){const int n=retry([&]{return ssh_channel_write(channel,data.data()+offset,static_cast<uint32_t>(data.size()-offset));});if(n<=0)throw Failure(-32000,"Node write failed");offset+=static_cast<size_t>(n);}
         std::string line;char buffer[4096];const auto deadline=Clock::now()+std::chrono::seconds(timeout_seconds);
         while(line.find('\n')==std::string::npos){int n=ssh_channel_read_nonblocking(channel,buffer,sizeof(buffer),0);if(n>0)line.append(buffer,static_cast<size_t>(n));else if(n==SSH_ERROR||ssh_channel_is_eof(channel)||Clock::now()>deadline)throw Failure(-32000,"Node response failed");else{PollFd descriptor{fd(),POLLIN,0};net_poll(&descriptor,1,10);}if(line.size()>65536)throw Failure(-32000,"Node response exceeds limit");}
-        auto result=Json::parse(line.substr(0,line.find('\n')));free_channel(channel);
+        auto result=Json::parse(line.substr(0,line.find('\n')));
         if(!result.is_object()||!result.value("ok",false)||!result.contains("result"))throw Failure(-32000,"Room operation rejected");return result["result"];
+}
+double Ssh::ping(){
+    // Prepare the transport and subsystem before timing. Reuse one channel so
+    // handshake, authentication and channel setup never become network RTT.
+    auto channel=subsystem("buggcraft-rooms-v1");
+    try{
+        double samples[3];
+        for(auto& sample:samples){const auto started=Clock::now();exchange(channel,{{"op","ping"}},2);
+            sample=std::chrono::duration<double,std::milli>(Clock::now()-started).count();}
+        // Three small echoes, median: retain sustained delay, limit one-off noise.
+        if(samples[0]>samples[1])std::swap(samples[0],samples[1]);
+        if(samples[1]>samples[2])std::swap(samples[1],samples[2]);
+        if(samples[0]>samples[1])std::swap(samples[0],samples[1]);
+        free_channel(channel);return samples[1];
     }catch(...){free_channel(channel);throw;}
 }
 int Ssh::forward(const char* name){int port=0;if(retry([&]{return ssh_channel_listen_forward(session_,name,0,&port);})!=SSH_OK)throw Failure(-32000,"Host forwarding unavailable");return port;}

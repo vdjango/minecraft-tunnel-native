@@ -338,7 +338,7 @@ void Session::advance_requests(){
         int result=SSH_OK;
         if(request.stage==0){if(!request.channel){request.channel=ssh_channel_new(ssh_->get());if(!request.channel)throw std::bad_alloc();}result=ssh_channel_open_session(request.channel);}
         else if(request.stage==1)result=ssh_channel_request_subsystem(request.channel,"buggcraft-rooms-v1");
-        else if(request.stage==2){result=ssh_channel_write(request.channel,request.output.data()+request.offset,static_cast<uint32_t>(request.output.size()-request.offset));if(result>0){if(!request.offset)control_calls_.push_back(Clock::now());request.offset+=static_cast<size_t>(result);if(request.offset<request.output.size())return;result=SSH_OK;}else if(result==0)return;}
+        else if(request.stage==2){if(!request.offset)request.started=Clock::now();result=ssh_channel_write(request.channel,request.output.data()+request.offset,static_cast<uint32_t>(request.output.size()-request.offset));if(result>0){if(!request.offset)control_calls_.push_back(Clock::now());request.offset+=static_cast<size_t>(result);if(request.offset<request.output.size())return;result=SSH_OK;}else if(result==0)return;}
         else{
             char buffer[4096];result=ssh_channel_read_nonblocking(request.channel,buffer,sizeof(buffer),0);
             if(result>0)request.input.append(buffer,static_cast<size_t>(result));
@@ -347,7 +347,10 @@ void Session::advance_requests(){
             if(end==std::string::npos){if(result==SSH_ERROR||ssh_channel_is_eof(request.channel))throw Failure(-32000,"Room response failed");return;}
             auto response=Json::parse(request.input.substr(0,end));
             if(!response.is_object()||!response.value("ok",false)||!response.contains("result"))throw Failure(-32000,"Room operation rejected");
-            control_rtt_ms_=std::chrono::duration<double,std::milli>(Clock::now()-request.started).count();
+            if(request.value.value("op",std::string{})=="ping"){
+                control_rtt_ms_=std::chrono::duration<double,std::milli>(Clock::now()-request.started).count();
+                event({{"type","node-latency"},{"latency_ms",control_rtt_ms_},{"method","application-echo"}});
+            }
             if(request.members){auto value=response["result"];
                 {std::lock_guard guard(mutex_);room_info_["lobby"]=value;}
                 event({{"type","members"},{"snapshot",value}});

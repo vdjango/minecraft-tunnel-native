@@ -396,7 +396,8 @@ class RoomControlSession(asyncssh.SSHServerSession):
                     continue
                 if certificate.get('home') in relay.federation.blocked:
                     continue
-                if account == value or (isinstance(username, str) and username.casefold() == value.casefold()):
+                from .friend_codes import matches_account
+                if isinstance(username, str) and matches_account(value, account, username):
                     matches.append(header)
             return {'entries': matches[:8]}
         if operation == 'locate' and peer.role == 'directory':

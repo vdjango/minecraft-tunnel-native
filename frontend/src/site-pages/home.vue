@@ -1,0 +1,48 @@
+<script setup lang="ts">
+defineProps<{seed:Record<string,string>}>();
+</script>
+
+<template>
+<header class="site-header">
+    <a class="brand" href="#home" aria-label="Buggcraft 首页"><span class="brand-mark">B</span><span class="brand-type"><strong>BUGGCRAFT</strong><small>MINECRAFT JAVA LAUNCHER</small></span></a>
+    <nav class="main-nav" aria-label="网站导航"><a class="nav-link active" data-section-nav href="#home" aria-current="location">首页</a><a class="nav-link" data-section-nav href="#features">功能</a><a class="nav-link" data-section-nav href="#nodes">联机节点</a><a class="nav-link" data-section-nav href="#guide">新手指南</a></nav>
+    <div class="header-actions"><details class="platform-menu"><summary class="header-secondary">其他平台 <span aria-hidden="true">⌄</span></summary><div class="platform-menu-panel"><a href="https://translate.bugg.icu/" target="_blank" rel="noopener">共享译文库 <span>↗</span><small>浏览与协作维护 Minecraft 译文</small></a><a href="https://github.com/vdjango/buggcraft" target="_blank" rel="noopener">GitHub 源码 <span>↗</span><small>查看项目代码与开发文档</small></a></div></details><a class="header-download" data-platform-cta href="https://download.bugg.icu/?platform=auto"><span data-platform-label>下载启动器</span> <span>↓</span></a></div>
+  </header>
+
+  <main>
+    <section class="hero" id="home" aria-labelledby="hero-title">
+      <div class="hero-inner">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="status-dot"></span> 为 Minecraft Java 而造</p>
+          <h1 id="hero-title">你的下一段冒险，<br><span>从这里开始。</span></h1>
+          <p class="hero-lead">一个启动器，整理游戏版本、模组、整合包和好友联机。把复杂的准备工作留给 Buggcraft，然后出发。</p>
+          <div class="hero-actions"><a class="download-button" data-platform-cta href="https://download.bugg.icu/?platform=auto"><span><span data-platform-label>下载启动器</span> <b>↓</b></span><small data-platform-detail>自动匹配 Windows、macOS 或 Linux</small></a><a class="text-link" href="https://translate.bugg.icu/" target="_blank" rel="noopener">共享译文库 <span>↗</span></a></div>
+          <div class="hero-facts"><span><i>✓</i> 免费开源</span><span><i>✓</i> Java 版</span><span><i>✓</i> 好友联机</span></div>
+        </div>
+        <figure class="launcher-preview"><div class="preview-window"><picture><source type="image/webp" srcset="/launcher-preview-480-d1a783088222.webp 480w, /launcher-preview-926-b6ae62178aa8.webp 926w" sizes="(max-width: 600px) calc(100vw - 48px), (max-width: 900px) min(630px, calc(100vw - 82px)), 560px"><img fetchpriority="high" decoding="async" src="/launcher-preview.png" width="926" height="505" alt="Buggcraft 启动器主页，展示游戏登录、版本选择与联机大厅"></picture></div><figcaption><span><i class="caption-dot"></i> BUGGCRAFT LAUNCHER</span><span>游戏 · 下载 · 设置</span></figcaption></figure>
+        <span class="hero-spark spark-one" aria-hidden="true">✳</span><span class="hero-spark spark-two" aria-hidden="true">✧</span>
+      </div>
+      <a class="scroll-hint" href="#features"><span>认识一下启动器</span><span class="scroll-line"></span><span>↓</span></a>
+    </section>
+
+    <section class="feature-section section-wrap" id="features" aria-labelledby="features-title">
+      <div class="section-heading"><div><p class="eyebrow">你需要的，都在这里</p><h2 id="features-title">从启动游戏到约上朋友。<br><span>每一步都顺手。</span></h2></div><p class="section-intro">熟悉的启动方式，清楚的管理界面。把时间花在游戏里，而不是整理文件。</p></div>
+      <div class="feature-grid">
+        <article class="feature-card feature-card-large"><div class="card-topline"><span>01 / 游戏管理</span><span class="card-glyph">▧</span></div><div><h3>每个世界，都有自己的位置。</h3><p>管理多个 Minecraft 版本和游戏目录。实例、加载器和存档各自独立，切换玩法不用重新收拾。</p></div><a href="https://github.com/vdjango/buggcraft">了解游戏实例 <span>↗</span></a><div class="card-decoration version-stack" aria-hidden="true"><span>26.3</span><span>26.2 · Forge</span><span>生存整合包</span></div></article>
+        <article class="feature-card"><div class="card-topline"><span>02 / 内容安装</span><span class="card-glyph">↓</span></div><h3>模组与整合包，一处管理。</h3><p>安装 Fabric、Forge、NeoForge 等加载器，也可以导入已有整合包。</p><a href="https://github.com/vdjango/buggcraft/blob/main/docs/guides/modpack-import-and-compatibility.md">整合包说明 <span>↗</span></a></article>
+        <article class="feature-card"><div class="card-topline"><span>03 / 一起游玩</span><span class="card-glyph">♧</span></div><h3>朋友的房间，进来就能玩。</h3><p>添加联机节点，在大厅发现房间、发出邀请，和朋友加入同一个世界。</p><a href="https://node.bugg.icu/connect">了解连接方式 <span>↗</span></a></article>
+        <article class="feature-card feature-card-wide"><div class="card-topline"><span>04 / 联机方式</span><span class="card-glyph">⌘</span></div><div><h3>P2P 优先，必要时中继。</h3><p>网络允许时尝试点对点连接；无法直连时，通过社区节点中继。</p></div><a href="https://github.com/vdjango/minecraft-tunnel-native">了解联机核心 <span>↗</span></a></article>
+      </div>
+    </section>
+
+    <section class="network-section" id="nodes" aria-labelledby="nodes-title"><div class="network-inner"><div class="network-copy"><p class="eyebrow"><span class="status-dot"></span> 玩家与社区节点相连</p><h2 id="nodes-title">世界由你托管。<br><span>和朋友，一起连接。</span></h2><p>房主在自己的电脑运行 Minecraft、保管存档。社区节点帮助发现房间、协商连接，并在需要时提供中继。</p><div class="network-actions"><a class="network-button" href="https://node.bugg.icu/network">查看联机节点 <span>↗</span></a><a class="text-link" href="https://github.com/vdjango/minecraft-tunnel-native">部署自己的节点</a></div><p class="network-note">节点状态和延迟以节点门户实时信息为准。</p></div><div class="network-visual" aria-label="玩家通过社区节点建立联机"><div class="network-orbit orbit-outer"></div><div class="network-orbit orbit-inner"></div><div class="network-link link-one"></div><div class="network-link link-two"></div><div class="network-player player-one">A</div><div class="network-hub"><span>✳</span><small>社区节点</small></div><div class="network-player player-two">B</div><div class="network-caption">P2P 优先 · 必要时中继</div></div></div></section>
+
+    <section class="guide-section section-wrap" id="guide" aria-labelledby="guide-title"><div class="section-heading"><div><p class="eyebrow">快速开始 / QUICK START</p><h2 id="guide-title">三步，准备开玩。</h2></div><a class="text-link guide-download-link" data-platform-cta href="https://download.bugg.icu/?platform=auto">查看下载说明 <span>↗</span></a></div><div class="guide-steps"><article><span class="step-number">01</span><div><h3>下载并运行</h3><p>从下载页获取与你的系统相匹配的启动器。首次运行会准备应用组件。</p><a data-platform-cta href="https://download.bugg.icu/?platform=auto">打开下载页 ↗</a></div></article><article><span class="step-number">02</span><div><h3>安装或导入游戏</h3><p>在下载页选择版本和加载器，也可以直接导入已有的整合包。</p><a href="https://github.com/vdjango/buggcraft/blob/main/docs/guides/modpack-import-and-compatibility.md">查看导入指南 ↗</a></div></article><article><span class="step-number">03</span><div><h3>叫上朋友</h3><p>添加可信节点、创建房间，然后把邀请发给朋友。</p><a href="https://node.bugg.icu/connect">了解连接方式 ↗</a></div></article></div></section>
+
+    <section class="download-section section-wrap"><div><p class="eyebrow">准备好了就出发</p><h2>朋友已经上线了。</h2><p>下载 Buggcraft，准备好你的世界，去大厅碰面。</p></div><a class="download-button" data-platform-cta href="https://download.bugg.icu/?platform=auto"><span><span data-platform-label>下载启动器</span> <b>↓</b></span><small data-platform-detail>自动匹配 Windows、macOS 或 Linux</small></a></section>
+
+    <section class="faq-section section-wrap" id="faq" aria-labelledby="faq-title"><div class="faq-heading"><p class="eyebrow">常见问题 / FAQ</p><h2 id="faq-title">开始之前，<br>你可能想知道。</h2><a class="text-link" href="https://node.bugg.icu/feedback?new=1">还有问题？提交反馈 <span>↗</span></a></div><div class="faq-list"><details><summary>Buggcraft 支持什么平台？</summary><p>下载页会识别 Windows、macOS 和 Linux，并显示各平台已经发布的构建；具体可下载情况以当前版本清单为准。</p></details><details><summary>需要 Minecraft 游戏本体吗？</summary><p>Buggcraft 是启动器，不包含 Minecraft 游戏本体。请使用你拥有的游戏账号和合法的游戏文件。</p></details><details><summary>节点会托管我的世界和存档吗？</summary><p>不会。房主在自己的电脑运行 Minecraft 并管理存档；节点负责发现、连接协商和必要的中继。</p></details><details><summary>在哪里查看节点状态？</summary><p>打开节点门户的“节点网络”页面，可查看当前在线节点、地区、延迟和接纳情况。</p></details></div></section>
+  </main>
+
+  <footer class="site-footer"><a class="brand footer-brand" href="#home"><span class="brand-mark">B</span><span class="brand-type"><strong>BUGGCRAFT</strong><small>MINECRAFT JAVA LAUNCHER</small></span></a><nav aria-label="页脚导航"><a href="https://download.bugg.icu/">下载</a><a href="https://node.bugg.icu/network">节点网络</a><a href="https://translate.bugg.icu/" target="_blank" rel="noopener">共享译文库 ↗</a><a href="https://github.com/vdjango/buggcraft">GitHub ↗</a><a href="https://node.bugg.icu/feedback?new=1">问题反馈 ↗</a></nav><p>Buggcraft 与 Mojang / Microsoft 无隶属关系。</p></footer>
+</template>

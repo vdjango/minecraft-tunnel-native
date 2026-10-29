@@ -124,6 +124,38 @@ class WebAccountTests(unittest.IsolatedAsyncioTestCase):
         response=await a.get('/connect',allow_redirects=False)
         self.assertEqual(response.status,302);self.assertEqual(response.headers['Location'],'/account/access')
 
+    async def test_device_login_lease_authenticates_across_nodes_and_revocation_propagates(self):
+        user=await self.create_user('alice',0);account,identity_key=user
+        headers,_=await self.login_user(self.clients[0],user)
+        from cryptography.hazmat.primitives.asymmetric import ec
+        device_key=ec.generate_private_key(ec.SECP256R1())
+        device_public=public(device_key)
+        client=self.clients[0]
+        started=await client.post('/api/launcher/start',json={'key':device_public,'name':'test-device','remember':True})
+        self.assertEqual(started.status,200,await started.text())
+        request=await started.json()
+        prepared=await client.post('/api/launcher/prepare',json={'id':request['id']},headers=headers)
+        self.assertEqual(prepared.status,200,await prepared.text())
+        grant=(await prepared.json())['grant']
+        approved=await client.post('/api/launcher/approve',json={
+            'id':request['id'],'signature':sign(identity_key,canonical(grant))},headers=headers)
+        self.assertEqual(approved.status,200,await approved.text())
+
+        message={'p':'buggcraft-launcher-poll-v1','id':request['id'],'nonce':request['nonce']}
+        polled=await client.post('/api/launcher/poll',json={
+            'id':request['id'],'signature':sign(device_key,canonical(message))})
+        self.assertEqual(polled.status,200,await polled.text())
+        token=(await polled.json())['profile']['token']
+        self.feds[0].publish()
+        self.feds[1].ingest([self.feds[0].records[self.feds[0].id]])
+        self.assertEqual(self.portals[1].account_api.store.authenticate(token),account)
+
+        revoked=await client.post('/api/launcher/revoke',json={'id':request['id']},headers=headers)
+        self.assertEqual(revoked.status,200,await revoked.text())
+        self.feds[0].publish()
+        self.feds[1].ingest([self.feds[0].records[self.feds[0].id]])
+        self.assertIsNone(self.portals[1].account_api.store.authenticate(token))
+
     async def test_admin_users_include_directory_only_accounts_and_can_block_locally(self):
         user=await self.create_user('elsewhere',1);a=self.clients[0]
         result=await (await a.post('/api/login',json={'username':'admin','password':self.password})).json()
@@ -147,7 +179,9 @@ class WebAccountTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(.02);await self.portals[0].diagnostics.flush()
         root=self.portals[0].diagnostics.root
         folders=list(root.glob('account-*'));self.assertEqual(len(folders),1)
-        files=list(folders[0].glob('*.jsonl'));self.assertEqual(len(files),2)
+        files=list(folders[0].glob('*.jsonl'))
+        self.assertEqual(sum('.events.' not in path.name for path in files),2)
+        self.assertEqual(sum('.events.' in path.name for path in files),2)
         for path in files:
             rows=[json.loads(line) for line in path.read_text(encoding='utf-8').splitlines()]
             self.assertEqual(rows[0]['username'],'alice');self.assertTrue(rows[0]['authenticated'])

@@ -1,0 +1,97 @@
+<script setup lang="ts">
+defineProps<{seed:Record<string,string>}>();
+</script>
+
+<template>
+<div class="ambient"></div>
+  <header class="shell topbar site-header"><a class="brand" href="/"><span class="mark">B<span>·</span></span><span>BUGGCRAFT<small>MINECRAFT COMMUNITY</small></span></a><nav aria-label="网站导航"><a href="/network">节点网络</a><a href="/connect">连接启动器</a><a href="/developers">开发文档</a><a href="/feedback">问题反馈</a><a id="open-account" href="/account">用户中心</a></nav></header>
+
+  <main class="shell console-main">
+    <div class="console-heading"><div class="eyebrow">YOUR NODE, YOUR DECISIONS</div><h1>管理你的节点。</h1><p id="console-subtitle"></p></div>
+    <p class="feedback console-feedback" id="admin-feedback" role="status" aria-live="polite"></p>
+    <form id="login-form" class="console-card login-card">
+      <span class="eyebrow muted">ADMINISTRATOR</span><h2>登录控制台</h2><p>使用此节点的管理员账户，用户账号不能管理节点。</p>
+      <label>用户名<input id="username" autocomplete="username" value="admin" maxlength="64" required></label>
+      <label>管理员密码<input id="admin-password" type="password" autocomplete="current-password" maxlength="256" required></label>
+      <button class="primary wide" type="submit">登录控制台 →</button>
+    </form>
+    <div id="admin-panel" hidden>
+      <nav class="console-nav" aria-label="管理功能">
+  <span class="sidebar-label">节点管理</span>
+  <a href="/admin/nodes">节点列表</a>
+  <a href="/admin/network">连接网络</a>
+  <a href="/admin/settings">节点设置</a>
+  <span class="sidebar-label">用户与支持</span>
+  <a href="/admin/users">用户列表</a>
+  <a href="/admin/players">在线玩家</a>
+  <a href="/admin/feedback">反馈管理</a>
+  <a href="/admin/diagnostics">连接诊断</a>
+  <span class="sidebar-label">运维</span>
+  <a href="/admin/mail">邮件服务</a>
+  <a href="/admin/history">操作记录</a>
+  <button id="logout" class="quiet" type="button">退出登录</button>
+</nav>
+
+      <div class="bandwidth-panel admin-live" id="admin-bandwidth"><div class="section-heading"><h3>服务器实时带宽</h3><div class="bandwidth-units"><button type="button" data-bandwidth-unit="MB/s">MB/s</button><button type="button" data-bandwidth-unit="Mbps">Mbps</button></div></div><div class="bandwidth-rates"><article><span class="bandwidth-direction">接收</span><div class="bandwidth-reading"><strong id="bandwidth-rx">—</strong><span class="bandwidth-unit">MB/s</span></div></article><article><span class="bandwidth-direction">发送</span><div class="bandwidth-reading"><strong id="bandwidth-tx">—</strong><span class="bandwidth-unit">MB/s</span></div></article></div><small id="bandwidth-status">正在采样…</small></div>
+      <section class="console-card" id="mail"><span class="eyebrow muted">EMAIL DELIVERY</span><h2>邮件服务</h2><p>用于注册验证和通知。</p>
+        <form id="mail-form"><div class="capacity-fields">
+          <label>SMTP 服务器<input id="mail-host" autocomplete="off" value="smtp.163.com" required></label>
+          <label>加密连接<select id="mail-port"><option value="465">SSL · 465</option><option value="587">STARTTLS · 587</option></select></label>
+          <label>发件邮箱<input id="mail-username" type="email" autocomplete="off" required></label>
+          <label>SMTP 授权码<input id="mail-password" type="password" autocomplete="new-password" placeholder="留空保留现有授权码"></label>
+          <label>发件人名称<input id="mail-from-name" maxlength="40" value="Buggcraft 节点" required></label>
+        </div><label class="check"><input id="mail-required" type="checkbox" checked>注册时必须验证邮箱</label><button class="primary" type="submit">保存邮件设置</button></form>
+        <div class="divider"></div><h3>测试发信</h3><form id="mail-test-form"><label>收件邮箱<input id="mail-recipient" type="email" required></label><button class="secondary" type="submit">发送测试邮件</button></form><p class="feedback" id="mail-feedback" role="status"></p>
+      </section>
+      <section class="console-card" id="nodes">
+        <div class="section-heading"><div><span class="eyebrow muted">NETWORK MEMBERS</span><h2>节点列表</h2></div><span class="badge" id="peer-count">同步中</span></div>
+
+        <div id="admin-peers" class="admin-node-list"></div>
+        <form id="node-action-form" class="action-panel" hidden>
+          <span class="eyebrow">REVIEW LOCAL DECISION</span><h3 id="action-title"></h3>
+          <p id="action-description"></p><code id="action-node-id"></code>
+          <label>操作原因（8–300 字，不要填写密码等隐私）<textarea id="action-reason" rows="2" minlength="8" maxlength="300" required></textarea></label>
+          <label>输入上方完整节点 ID 确认<input id="action-confirmation" maxlength="32" autocomplete="off" required></label>
+          <label>再次验证本节点管理员密码<input id="action-password" type="password" autocomplete="current-password" maxlength="256" required></label>
+          <div class="action-buttons"><button class="primary" type="submit" id="action-submit">确认本地操作</button><button class="secondary" type="button" id="cancel-action">取消</button></div>
+          <p id="action-feedback" class="feedback" role="status"></p>
+        </form>
+      </section>
+      <section class="console-card" id="network-settings"><span class="eyebrow muted">TRUSTED CONNECTIONS</span><h2>连接其他节点</h2>
+        <p>已有节点的管理员私下发出邀请；新节点管理员核对邀请来源，导入后加入同一网络，随后自动发现成员。</p>
+
+        <div class="federation-invite-actions"><button id="export-invite" class="secondary">生成联邦邀请</button></div>
+        <label>联邦邀请<textarea id="federation-invite" rows="5" placeholder="粘贴可信管理员提供的联邦邀请 JSON" autocomplete="off"></textarea></label>
+        <div class="action-buttons"><button id="join-network" class="primary">加入邀请中的网络</button><button id="leave-network" class="quiet">退出联邦</button></div>
+        <form id="leave-form" class="action-panel" hidden><h3>只退出当前节点</h3><p>本节点转为独立服务，其他节点不会被退出。已经同步的资料无法远程收回；现有联邦连接会断开。</p>
+          <label class="check"><input id="leave-consent" type="checkbox" required>我已确认影响，退出当前节点</label>
+          <div class="action-buttons"><button class="secondary" type="submit">确认退出</button><button class="quiet" type="button" id="cancel-leave">取消</button></div></form>
+      </section>
+      <section class="console-card" id="settings"><span class="eyebrow muted">NODE SETTINGS</span><h2>节点设置</h2>
+        <form id="settings-form"><div class="form-grid"><label>节点名称<input id="setting-name" maxlength="80" required></label><label>节点地区<input id="setting-region" maxlength="80" placeholder="例如：中国 · 上海"></label></div>
+        <label class="check"><input type="checkbox" id="setting-public">允许访客获取匿名启动器接入码</label>
+        <label class="check"><input type="checkbox" id="setting-registration">开放用户注册</label>
+        <label class="check"><input type="checkbox" id="setting-drain">维护模式：暂停创建新房间</label>
+        <div class="divider"></div><h3>房间与带宽容量</h3>
+        <div class="capacity-fields">
+          <label>最多同时开放房间<input id="setting-max-rooms" type="number" min="1" max="128" step="1" required></label>
+          <label>每房间人数上限<input id="setting-room-capacity" type="number" min="1" max="1000" step="1" required></label>
+          <label>供联机使用的出口带宽 · MB/s<input id="setting-bandwidth" type="number" min="0" max="125000" step="0.001" required></label>
+          <label>保留空闲带宽 · %<input id="setting-reserve" type="number" min="20" max="80" step="1" required></label>
+          <label>每位中转访客预算 · MB/s<input id="setting-player-budget" type="number" min="0.001" max="100" step="0.001" required></label>
+        </div>
+        <label>可信反向代理网段（每行一个 CIDR）<textarea id="setting-proxies" rows="5" spellcheck="false" placeholder="仅在 Web 入口位于 Cloudflare 或自建反向代理后填写"></textarea></label>
+        <small>只有来源地址命中这些网段时才读取 CF-Connecting-IP 和 X-Forwarded-Proto。上方配置额外的手工网段；Cloudflare 官方 IPv4/IPv6 网段每日自动刷新，失败保留上次成功缓存。</small>
+        <p id="cloudflare-proxy-status" role="status" aria-live="polite">正在读取刷新结果…</p>
+        <details><summary>带宽单位与容量说明</summary><p>1 MB/s = 8 Mbps。填 0 关闭带宽预算限制；保留空闲用于区块加载峰值。</p></details>
+
+
+        <button class="primary wide" type="submit">保存设置</button></form>
+      </section>
+      <section class="console-card" id="users"><span class="eyebrow muted">NETWORK USERS</span><h2>用户列表</h2><label>查找用户<input id="admin-user-filter" type="search" placeholder="用户名、账号 ID 或注册节点"></label><p id="admin-user-count"></p><div class="user-table-scroll"><table class="user-table"><thead><tr><th>用户</th><th>注册节点</th><th>同步状态</th><th>本地资料</th><th>副本</th><th>本地权限</th></tr></thead><tbody id="admin-accounts"></tbody></table></div></section>
+      <section class="console-card" id="players"><span class="eyebrow muted">LIVE PLAYERS</span><h2>在线玩家</h2><p id="admin-player-count"></p><div class="user-table-scroll"><table class="user-table"><thead><tr><th>玩家</th><th>角色</th><th>房间</th><th>传输路径</th><th>P2P ping</th><th>节点控制 RTT</th><th>游戏状态 RTT</th></tr></thead><tbody id="admin-players"></tbody></table></div></section>
+      <section class="console-card" id="history"><span class="eyebrow muted">LOCAL HISTORY</span><h2>节点操作记录</h2><div id="node-history"></div></section>
+    </div>
+    <footer><span>BUGGCRAFT / 节点控制台</span><a href="/developers">开发文档</a></footer>
+  </main>
+</template>

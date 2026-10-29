@@ -18,6 +18,7 @@ from collections import deque
 import asyncssh
 from asyncssh.forward import SSHForwarder
 from .directory import RoomControlSession
+from .accounts import AUTHENTICATION_FAILURE
 
 LOG = logging.getLogger(__name__)
 
@@ -384,12 +385,17 @@ class RoomPeer(asyncssh.SSHServer):
             if role not in ("host", "client", "directory"):
                 return self.reject_auth('invalid-role')
             self.diagnostic_role = role
-            self.account = self.relay.account_authenticate(token)
-            import inspect
-            if inspect.isawaitable(self.account):
-                self.account = await self.account
+            context = AUTHENTICATION_FAILURE.set(None)
+            try:
+                self.account = self.relay.account_authenticate(token)
+                import inspect
+                if inspect.isawaitable(self.account):
+                    self.account = await self.account
+                denial = AUTHENTICATION_FAILURE.get()
+            finally:
+                AUTHENTICATION_FAILURE.reset(context)
             if not isinstance(token, str) or (not hmac.compare_digest(token, self.relay.token) and not self.account):
-                return self.reject_auth('credential-rejected')
+                return self.reject_auth(denial or 'credential-rejected')
             self.credential = token
             if role == 'directory':
                 if claimed_room != 'rooms':

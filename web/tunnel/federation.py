@@ -104,7 +104,8 @@ class Federation:
                 item['room'] = describe(room_id, room, preview=True, relay=self.relay)
             rooms.append(item)
         body = {'id': self.id, 'profile': self.profile, 'name': self.name,
-                'issued': time.time(), 'rooms': rooms}
+                'issued': time.time(), 'rooms': rooms,
+                'statistics': {'players': self.local_player_count()}}
         # Quantize/cache capacity hints: never gossip a fresh byte counter on
         # every payload packet or create a second all-node probe loop.
         if self.routing_sample is None or time.monotonic()-self.routing_sample_at>=10:
@@ -115,6 +116,8 @@ class Federation:
             accepting=not getattr(self.relay,'draining',False) and len(self.relay.rooms)<getattr(self.relay,'max_rooms',128))
         if self.accounts:
             body['account_copies'] = self.accounts.replication.inventory()
+            if hasattr(self.accounts, 'launcher_devices'):
+                body['launcher_devices'] = self.accounts.launcher_devices.leases()
         previous = self.records.get(self.id)
         if previous:
             body['issued'] = max(body['issued'], previous['body']['issued'] + .000001)
@@ -152,6 +155,12 @@ class Federation:
                 if 'routing' in body:
                     from .node_health import validate
                     validate(body['routing'])
+                if 'statistics' in body:
+                    statistics = body['statistics']
+                    if (not isinstance(statistics, dict) or
+                            type(statistics.get('players')) is not int or
+                            not 0 <= statistics['players'] <= 128000):
+                        continue
                 public = asyncssh.import_public_key(profile['server_public_key'])
                 if not public.verify(canonical(body), base64.b64decode(record['signature'], validate=True)):
                     continue
@@ -210,11 +219,12 @@ class Federation:
         result = {'records': wire.compact(selected, record_versions), 'record_cursor': next_cursor,
                 'accounts': self.accounts.snapshot(recipient) if self.accounts else [],
                 'account_routes': self.accounts.replication.snapshot() if self.accounts else [],
+                'account_emails': self.accounts.email_accounts.snapshot() if self.accounts else [],
                 'social': self.accounts.social.snapshot() if self.accounts and social_version != self.accounts.social.digest() else [],
                 'presence': self.accounts.social.snapshot(True) if self.accounts and presence_version != self.accounts.social.digest(True) else []}
         known = snapshot_versions if isinstance(snapshot_versions, dict) else {}
         result['snapshot_versions'] = {}
-        for section in ('accounts', 'account_routes'):
+        for section in ('accounts', 'account_routes', 'account_emails'):
             version = wire.digest(result[section])
             result['snapshot_versions'][section] = version
             if known.get(section) == version:
@@ -233,15 +243,89 @@ class Federation:
                       (direct is not None and direct < TTL) else 'indirect' if node_id in live else
                       'suspect' if age is not None and age < TTL * 2 else 'offline')
             routing=record['body'].get('routing',{}) if record else {}
+            rooms = record['body'].get('rooms', []) if record else []
+            players = (self.local_player_count() if node_id == self.id else
+                       self.record_player_count(record) if record and node_id in live else 0)
             result.append({'id': node_id, 'name': record['body']['name'] if record else '已配置节点',
                            'region':routing.get('region',''),
                            'latency_ms':0 if node_id==self.id else round(self.latencies[node_id],1) if direct is not None and direct<TTL and node_id in self.latencies else None,
                            'utilization':routing.get('utilization'),
                            'remaining_visitors':routing.get('remaining_visitors'),
-                           'accepting':routing.get('accepting',True),
+                           'accepting':routing.get('accepting',True), 'rooms':len(rooms), 'players':players,
                            'local': node_id == self.id, 'status': status,
                            'heartbeat_age': 0 if node_id == self.id else round(age, 1) if age is not None else None,
                            'direct_age': round(direct, 1) if direct is not None else None})
+        return result
+
+    def local_player_count(self):
+        # Count private rooms too, without publishing their metadata.
+        return sum(self.relay.capacity.members(room_id) for room_id in self.relay.rooms) if self.relay else 0
+
+    @staticmethod
+    def record_player_count(record):
+        statistics = record['body'].get('statistics')
+        if statistics is not None:
+            return statistics['players']
+        return sum(item.get('room', {}).get('members', 0)
+                   for item in record['body'].get('rooms', []) if isinstance(item.get('room'), dict))
+
+    def online_players(self):
+        """Signed per-node counts include private rooms; expired nodes contribute zero."""
+        return self.local_player_count() + sum(self.record_player_count(record)
+            for node_id, record in self.live().items() if node_id != self.id)
+
+    async def network_players(self):
+        """Authenticated, bounded presence queries; never publish journals or addresses."""
+        now = time.monotonic()
+        cached = getattr(self, '_players_cache', None)
+        if cached and now - cached[0] < 5:
+            return cached[1]
+        task = getattr(self, '_players_task', None)
+        if task is None or task.done():
+            task = self._players_task = asyncio.create_task(self._load_network_players())
+        return await asyncio.shield(task)
+
+    async def _load_network_players(self):
+        diagnostics = getattr(self.relay, 'diagnostics', None)
+        values = [dict(player, node=self.id, node_name=self.name)
+                  for player in diagnostics.online_players()] if diagnostics else []
+        profiles = iter((node_id, record['body']) for node_id, record in self.live().items() if node_id != self.id)
+        missing = []
+        pending = set()
+        async def worker():
+            for node_id, body in profiles:
+                pending.add(node_id)
+                try:
+                    async with asyncio.timeout(4):
+                        for offset in range(0, 1000, 48):
+                            result = await self.account_rpc(body['profile'], 'online_players', offset=offset)
+                            players = result.get('players')
+                            if not isinstance(players, list) or len(players) > 48:
+                                raise ValueError('Invalid presence page')
+                            values.extend(dict(player, node=node_id, node_name=body['name']) for player in players
+                                          if isinstance(player, dict))
+                            if not result.get('more'):
+                                break
+                        else:
+                            missing.append(node_id)
+                except (ValueError, TypeError, OSError, TimeoutError, asyncssh.Error):
+                    missing.append(node_id)
+                finally:
+                    pending.discard(node_id)
+        tasks = [asyncio.create_task(worker()) for _ in range(3)]
+        try:
+            async with asyncio.timeout(5):
+                await asyncio.gather(*tasks)
+        except TimeoutError:
+            missing.extend(pending)
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        missing.extend(node_id for node_id, _ in profiles)
+        result = {'players': values, 'partial': bool(missing), 'unavailable_nodes': sorted(set(missing)),
+                  'total': self.online_players()}
+        self._players_cache = (time.monotonic(), result)
         return result
 
     def locate(self, room_id):
@@ -257,10 +341,13 @@ class Federation:
                 continue
             for item in record['body']['rooms']:
                 if 'room' in item and isinstance(item['room'], dict):
+                    room = dict(item['room'], node_name=record['body']['name'],
+                                node_region=record['body'].get('routing', {}).get('region', ''),
+                                node_id=node_id)
                     if item['id'] in result:
                         duplicates.add(item['id'])
                     else:
-                        result[item['id']] = item['room']
+                        result[item['id']] = room
         return [room for key, room in result.items() if key not in duplicates]
 
     def public_room(self, room_id):
@@ -375,6 +462,7 @@ class Federation:
                 self.ingest(value['result']['records'])
                 if self.accounts:
                     self.accounts.replication.ingest(value['result'].get('account_routes', []))
+                    self.accounts.email_accounts.ingest(value['result'].get('account_emails', []))
                     self.accounts.ingest(value['result'].get('accounts', []))
                     self.accounts.social.ingest(value['result'].get('social', []))
                     self.accounts.social.ingest(value['result'].get('presence', []))
@@ -401,14 +489,7 @@ class Federation:
         return await self.account_lookup.lookup(identifier)
 
     async def reserve_username(self, username, account):
-        self.accounts.replication.reserve_name(username, account)
-        peers = {n: p for n, p in self.seeds.items() if n not in self.blocked and n != self.id}
-        peers.update({n: r['body']['profile'] for n, r in self.live().items() if n != self.id})
-        # Fail closed during a partition. A name is never registered on only
-        # one side of a known network. Reservations survive process restarts.
-        results = await self.account_results(peers.values(), 'username_reserve', username=username, account=account)
-        if any(not isinstance(r, dict) or r.get('reserved') is not True for r in results):
-            raise ValueError('用户名已被使用，或网络暂时无法确认注册，请稍后重试。')
+        return {'reserved': True}
 
     async def fetch_account(self, account):
         targets = self.accounts.replication.targets(account)

@@ -34,6 +34,7 @@ void Session::advance_presence(){
         request.result=std::make_shared<std::promise<Json>>();
         request.output=request.value.dump()+"\n";requests_.push_back(std::move(request));
     };
+    queue({{"op","ping"}},false);
     if(role=="host"){
         queue({{"op","availability"},{"available",game_available_}},true);
         Json players=nullptr,maximum=nullptr;

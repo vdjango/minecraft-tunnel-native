@@ -8,6 +8,7 @@ import ipaddress
 import json
 import logging
 import os
+import re
 from pathlib import Path
 import secrets
 import socket
@@ -60,7 +61,9 @@ class SetupServer:
         self.app = web.Application(client_max_size=16384)
         self.app.on_response_prepare.append(self.headers)
         self.app.add_routes([web.get('/', self.page), web.get('/setup.css', self.asset),
-                             web.get('/setup.js', self.asset), web.post('/setup', self.submit)])
+                             web.get('/setup.js', self.asset),
+                             web.get(r'/{bundle:vue-[A-Za-z0-9_-]+\.js}', self.asset),
+                             web.post('/setup', self.submit)])
 
     async def headers(self, request, response):
         response.headers.update({
@@ -83,7 +86,10 @@ class SetupServer:
         return web.Response(text=text, content_type='text/html')
 
     async def asset(self, request):
-        return web.FileResponse(ASSETS / request.path.lstrip('/'))
+        name=request.path.lstrip('/')
+        if name not in ('setup.css','setup.js') and not re.fullmatch(r'vue-[A-Za-z0-9_-]+\.js',name):
+            raise web.HTTPNotFound()
+        return web.FileResponse(ASSETS / name)
 
     async def submit(self, request):
         self.authorize(request.headers.get('X-Setup-Token'))

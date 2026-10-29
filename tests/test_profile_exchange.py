@@ -6,13 +6,13 @@ import sys
 import time
 from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from aiohttp import web
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'web'))
-from tunnel.portal import Portal, _trusted_proxy_ranges
+from tunnel.portal import Portal, _read_cloudflare_ranges, _trusted_proxy_ranges
 
 
 class ProfileExchangeTests(unittest.IsolatedAsyncioTestCase):
@@ -111,6 +111,66 @@ class ProfileExchangeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(_trusted_proxy_ranges({'trusted_proxy_ips': ['192.0.2.42', '2001:db8::1']}),
                          ['192.0.2.42/32', '2001:db8::1/128'])
         self.assertEqual(_trusted_proxy_ranges({'trusted_proxy_cidrs': ['0.0.0.0/0', 'bad']}), [])
+
+    def test_cloudflare_ranges_are_combined_without_allowing_default_route(self):
+        state = {
+            'trusted_proxy_cidrs': ['192.0.2.0/24'],
+            'cloudflare_proxy_cidrs': ['173.245.48.0/20', '0.0.0.0/0', 'bad']}
+        self.assertEqual(_trusted_proxy_ranges(state),
+            ['192.0.2.0/24', '173.245.48.0/20'])
+        self.assertEqual(state['trusted_proxy_cidrs'], ['192.0.2.0/24'])
+
+    async def test_refresh_failure_preserves_successful_cache(self):
+        portal = self.make_portal()
+        portal.state['cloudflare_proxy_cidrs'] = ['173.245.48.0/20']
+        portal.state['cloudflare_proxy_updated'] = 123
+        with patch('tunnel.portal._read_cloudflare_ranges', side_effect=OSError('offline')):
+            self.assertFalse(await portal.refresh_cloudflare_proxies())
+        self.assertEqual(portal.state['cloudflare_proxy_cidrs'], ['173.245.48.0/20'])
+        self.assertEqual(portal.state['cloudflare_proxy_updated'], 123)
+        self.assertEqual(portal.state['cloudflare_proxy_last_result'], 'failed')
+        self.assertEqual(portal.state['cloudflare_proxy_last_error'], '网络连接失败')
+        self.assertIsInstance(portal.state['cloudflare_proxy_last_attempt'], (int, float))
+        portal.save.assert_called_once()
+
+    async def test_refresh_success_replaces_cache_and_records_result(self):
+        portal = self.make_portal()
+        portal.state['cloudflare_proxy_last_error'] = '旧错误'
+        ranges = ['173.245.48.0/20', '2405:b500::/32']
+        with patch('tunnel.portal._read_cloudflare_ranges', return_value=ranges):
+            self.assertTrue(await portal.refresh_cloudflare_proxies())
+        self.assertEqual(portal.state['cloudflare_proxy_cidrs'], ranges)
+        self.assertEqual(portal.state['cloudflare_proxy_last_result'], 'success')
+        self.assertNotIn('cloudflare_proxy_last_error', portal.state)
+        self.assertGreaterEqual(portal.state['cloudflare_proxy_updated'], portal.state['cloudflare_proxy_last_attempt'])
+        portal.save.assert_called_once()
+
+    async def test_empty_refresh_result_is_reported_as_failure(self):
+        portal = self.make_portal()
+        portal.state['cloudflare_proxy_cidrs'] = ['173.245.48.0/20']
+        with patch('tunnel.portal._read_cloudflare_ranges', return_value=[]):
+            self.assertFalse(await portal.refresh_cloudflare_proxies())
+        self.assertEqual(portal.state['cloudflare_proxy_cidrs'], ['173.245.48.0/20'])
+        self.assertEqual(portal.state['cloudflare_proxy_last_result'], 'failed')
+        self.assertEqual(portal.state['cloudflare_proxy_last_error'], '返回的网段列表无效')
+        portal.save.assert_called_once()
+
+    def test_cloudflare_fetch_reads_ipv4_and_ipv6_lists(self):
+        class Response:
+            def __init__(self, body):
+                self.body = body
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return False
+            def read(self, limit):
+                self.assert_limit = limit
+                return self.body.encode('ascii')
+
+        responses = iter((Response('173.245.48.0/20\n173.245.48.0/20\n'),
+                          Response('2405:b500::/32\n')))
+        with patch('tunnel.portal.urllib.request.urlopen', side_effect=lambda request, timeout: next(responses)):
+            self.assertEqual(_read_cloudflare_ranges(), ['173.245.48.0/20', '2405:b500::/32'])
 
 
 if __name__ == '__main__':

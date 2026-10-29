@@ -1,4 +1,36 @@
 'use strict';
+// Onboarding serves setup.js and setup.css without the normal portal routes.
+(() => {
+  const key = 'buggcraft.theme';
+  const root = document.documentElement;
+  let theme = 'dark';
+  try { if (localStorage.getItem(key) === 'light') theme = 'light'; } catch (_) {}
+  root.dataset.theme = theme;
+  const nav = document.querySelector('.theme-nav');
+  if (!nav) return;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.id = 'theme-toggle';
+  button.className = 'theme-toggle';
+  function refresh() {
+    const light = root.dataset.theme === 'light';
+    button.textContent = light ? '深色模式' : '浅色模式';
+    button.setAttribute('aria-label', light ? '切换到深色主题' : '切换到浅色主题');
+    button.setAttribute('aria-pressed', String(light));
+  }
+  button.addEventListener('click', () => {
+    root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
+    try { localStorage.setItem(key, root.dataset.theme); } catch (_) {}
+    refresh();
+  });
+  window.addEventListener('storage', event => {
+    if (event.key !== key) return;
+    root.dataset.theme = event.newValue === 'light' ? 'light' : 'dark';
+    refresh();
+  });
+  nav.append(button);
+  refresh();
+})();
 const form = document.querySelector('#setup-form');
 const panels = [...form.querySelectorAll('fieldset')];
 const next = document.querySelector('#next');

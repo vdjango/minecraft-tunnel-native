@@ -60,7 +60,7 @@ class GovernanceTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_pages_are_public_but_admin_data_is_not(self):
         home = await (await self.client.get('/')).text()
-        self.assertIn('href="/admin"', home)
+        self.assertNotIn('href="/admin"', home)
         self.assertIn('href="/developers"', home)
         self.assertNotIn('class="entry-strip"', home)
         self.assertNotIn('id="account-dialog"', home)
@@ -72,7 +72,7 @@ class GovernanceTests(unittest.IsolatedAsyncioTestCase):
                                ('/account','data-account-view="friends"'),
                                ('/admin/diagnostics','连接诊断'),
                                ('/feedback','问题反馈'),
-                               ('/developers','节点管理的权限与流程')]:
+                               ('/developers','节点开发、代理与诊断')]:
             response = await self.client.get(path)
             self.assertEqual(response.status, 200, path)
             self.assertIn(expected, await response.text())
@@ -87,14 +87,20 @@ class GovernanceTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.a.blocked)
 
     async def test_all_pages_share_navigation_order_and_one_current_item(self):
-        expected=['/','/network','/connect','/developers','/feedback','/account','/admin']
+        expected=['/','/network','/connect','/developers','/feedback','/account']
         for path in ('/','/network','/connect','/developers','/login','/register','/account',
                      '/feedback','/admin','/admin/settings','/admin/diagnostics','/admin/feedback'):
             response=await self.client.get(path)
             self.assertEqual(response.status,200,path)
             header=re.search(r'<header\b.*?</header>',await response.text(),re.S).group()
             self.assertEqual(re.findall(r'href="([^"]+)"',header),expected,path)
-            self.assertEqual(header.count('aria-current="page"'),1,path)
+            # Management uses its own section navigation; public navigation
+            # never exposes a separate administrator entry to ordinary users.
+            current = re.findall(r'href="([^"]+)" aria-current="page"', header)
+            expected_current = ([] if path.startswith('/admin') and path != '/admin/feedback' else
+                                ['/feedback'] if path == '/admin/feedback' else
+                                ['/account'] if path in ('/login', '/register') else [path])
+            self.assertEqual(current, expected_current, path)
 
     async def test_diagnostic_records_require_admin_and_polling_does_not_use_login_limit(self):
         self.assertEqual((await self.client.get('/api/admin/diagnostics')).status,401)
@@ -153,12 +159,14 @@ class GovernanceTests(unittest.IsolatedAsyncioTestCase):
         response = await self.client.get('/developers')
         self.assertEqual(response.status, 200)
         page = await response.text()
-        self.assertIn('actions/workflows/bridge.yml', page)
+        self.assertIn('actions/workflows/core.yml', page)
         self.assertIn('buggcraft-bridge.exe', page)
         self.assertIn('ProcessBuilder(bridgePath)', page)
         self.assertIn('ProcessStartInfo(bridgePath)', page)
-        self.assertIn('当前桥接加入接口需要邀请码', page)
-        self.assertIn('不属于当前 JSON-RPC 方法', page)
+        self.assertIn('room.resolve', page)
+        self.assertIn('room.join', page)
+        self.assertIn('不是独立 JSON-RPC 方法', page)
+        self.assertIn('kind:&quot;resources&quot;', page.replace('"', '&quot;'))
         self.assertNotIn('ProcessBuilder(pythonPath', page)
         self.assertNotIn('subprocess.Popen(["python"', page)
         self.assertNotIn('Content-Disposition', response.headers)
@@ -176,7 +184,8 @@ class GovernanceTests(unittest.IsolatedAsyncioTestCase):
         await meter.sample()
         public = await (await self.client.get('/api/status')).json()
         self.assertNotIn('bandwidth', public)
-        self.assertNotIn('capacity', public)
+        self.assertIn('remaining_visitors', public['capacity'])
+        self.assertNotIn('private-interface', json.dumps(public))
         self.assertEqual((await self.client.get('/api/admin')).status, 401)
         await self.login()
         for _ in range(2):

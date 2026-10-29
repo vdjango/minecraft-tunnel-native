@@ -17,13 +17,18 @@ class AccountAPI:
         from .mail import VerificationMail
         self.mail = VerificationMail(portal.path.with_name('smtp.json'), portal.federation.name)
         self.registration_lock = asyncio.Lock()
+        self.email_grants = {}
         portal.federation.accounts = self.store
         portal.relay.account_authenticate = self.authenticate
         portal.relay.account_blocked = lambda account: account in self.blocked
+        from .launcher_devices import LauncherDevices
+        self.store.launcher_devices = LauncherDevices(self)
         self.routes = [
             web.post('/api/account/enroll', self.enroll),
             web.post('/api/account/register', self.register),
             web.post('/api/account/email-code', self.email_code),
+            web.post('/api/account/email-challenge', self.email_challenge),
+            web.post('/api/account/email-accounts', self.email_accounts),
             web.get('/api/admin/mail', self.mail_settings),
             web.post('/api/admin/mail', self.save_mail_settings),
             web.post('/api/admin/mail/test', self.test_mail),
@@ -38,7 +43,7 @@ class AccountAPI:
             web.get('/api/account/record/{account}', self.record),
             web.post('/api/account/backup', self.backup),
             web.post('/api/account/block', self.block),
-        ]
+        ] + self.store.launcher_devices.routes
 
     @property
     def blocked(self):
@@ -84,8 +89,9 @@ class AccountAPI:
         data = await request.json()
         if self.mail.required and not self.mail.enabled:
             raise ValueError('本节点尚未配置发信邮箱，暂不能完成注册。请联系管理员。')
-        if self.mail.required:
-            self.mail.verify(data.get('email_ticket'), data.get('email_code'), data.get('username'), data.get('nonce'))
+        email = None
+        if self.mail.required or data.get('email_ticket'):
+            email = self.mail.verify(data.get('email_ticket'), data.get('email_code'), data.get('username'), data.get('nonce'), purpose='register')
         challenge = self.store.consume(data['nonce'], 'enroll')
         verify(data['public_key'], challenge['message'].encode(), data['proof'])
         if not isinstance(data.get('state'), dict) or data['state'].get('account') != challenge['account'] or data['state'].get('revision') != 1:
@@ -93,32 +99,73 @@ class AccountAPI:
         if type(data.get('copies')) is not int or not isinstance(data.get('routing_signature'), str):
             raise ValueError('Signed backup consent is required')
         async with self.registration_lock:
-            await self.portal.federation.reserve_username(data['username'], challenge['account'])
             record = self.store.enroll(challenge['account'].split('.')[0], data['username'],
                                       data['public_key'], data['state'], data['signature'],
                                       data['copies'], data['routing_signature'])
-        await self.portal.federation.sync_once()
+            if email:
+                self.store.email_accounts.link(email, challenge['account'])
         return web.json_response({'account': record['state']['account']}, status=201)
 
     async def email_code(self, request):
-        if not self.portal.state.get('registration_open', False):
-            raise web.HTTPForbidden(text='本节点暂未开放注册。')
         self.portal.throttle(request)
         data = await request.json()
         challenge = self.store.challenges.get(data.get('nonce'))
-        if not challenge or challenge['kind'] != 'enroll' or challenge['expires'] <= time.monotonic():
-            raise ValueError('请重新开始注册。')
-        # Email entry lasts longer than a signature challenge; signing is still
-        # one-use and bound to this registration's random account ID.
-        challenge['expires'] = time.monotonic() + 600
+        purpose = data.get('purpose', 'register')
+        if purpose not in ('register', 'login', 'link'):
+            raise ValueError('邮箱操作无效，请重试。')
+        if purpose == 'register' and not self.portal.state.get('registration_open', False):
+            raise web.HTTPForbidden(text='本节点暂未开放注册。')
+        if purpose == 'register':
+            if not challenge or challenge['kind'] != 'enroll' or challenge['expires'] <= time.monotonic():
+                raise ValueError('请重新开始注册。')
+            challenge['expires'] = time.monotonic() + 600
+        elif purpose == 'link':
+            session = self.session(request, write=True)
+            challenge = None
+        else:
+            challenge = None
+        nonce = data['nonce'] if challenge else session['account'] if purpose == 'link' else secrets.token_urlsafe(24)
         from .mail import MailDeliveryError
         try:
-            ticket = await self.mail.issue(data.get('email'), data.get('username'), data['nonce'])
+            ticket = await self.mail.issue(data.get('email'), data.get('username', '') if purpose == 'register' else '',
+                                           nonce, purpose=purpose)
         except MailDeliveryError as exc:
             raise web.HTTPServiceUnavailable(text=str(exc)) from None
         except ValueError as exc:
             raise web.HTTPBadRequest(text=str(exc)) from None
-        return web.json_response({'ticket': ticket, 'expires_in': 600, 'retry_after': 60})
+        return web.json_response({'ticket': ticket, 'nonce': nonce, 'expires_in': 600, 'retry_after': 60})
+
+    async def email_challenge(self, request):
+        self.portal.throttle(request)
+        data = await request.json()
+        if not self.mail.enabled:
+            raise web.HTTPServiceUnavailable(text='本节点邮箱验证服务暂不可用。')
+        try:
+            email = self.mail.verify(data.get('ticket'), data.get('code'), '', data.get('nonce'), purpose='login')
+        except ValueError as exc:
+            raise web.HTTPBadRequest(text=str(exc)) from None
+        mailbox = self.store.email_accounts.mailbox(email)
+        now = time.monotonic()
+        self.email_grants = {k: v for k, v in self.email_grants.items() if v['expires'] > now}
+        if len(self.email_grants) >= 256:
+            raise web.HTTPTooManyRequests(text='邮箱验证请求过多，请稍后重试。')
+        grant = secrets.token_urlsafe(32)
+        self.email_grants[grant] = {'mailbox': mailbox, 'expires': now + 600}
+        return web.json_response({'grant': grant, 'accounts': self.store.email_accounts.candidates(mailbox)})
+
+    async def email_accounts(self, request):
+        session = self.session(request, write=True)
+        self.portal.throttle(request)
+        data = await request.json()
+        account = session['account']
+        try:
+            email = self.mail.verify(data.get('ticket'), data.get('code'), '', account, purpose='link')
+        except ValueError as exc:
+            raise web.HTTPBadRequest(text=str(exc)) from None
+        self.store.email_accounts.link(email, account)
+        mailbox = self.store.email_accounts.mailbox(email)
+        self.store.email_accounts.choose(mailbox, account)
+        return web.json_response({'accounts': self.store.email_accounts.candidates(mailbox)})
 
     async def mail_settings(self, request):
         self.portal.session(request)
@@ -173,6 +220,11 @@ class AccountAPI:
             raise web.HTTPUnauthorized()
         verify(self.store.replication.get(account)['certificate']['public_key'],
                challenge['message'].encode(), data['signature'])
+        if data.get('email_grant'):
+            grant = self.email_grants.pop(data['email_grant'], None)
+            if not grant or grant['expires'] <= time.monotonic():
+                raise web.HTTPBadRequest(text='邮箱验证已过期，请重新发送验证码。')
+            self.store.email_accounts.choose(grant['mailbox'], account)
         self.store.authorize(account, challenge, data['signature'])
         token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
         if len(self.store.sessions) >= 256:
@@ -187,7 +239,8 @@ class AccountAPI:
     async def me(self, request):
         session = self.session(request)
         record = self.store.replication.get(session['account'])
-        return web.json_response({'account': session['account'], 'username': record['certificate']['username'],
+        from .friend_codes import friend_code
+        return web.json_response({'account': session['account'], 'friendCode': friend_code(session['account']), 'username': record['certificate']['username'],
                                   'csrf': session['csrf'], 'revision': record['state']['revision'],
                                   'home': record['certificate']['home'],
                                   'backup': self.store.replication.status(session['account'])})
@@ -217,14 +270,16 @@ class AccountAPI:
         return web.json_response(result)
 
     async def lookup(self, request):
+        from .friend_codes import matches_account, valid_identifier
         self.session(request, True)
         self.portal.throttle(request)
         username = (await request.json()).get('username')
-        if not isinstance(username, str) or not re.fullmatch(r'[A-Za-z0-9_-]{3,32}', username):
-            raise web.HTTPBadRequest(text='请输入 3–32 位英文用户名。')
+        if not valid_identifier(username):
+            raise web.HTTPBadRequest(text='请输入好友码、用户名或完整账号 ID。')
+        username = username.strip()
         results = await self.portal.federation.lookup_accounts(username)
         for account, entry in self.store.replication.directory.items():
-            if entry['certificate']['username'].casefold() == username.casefold():
+            if matches_account(username, account, entry['certificate']['username']):
                 results.append({'account': account, 'username': entry['certificate']['username']})
         unique = {item['account']: item for item in results
                   if item['account'] not in self.blocked and

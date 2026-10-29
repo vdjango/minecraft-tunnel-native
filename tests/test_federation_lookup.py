@@ -15,6 +15,7 @@ from tunnel.accounts import Accounts
 from tunnel.account_replication import header
 from tunnel.federation import Federation
 from tunnel.federation_lookup import PROBE_FANOUT
+from tunnel.friend_codes import friend_code
 from tests.account_fixture import enroll
 
 
@@ -47,6 +48,25 @@ class LookupTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await self.node.lookup_accounts('REMOTE_FRIEND'),
                              [dict(account=self.account, username='remote_friend')])
             rpc.assert_not_awaited()
+
+    async def test_short_code_repairs_signed_directory_and_accepts_unformatted_input(self):
+        code = friend_code(self.account)
+        with patch.object(self.node, 'account_rpc', new=AsyncMock(return_value={'entries': [self.entry]})) as rpc:
+            expected = [dict(account=self.account, username='remote_friend')]
+            self.assertEqual(await self.node.lookup_accounts(code.lower()), expected)
+            self.assertEqual(rpc.await_count, PROBE_FANOUT)
+            self.assertEqual(await self.node.lookup_accounts(code.replace('-', '')), expected)
+            self.assertEqual(rpc.await_count, PROBE_FANOUT)
+            self.assertEqual(await self.node.lookup_accounts('AAAA-BBBB-CCCC'), [])
+
+    async def test_colliding_aliases_return_candidates(self):
+        self.node.accounts.replication.accept(self.entry)
+        other = self.feds[2]
+        duplicate, _ = enroll(other.accounts, 'other_friend')
+        self.node.accounts.replication.accept(header(other.accounts.records[duplicate]))
+        with patch('tunnel.friend_codes.friend_code', return_value='AAAA-BBBB-CCCC'):
+            found = await self.node.lookup_accounts('AAAA-BBBB-CCCC')
+        self.assertEqual({r['account'] for r in found}, {self.account, duplicate})
 
     async def test_full_account_miss_queries_home_directly_and_repairs_public_cache(self):
         async def rpc(profile, op, **payload):

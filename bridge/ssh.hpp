@@ -28,6 +28,7 @@ class Ssh {
     ssh_session session_ = nullptr;
     ssh_counter_struct traffic_{};
     Heartbeat heartbeat_;
+    Json exchange(ssh_channel channel, const Json& value, int timeout_seconds);
 public:
     explicit Ssh(const Profile&, const std::string& user, const std::string& secret = {},int timeout_seconds=4,const std::string& member_token={});
     ~Ssh();
@@ -40,6 +41,7 @@ public:
     int retry(const std::function<int()>& operation, int seconds = 5);
     ssh_channel subsystem(const char* name);
     Json request(Json value,int timeout_seconds=10);
+    double ping();
     int forward(const char* name);
     ssh_channel open(const std::string& room, int port);
 };

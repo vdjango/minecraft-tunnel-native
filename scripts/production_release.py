@@ -40,12 +40,19 @@ def save(name, value):
     (ARTIFACT / name).write_text(json.dumps(value, indent=2, ensure_ascii=True) + '\n', encoding='utf-8')
 
 
-def prepare(runtime):
+def prepare(runtime, allow_dirty_source=False):
     if not runtime.startswith('/') or '..' in runtime.split('/'):
         raise ValueError('Use an absolute remote CMake install directory')
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
-    if subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).strip():
+    dirty = bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).strip())
+    if dirty and not allow_dirty_source:
         raise RuntimeError('Commit the release source before packaging')
+    source_hashes = {}
+    for directory in ('core', 'bridge', 'include', 'web', 'site', 'docs', 'licenses'):
+        for path in sorted((ROOT / directory).rglob('*')):
+            if path.is_file() and '__pycache__' not in path.parts and path.suffix != '.pyc':
+                source_hashes[path.relative_to(ROOT).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+    save('source-sha256.json', source_hashes)
     with connect('node1') as client:
         command(client, 'tar -czf /tmp/buggcraft-native-runtime-production.tar.gz '
                 '-C ' + shlex.quote(runtime) + ' bin/buggcraft-core lib/libssh.so '
@@ -64,6 +71,8 @@ def prepare(runtime):
                 output.addfile(item, runtime_archive.extractfile(item) if item.isfile() else None)
     digest = hashlib.sha256(bundle.read_bytes()).hexdigest()
     manifest = dict(tag=TAG, release=RELEASE, archive_sha256=digest, source_revision=revision,
+         source_dirty=dirty, source_manifest_sha256=hashlib.sha256(
+             (ARTIFACT / 'source-sha256.json').read_bytes()).hexdigest(),
          remote_runtime=runtime,
          contents='src web portal, site, pinned requirements, Linux native core, libssh, licenses')
     save('release-manifest.json', manifest)
@@ -218,8 +227,18 @@ if __name__ == '__main__':
     parser.add_argument('--node',choices=['node1','node2'])
     parser.add_argument('--runtime',default='/tmp/buggcraft-native-production-runtime',
                         help='Absolute CMake install directory on the trusted build server')
+    parser.add_argument('--artifact', type=Path, help='Use a new explicitly named release artifact directory')
+    parser.add_argument('--allow-dirty-source', action='store_true',
+                        help='Snapshot the authorized working tree and record its per-file SHA-256 manifest')
     args=parser.parse_args()
-    if args.phase=='prepare': prepare(args.runtime)
+    if args.artifact:
+        ARTIFACT = args.artifact.resolve()
+        ARTIFACT.mkdir(parents=True, exist_ok=True)
+        TAG = ARTIFACT.name.removeprefix('production-native-')
+        if not TAG or any(char not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_' for char in TAG):
+            parser.error('Artifact directory name must be a safe release tag')
+        RELEASE = '/opt/buggcraft-node/releases/native-' + TAG
+    if args.phase=='prepare': prepare(args.runtime, args.allow_dirty_source)
     else:
         if not args.node: parser.error('--node required for sequential activation')
         activate(args.node)

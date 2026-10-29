@@ -38,9 +38,9 @@ void RouteSelector::refresh(Profile& selected,std::vector<Profile>& alternatives
         for(size_t i=first;i<std::min(first+3,candidates_.size());++i){auto* c=&candidates_[i];
             if(c->retry>now)continue;
             work.push_back(std::async(std::launch::async,[c]{
-                try{Ssh ssh(c->profile,"directory:rooms",{},2);const auto started=Clock::now();
+                try{Ssh ssh(c->profile,"directory:rooms",{},2);
                     const auto value=ssh.request({{"op","ping"}},2);
-                    const double elapsed=std::chrono::duration<double,std::milli>(Clock::now()-started).count();
+                    const double elapsed=ssh.ping();
                     c->sample.jitter_ms=c->sample.reachable?c->sample.jitter_ms*.75+std::abs(c->sample.rtt_ms-elapsed)*.25:0;
                     c->sample.rtt_ms=c->sample.reachable?c->sample.rtt_ms*.65+elapsed*.35:elapsed;
                     auto health=value.value("routing",Json::object());
@@ -79,11 +79,6 @@ Json RouteSelector::status()const{auto rows=Json::array();for(const auto& c:cand
     {"remaining_visitors",c.sample.remaining},{"accepting",c.sample.accepting},
     {"score",std::isfinite(route_score(c.sample))?Json(route_score(c.sample)):Json(nullptr)}});return rows;}
 Json RouteSelector::events(){auto value=std::move(events_);events_=Json::array();return value;}
-std::optional<double> RouteSelector::latency_ms(const Profile& profile)const{
-    if(refreshed_==Clock::time_point{}||Clock::now()-refreshed_>std::chrono::seconds(60))return {};
-    for(const auto& c:candidates_)if(same(c.profile,profile)&&c.sample.reachable)return c.sample.rtt_ms;
-    return {};
-}
 bool RouteSelector::admissible(const Profile& profile)const{
     for(const auto& c:candidates_)if(same(c.profile,profile))return std::isfinite(route_score(c.sample));
     return false;

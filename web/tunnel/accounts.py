@@ -1,5 +1,6 @@
 """Portable signed identities. Only public keys and encrypted client boxes replicate."""
 import base64
+from contextvars import ContextVar
 import hashlib
 import hmac
 import json
@@ -16,6 +17,8 @@ from cryptography.hazmat.primitives.asymmetric import ec, utils
 MAX_ACCOUNTS = 512
 MAX_BOX = 4096
 ITERATIONS = 600000
+# Task-local, fixed denial categories; never retain a token or decoded claims.
+AUTHENTICATION_FAILURE = ContextVar('account_authentication_failure', default=None)
 
 
 def canonical(value):
@@ -76,6 +79,8 @@ class Accounts:
         self.grants = {}
         from .account_replication import Replication
         self.replication = Replication(self)
+        from .account_email import EmailAccounts
+        self.email_accounts = EmailAccounts(self)
         from .social import Social
         self.social = Social(self)
 
@@ -177,9 +182,6 @@ class Accounts:
             raise ValueError('Username needs 3-32 letters, digits, _ or -')
         if len([r for r in self.records.values() if r['certificate']['home'] == self.federation.id]) >= 128:
             raise ValueError('Local account limit reached')
-        if any(r['certificate']['username'].casefold() == username.casefold()
-               for r in list(self.records.values()) + list(self.replication.directory.values())):
-            raise ValueError('Username already exists')
         cert = {'uid': uid, 'home': self.federation.id, 'home_key': self.federation.profile['server_public_key'],
                 'username': username, 'public_key': key, 'created': time.time()}
         record = {'certificate': cert, 'issuer_signature': encode(self.federation.key.sign(canonical(cert), b'ssh-ed25519')),
@@ -224,37 +226,65 @@ class Accounts:
 
     def credential(self, account, authorization=None):
         grant, signature = authorization or self.grants[account]
-        claims = {'a': account, 'i': self.federation.id, 'e': grant['e'], 'n': grant['n'],
+        expiry = grant['e']
+        if grant.get('p') == 'buggcraft-launcher-device-v1':
+            expiry = min(expiry, int(time.time()) + 7 * 86400)
+        claims = {'a': account, 'i': self.federation.id, 'e': expiry, 'n': grant['n'],
                   'g': grant, 's': signature}
         payload = canonical(claims)
         return 'acct1.' + encode(payload) + '.' + encode(self.federation.key.sign(payload, b'ssh-ed25519'))
 
     def authenticate(self, token, blocked=(), require_record=True):
+        AUTHENTICATION_FAILURE.set(None)
+        def reject(reason):
+            AUTHENTICATION_FAILURE.set(reason)
+            return None
         if isinstance(token, str):
             token = token.split('~', 1)[0]
         if not isinstance(token, str) or len(token) > 2048 or not token.startswith('acct1.'):
-            return None
+            return reject('credential-format')
         try:
             encoded, signature = token[6:].split('.')
             payload = decode(encoded)
             claims = json.loads(payload)
             account, issuer = claims['a'], claims['i']
             record = (self.replication.get(account) or self.replication.directory.get(account)) if isinstance(account, str) else None
-            if (not isinstance(account, str) or not isinstance(issuer, str) or
-                    (require_record and not record) or account in blocked or issuer in self.federation.blocked or
-                    (record and record['certificate']['home'] in self.federation.blocked) or
-                    type(claims['e']) is not int or not time.time() < claims['e'] <= time.time() + 7 * 86400 + 60 or
-                    not hmac.compare_digest(claims['n'], self.federation.proof('account-audience')[:24])):
-                return None
+            if not isinstance(account, str) or not isinstance(issuer, str):
+                return reject('account-identity-format')
+            if require_record and not record:
+                return reject('account-record-unavailable')
+            if account in blocked:
+                return reject('account-blocked')
+            if issuer in self.federation.blocked or (record and record['certificate']['home'] in self.federation.blocked):
+                return reject('account-node-blocked')
+            if type(claims['e']) is not int:
+                return reject('account-expiry-format')
+            if not time.time() < claims['e']:
+                return reject('account-expired-claim')
+            if not claims['e'] <= time.time() + 7 * 86400 + 60:
+                return reject('account-expiry-out-of-range')
+            if not hmac.compare_digest(claims['n'], self.federation.proof('account-audience')[:24]):
+                return reject('account-audience-mismatch')
             profile = self.federation.profile if issuer == self.federation.id else self.federation.seeds.get(issuer)
-            if not profile or not asyncssh.import_public_key(profile['server_public_key']).verify(payload, decode(signature)):
-                return None
+            if not profile:
+                return reject('account-issuer-unavailable')
+            if not asyncssh.import_public_key(profile['server_public_key']).verify(payload, decode(signature)):
+                return reject('account-node-signature-invalid')
             grant = claims['g']
-            if (not isinstance(grant, dict) or any(grant.get(k) != claims[k] for k in ('a', 'i', 'e', 'n')) or
-                    grant.get('p') != 'buggcraft-account-login-v2'):
-                return None
+            device = isinstance(grant, dict) and grant.get('p') == 'buggcraft-launcher-device-v1'
+            if (not isinstance(grant, dict) or any(grant.get(k) != claims[k] for k in ('a', 'i', 'n')) or
+                    (not device and (grant.get('p') != 'buggcraft-account-login-v2' or grant.get('e') != claims['e']))):
+                return reject('account-grant-mismatch')
+            if device:
+                if (type(grant.get('b')) is not int or type(grant.get('e')) is not int or
+                        not grant['b'] <= time.time() + 5 or not 0 < grant['e'] - grant['b'] <= 180 * 86400 or
+                        claims['e'] > grant['e'] or not self.launcher_devices.allowed(grant)):
+                    return reject('account-device-inactive')
             if record:
-                verify(record['certificate']['public_key'], canonical(grant), claims['s'])
+                try:
+                    verify(record['certificate']['public_key'], canonical(grant), claims['s'])
+                except (ValueError, KeyError, TypeError):
+                    return reject('account-holder-signature-invalid')
             return account
         except (ValueError, KeyError, TypeError, asyncssh.Error):
-            return None
+            return reject('credential-malformed')
