@@ -8,6 +8,7 @@ import time
 import asyncssh
 from .chat import RoomChatSession
 from .peer_signal import PeerSignalSession
+from .room_lobby import manager_account
 
 SUBSYSTEM = 'buggcraft-rooms-v1'
 MAX_FRAME = 16384
@@ -45,14 +46,42 @@ def game_metadata(value):
             raise ValueError('Invalid mod entry')
         cleaned.append({'name': name, 'sha256': digest, 'size': size})
     result['mods_count'], result['mods'] = count, cleaned
+    resources = value.get('resources', [])
+    resource_count = value.get('resources_count', len(resources) if isinstance(resources, list) else 0)
+    if (not isinstance(resources, list) or len(resources) > 24 or
+            type(resource_count) is not int or not 0 <= resource_count <= 2000):
+        raise ValueError('Invalid resource manifest')
+    resource_preview = []
+    for item in resources:
+        if not isinstance(item, dict):
+            raise ValueError('Invalid resource entry')
+        name, path, digest, size = (item.get(key) for key in ('name', 'path', 'sha256', 'size'))
+        if (not isinstance(name, str) or not 1 <= len(name) <= 240 or
+                any(ch in name for ch in '/\\:') or any(not ch.isprintable() for ch in name) or
+                name in ('.', '..') or not isinstance(path, str) or
+                path not in ('resourcepacks/' + name, 'shaderpacks/' + name) or
+                not isinstance(digest, str) or not re.fullmatch('[0-9a-f]{64}', digest) or
+                type(size) is not int or not 0 <= size <= 2147483647):
+            raise ValueError('Invalid resource entry')
+        resource_preview.append({'name': name, 'path': path, 'sha256': digest, 'size': size})
+    resource_hash = value.get('resources_hash', '')
+    if not isinstance(resource_hash, str) or (resource_hash and not re.fullmatch('[0-9a-f]{64}', resource_hash)):
+        raise ValueError('Invalid resource hash')
+    result.update(resources_count=resource_count, resources_hash=resource_hash, resources=resource_preview)
     return result
 
 
 def describe(key, room, preview=True, *, relay):
-    game = room.game if preview else {key: value for key, value in room.game.items() if key != 'mods'}
+    game = room.game if preview else {key: value for key, value in room.game.items() if key not in ('mods', 'resources')}
+    federation = relay.federation
     return {'id': key, 'title': room.title, 'public': room.public,
+            'node_name': federation.name if federation else '',
+            'node_region': federation.region if federation else '',
+            'node_id': federation.id if federation else '',
             'relay_compression': relay.compression_capability(room) if hasattr(relay, 'compression_capability') else None,
             'diagnostics': bool(relay.diagnostics),
+            'capabilities': ['room-lobby-v1'],
+            'config_id': room.lobby.configuration if room.lobby else '',
             'require_invite': not room.public or room.require_invite,
             'capacity': relay.capacity.room_limit(room), 'connections': len(room.streams), 'game': game,
             'members': relay.capacity.members(key),
@@ -72,6 +101,13 @@ class RoomControlSession(asyncssh.SSHServerSession):
         self.channel = channel
 
     def subsystem_requested(self, subsystem):
+        if subsystem == 'buggcraft-feedback-upload-v1':
+            if (self.peer.role != 'directory' or not getattr(self.peer, 'account', None)
+                    or not getattr(self.peer.relay.federation, 'feedback', None)):
+                return False
+            from .feedback_native import FeedbackUploadSession
+            self.chat = FeedbackUploadSession(self.peer, self.channel)
+            return True
         if subsystem == 'buggcraft-feedback-file-v1':
             if self.peer.role != 'federation' or not getattr(self.peer.relay.federation, 'feedback', None):
                 return False
@@ -100,6 +136,11 @@ class RoomControlSession(asyncssh.SSHServerSession):
     def resume_writing(self):
         if self.chat:
             self.chat.paused = False
+
+    def eof_received(self):
+        if self.chat and hasattr(self.chat, 'eof_received'):
+            return self.chat.eof_received()
+        return False
 
     def connection_lost(self, exc):
         self.peer.control_sessions -= 1
@@ -181,10 +222,17 @@ class RoomControlSession(asyncssh.SSHServerSession):
                     result = await fed.account_rpc(target, 'social', event=envelope)
                     fed.accounts.social.ingest([envelope])
                 else:
-                    if action['op'] == 'invite':
+                    if action['op'] in ('invite', 'accept_join'):
                         room = peer.relay.rooms.get(room_id)
-                        if not room or getattr(room.owner, 'account', None) != actor or not room.available:
+                        if not room or manager_account(room) != actor or not room.port:
                             raise ValueError('只能邀请好友加入你创建的可用房间。')
+                    if action['op'] == 'presence' and room_id:
+                        room = peer.relay.rooms.get(room_id)
+                        owner = bool(room and manager_account(room) == actor)
+                        member = any(getattr(p, 'account', None) == actor and getattr(p, 'room', None) == room_id
+                                     for p in peer.relay.peers)
+                        if not room or (action['room_role'] == 'host' and not owner) or (not owner and not member):
+                            raise ValueError('当前房间连接已结束，请刷新状态。')
                     result = fed.accounts.social.apply(account, envelope)
             response = {'ok': True, 'result': result}
         except (ValueError, TypeError, KeyError, OSError, asyncssh.Error) as exc:
@@ -219,6 +267,12 @@ class RoomControlSession(asyncssh.SSHServerSession):
         peer, relay = self.peer, self.peer.relay
         operation = request.get('op')
         room = relay.rooms.get(peer.room)
+        if operation == 'online_players' and peer.role == 'federation' and relay.diagnostics:
+            offset = request.get('offset', 0)
+            if type(offset) is not int or not 0 <= offset < 1000:
+                raise ValueError('Invalid presence offset')
+            players = relay.diagnostics.online_players()
+            return {'players': players[offset:offset + 48], 'more': len(players) > offset + 48}
         if peer.role == 'federation' and operation in ('feedback_index', 'feedback_event') and getattr(relay.federation, 'feedback', None):
             return relay.federation.feedback.rpc(request)
         if operation == 'diagnostics' and peer.role in ('host', 'client') and relay.diagnostics:
@@ -263,7 +317,7 @@ class RoomControlSession(asyncssh.SSHServerSession):
                     'diagnostic_player': player_identity(peer) if peer.role in ('host', 'client') else None,
                     'name': relay.federation.name if relay.federation else '社区节点',
                     'capabilities': ['room-invite-policy-v1', 'room-list-page-v1', 'account-lookup-v1',
-                                     'webrtc-peer-v1'] + (['relay-zstd-v1'] if hasattr(relay, 'compression_capability') and relay.compression_capability() else [])}
+                                     'webrtc-peer-v1', 'room-lobby-v1'] + (['relay-zstd-v1'] if hasattr(relay, 'compression_capability') and relay.compression_capability() else [])}
         if operation == 'state' and peer.role == 'directory':
             key = request.get('id')
             if not isinstance(key, str) or len(key) != 32 or any(c not in '0123456789abcdef' for c in key):
@@ -286,7 +340,7 @@ class RoomControlSession(asyncssh.SSHServerSession):
             if not isinstance(query, str) or len(query) > 100:
                 raise ValueError('Invalid room search')
             query = query.strip().casefold()
-            rooms = [(key, value) for key, value in relay.rooms.items() if value.public and value.port]
+            rooms = [(key, value) for key, value in relay.rooms.items() if value.public]
             listings = [describe(key, value, preview=False, relay=relay) for key, value in rooms]
             if relay.federation:
                 listings.extend(relay.federation.public_rooms())
@@ -342,7 +396,8 @@ class RoomControlSession(asyncssh.SSHServerSession):
                     continue
                 if certificate.get('home') in relay.federation.blocked:
                     continue
-                if account == value or (isinstance(username, str) and username.casefold() == value.casefold()):
+                from .friend_codes import matches_account
+                if isinstance(username, str) and matches_account(value, account, username):
                     matches.append(header)
             return {'entries': matches[:8]}
         if operation == 'locate' and peer.role == 'directory':
@@ -365,7 +420,7 @@ class RoomControlSession(asyncssh.SSHServerSession):
                 if remote:
                     return {'room': remote, 'profile': relay.federation.player_profile(
                         relay.federation.locate(key), getattr(peer, 'account', None), getattr(peer, 'credential', None))}
-            if not public_room or not public_room.public or not public_room.port:
+            if not public_room or not public_room.public:
                 raise ValueError('Room unavailable')
             if public_room.require_invite:
                 return {'room': describe(key, public_room, relay=relay)}
@@ -374,6 +429,11 @@ class RoomControlSession(asyncssh.SSHServerSession):
             return {'availability': 'closed', 'reason': '房主已结束联机，房间已关闭。'}
         if operation == 'describe' and room and peer.role in ('client', 'host'):
             return describe(peer.room, room, relay=relay)
+        if room and room.lobby and peer.role in ('client', 'host') and operation in (
+                'members', 'member_update', 'member_path', 'member_kick', 'member_unblock',
+                'owner_offer', 'owner_cancel', 'owner_answer', 'logs_request', 'logs_answer',
+                'logs_revoke', 'logs_append', 'logs_read'):
+            return room.lobby.dispatch(peer, request)
         if operation == 'availability' and room and room.owner is peer:
             available = request.get('available')
             if type(available) is not bool:
@@ -391,21 +451,33 @@ class RoomControlSession(asyncssh.SSHServerSession):
             room.game_players, room.game_max_players = players, maximum
             room.game_reported = time.monotonic()
             return describe(peer.room, room, relay=relay)
-        if operation == 'close' and room and room.owner is peer:
+        manager = bool(room and (room.lobby.manager == peer.member_id if room.lobby else room.owner is peer))
+        if operation == 'leave' and room and peer.role in ('host', 'client'):
+            if manager:
+                relay.end_room(peer.room)
+            return {'availability': 'closed' if manager else 'left'}
+        if operation == 'close' and room and manager:
             relay.end_room(peer.room)
             return {'availability': 'closed'}
-        if operation == 'configure' and room and room.owner is peer:
-            title = clean_text(request.get('title', '好友的世界'), 80, '好友的世界')
-            public = request.get('public', False)
-            require_invite = request.get('require_invite', False)
-            capacity = request.get('capacity', 100)
+        if operation == 'configure' and room and (manager or room.owner is peer):
+            managerial = ('title', 'public', 'require_invite', 'capacity')
+            if not manager and any(key in request and request[key] != getattr(room, key) for key in managerial):
+                raise ValueError('Only the room manager may change room settings')
+            if 'game' in request and room.owner is not peer:
+                raise ValueError('Only the world provider may change the configuration')
+            title = clean_text(request.get('title', room.title), 80, room.title)
+            public = request.get('public', room.public)
+            require_invite = request.get('require_invite', room.require_invite)
+            capacity = request.get('capacity', room.capacity)
             if (type(public) is not bool or type(require_invite) is not bool or
                     type(capacity) is not int or not 1 <= capacity <= 1000):
                 raise ValueError('Invalid room visibility or capacity')
-            game = game_metadata(request.get('game', {}))
+            game = game_metadata(request['game']) if 'game' in request else room.game
             changed = room.game != game
             room.title, room.public, room.capacity, room.game = title, public, capacity, game
             room.require_invite = not public or require_invite
+            if room.lobby:
+                room.lobby.changed_config(game)
             if changed:
                 relay.room_event(peer.room, room)
             return describe(peer.room, room, relay=relay)

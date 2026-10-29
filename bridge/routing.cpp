@@ -21,7 +21,8 @@ struct Sources {
 };
 }
 Json directory_request(Profile& selected, const std::vector<Profile>& alternatives,
-                       const Json& request) {
+                       const Json& request, double* latency_ms) {
+    if(latency_ms)*latency_ms=-1;
     const auto op = request.value("op", "");
     const bool read = op == "ping" || op == "list" || op == "state" || op == "topology" ||
                       op == "account_lookup" || op == "locate" || op == "resolve";
@@ -31,6 +32,7 @@ Json directory_request(Profile& selected, const std::vector<Profile>& alternativ
         const auto& source = *sources.nodes[attempt];
         try {
             Ssh directory(source, "directory:rooms");
+            if(latency_ms)try{*latency_ms=directory.ping();}catch(...){*latency_ms=-1;}
             auto result = directory.request(request);
             if (attempt) log("directory_failover", {{"operation", op}, {"attempts", attempt + 1}});
             selected = source;  // Future reads start with the working directory.

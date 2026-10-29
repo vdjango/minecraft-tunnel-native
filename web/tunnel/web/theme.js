@@ -2,8 +2,8 @@
 (() => {
   const key = 'buggcraft.theme';
   const root = document.documentElement;
-  let theme = 'light';
-  try { if (localStorage.getItem(key) === 'dark') theme = 'dark'; } catch (_) {}
+  let theme = 'dark';
+  try { if (localStorage.getItem(key) === 'light') theme = 'light'; } catch (_) {}
   root.dataset.theme = theme;
 
   function refresh() {
@@ -16,7 +16,7 @@
     button.title = button.getAttribute('aria-label');
   }
   function mount() {
-    const nav = document.querySelector('.topbar > nav, .nav-links');
+    const nav = document.querySelector('.topbar > nav, .nav-links, .theme-nav');
     if (!nav || document.getElementById('theme-toggle')) return;
     const button = document.createElement('button');
     button.type = 'button';
@@ -32,7 +32,7 @@
   }
   window.addEventListener('storage', event => {
     if (event.key === key) {
-      root.dataset.theme = event.newValue === 'dark' ? 'dark' : 'light';
+      root.dataset.theme = event.newValue === 'light' ? 'light' : 'dark';
       refresh();
     }
   });

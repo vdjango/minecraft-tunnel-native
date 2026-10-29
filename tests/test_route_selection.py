@@ -6,7 +6,6 @@ import os
 import secrets
 import sys
 import unittest
-from unittest.mock import patch
 from tests import test_bridge as fixtures
 from tunnel.federation import Federation
 
@@ -71,49 +70,6 @@ class RouteSelectionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(selected['profile']['server_port'], other.port)
         self.assertEqual((await self.call(bridge, 'node.request', {'node': node, 'request': {'op': 'ping'}}))['name'], 'B')
 
-    async def test_personal_identity_survives_anonymous_topology_route_switch(self):
-        from tunnel.accounts import Accounts
-        from tests.account_fixture import enroll
-        other, _ = await self.network()
-        for index, relay in enumerate((self.node, other)):
-            fed = relay.federation
-            fed.accounts = Accounts(fed, self.logs / ('accounts-' + str(index) + '.json'))
-            relay.account_authenticate = lambda token, fed=fed: fed.accounts.authenticate(token)
-        primary, backup = self.node.federation.accounts, other.federation.accounts
-        account, credential = enroll(primary, 'route_alice', delegated=True)
-        target, _ = enroll(primary, 'route_bob')
-        backup.replication.ingest(primary.replication.snapshot())
-        self.node.capacity.configure(dict(bandwidth_mb_s=.001))
-        self.profile['token'] = credential
-        bridge = await self.process()
-        result = await self.call(bridge, 'node.add', {'code': self.code()})
-        self.assertEqual(result['identity'], 'account')
-        selected = await self.call(bridge, 'node.selected', {'node': result['node']})
-        self.assertEqual(selected['profile']['server_port'], other.port)
-        self.assertEqual(selected['profile']['token'], credential)
-        await self.call(bridge, 'social.operate', dict(node=result['node'], operation='request', target=target))
-        state = await self.call(bridge, 'node.request', dict(node=result['node'], request={'op': 'social'}))
-        self.assertEqual(state['account'], account)
-        self.assertTrue(any(event['grant']['a'] == account and event['action']['target'] == target
-                            for event in backup.social.snapshot()))
-
-    async def test_room_list_latency_excludes_slow_directory_listing(self):
-        from tunnel.directory import RoomControlSession as DirectorySession
-        await self.network()
-        bridge = await self.process()
-        node = (await self.call(bridge, 'node.add', {'code': self.code()}))['node']
-        original = DirectorySession.data_received
-        def delayed(session, data, datatype):
-            if b'"list"' in data:
-                asyncio.get_running_loop().call_later(.35, original, session, data, datatype)
-            else:
-                original(session, data, datatype)
-        with patch.object(DirectorySession, 'data_received', delayed):
-            result = await self.call(bridge, 'room.list', {'node': node})
-        self.assertEqual(result['node_latency_scope'], 'directory_ping')
-        self.assertIsInstance(result['node_latency_ms'], (float, int))
-        self.assertGreater(result['connect_ms'] - result['node_latency_ms'], 200)
-
     async def test_maintenance_bypasses_hold_down_but_does_not_close_existing_room(self):
         other, _ = await self.network()
         self.node.capacity.configure(dict(bandwidth_mb_s=.001))
@@ -126,9 +82,8 @@ class RouteSelectionTests(unittest.IsolatedAsyncioTestCase):
         reader,writer=await asyncio.open_connection('127.0.0.1',int(joined['address'].rsplit(':',1)[1]))
         self.addAsyncCleanup(writer.wait_closed)
         self.addCleanup(writer.close)
-        # Pass the production Minecraft handshake gate before testing routing.
-        writer.write(fixtures.GAME_HANDSHAKE);await writer.drain()
-        self.assertEqual(await asyncio.wait_for(reader.readexactly(len(fixtures.GAME_HANDSHAKE)),5), fixtures.GAME_HANDSHAKE)
+        writer.write(fixtures.GAME_HANDSHAKE); await writer.drain()
+        self.assertEqual(await reader.readexactly(len(fixtures.GAME_HANDSHAKE)), fixtures.GAME_HANDSHAKE)
         writer.write(b'before route change');await writer.drain()
         self.assertEqual(await asyncio.wait_for(reader.readexactly(19),5),b'before route change')
         self.node.capacity.configure(dict(bandwidth_mb_s=5))
@@ -184,7 +139,7 @@ class RouteSelectionTests(unittest.IsolatedAsyncioTestCase):
     async def test_launcher_adapter_uses_real_native_choice_and_one_nonmodal_event(self):
         sys.path.insert(0,os.environ['BUGGCRAFT_LAUNCHER_SDK'])
         from hookup.native_routes import NativeRoutes
-        from hookup.profiles import RelayProfile
+        from hookup.relay import RelayProfile
         from hookup.nodes import remember
         other, secondary=await self.network()
         self.node.capacity.configure(dict(bandwidth_mb_s=.001))

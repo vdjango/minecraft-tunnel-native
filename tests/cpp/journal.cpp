@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "journal.hpp"
 #include "../../bridge/journal.hpp"
+#include "../../bridge/webrtc_diagnostics.hpp"
 #include <fstream>
 #include <random>
 #include <stdexcept>
+#include <tuple>
 
 namespace {
 using Json = nlohmann::json;
@@ -24,10 +26,11 @@ struct Temporary {
         fs::remove_all(root, error);
     }
 };
-std::vector<Json> rows(const fs::path& root) {
+std::vector<Json> rows(const fs::path& root, bool critical=false) {
     std::vector<Json> result;
     for (const auto& item : fs::recursive_directory_iterator(root)) {
         if (item.is_symlink() || !item.is_regular_file() || item.path().extension() != ".jsonl") continue;
+        if((item.path().filename().string().find(".events.")!=std::string::npos)!=critical)continue;
         std::ifstream input(item.path());
         std::string line;
         while (std::getline(input, line)) result.push_back(Json::parse(line));
@@ -40,6 +43,64 @@ void add_journal_tests(std::vector<std::pair<std::string, std::function<void()>>
     auto add = [&](std::string name, std::function<void()> test) {
         cases.emplace_back("journal_" + std::move(name), std::move(test));
     };
+    add("incident_survives_sample_rotation_and_flush_reports_disk_state", [] {
+        Temporary temporary;
+        bridge::Journal journal(temporary.root,1024*1024,7,700);
+        require(journal.write("player","session","endpoint_disconnected",{{"reason","transport-closed"}}),"incident rejected");
+        for(unsigned i=0;i<25;++i)
+            require(journal.write("player","session","sample",{{"index",i},{"padding",std::string(200,'x')}}),"sample rejected");
+        const auto status=journal.snapshot();
+        require(status["flushed"]==true&&status["pending_events"]==0&&status["write_errors"]==0,"flush did not finish");
+        auto incident=rows(temporary.root,true);
+        require(incident.size()==1&&incident[0]["reason"]=="transport-closed","samples erased incident");
+        require(incident[0]["sequence"].is_number_unsigned()&&incident[0]["monotonic_ms"].is_number_integer(),"clock/order evidence missing");
+        for(const auto& row:rows(temporary.root))require(row["event"]=="sample","rotation fixture did not overwrite ordinary incident");
+        Temporary failed;
+        std::ofstream(failed.root/"blocked")<<"file";
+        bridge::Journal blocked(failed.root/"blocked");
+        require(blocked.write("player","session","endpoint_disconnected"),"producer performed disk IO");
+        require(blocked.snapshot()["write_errors"].get<uint64_t>()>0,"export concealed disk failure");
+    });
+    add("webrtc_warning_stages_and_numeric_error", [] {
+        for (const auto& [message, component, reason] : std::vector<std::tuple<std::string, std::string, std::string>>{
+                {"rtc::impl::IceTransport::LogCallback@99: STUN server address resolution failed", "stun", "dns-failed"},
+                {"rtc::impl::IceTransport::timeout@832: ICE timeout", "ice", "timeout"},
+                {"rtc::impl::DtlsTransport::run@373: Handshake timeout", "dtls", "handshake-timeout"},
+                {"rtc::impl::SctpTransport::send@536: SCTP sending failed, errno=10054", "sctp", "send-failed"},
+                {"rtc::impl::IceTransport::addRemoteCandidate@761: Rejected ICE candidate: private", "ice", "candidate-rejected"}}) {
+            const auto fields = bridge::webrtc_warning_fields(3, message);
+            require(fields["component"] == component && fields["reason"] == reason, "warning stage lost");
+            require(fields["level"] == "warning" && fields["scope"] == "runtime", "warning scope/severity lost");
+            require(fields["source_line"].is_number_unsigned(), "source location lost");
+        }
+        require(bridge::webrtc_warning_fields(2, "SCTP sending failed, errno=10054")["system_error"] == 10054,
+                "numeric socket error lost");
+        require(!bridge::webrtc_warning_fields(3, "errno=10054secret").contains("system_error"), "partial errno accepted");
+        require(!bridge::webrtc_warning_fields(3, "errno=123456789").contains("system_error"), "unbounded errno accepted");
+    });
+    add("webrtc_warning_secrets_and_unknown_messages_not_persisted", [] {
+        Temporary temporary;
+        {
+            bridge::Journal journal(temporary.root);
+            for (const std::string message : {
+                    "rtc::impl::IceTransport::LogCallback@72: STUN integrity check failed, password=private-secret",
+                    "rtc::impl::IceTransport::addRemoteCandidate@761: Rejected ICE candidate: candidate:private-secret a=ice-pwd:private-secret",
+                    "rtc::impl::IceTransport::LogCallback@72: STUN username invalid, username=private-secret",
+                    "unknown@oops: Authorization: Bearer private-secret\na=ice-pwd:private-secret"})
+                require(journal.write("bridge", "runtime", "webrtc_warning", bridge::webrtc_warning_fields(2, message)),
+                        "warning write failed");
+        }
+        const auto output = rows(temporary.root);
+        require(output.size() == 4, "warning rows lost");
+        for (const auto& row : output) {
+            require(row.dump().find("private-secret") == std::string::npos, "warning leaked ICE/authorization secret");
+            require(row["level"] == "error", "error severity discarded");
+        }
+        require(output.back()["reason"] == "unclassified" && !output.back().contains("source_line"),
+                "unknown warning was invented or copied");
+        const auto huge = bridge::webrtc_warning_fields(3, std::string(100000, 'x') + "private-secret");
+        require(huge.dump().size() < 256 && huge["message_bytes"] == 100014, "oversized warning not bounded");
+    });
     add("player_session_isolation_and_shutdown_flush", [] {
         Temporary temporary;
         {
@@ -90,14 +151,14 @@ void add_journal_tests(std::vector<std::pair<std::string, std::function<void()>>
         {
             bridge::Journal journal(temporary.root, 1024 * 1024, 7, 512);
             for (unsigned i = 0; i < 10; ++i)
-                require(journal.write("player", "session", "sample", {{"sequence", i}, {"padding", std::string(200, 'x')}}),
+                require(journal.write("player", "session", "sample", {{"index", i}, {"padding", std::string(200, 'x')}}),
                         "rotation write failed");
         }
         require(fs::is_regular_file(temporary.root / "player/session.1.jsonl"), "rotated file missing");
         auto output = rows(temporary.root);
         require(output.size() == 2, "rotation did not bound files");
         bool newest = false;
-        for (const auto& row : output) newest |= row["sequence"] == 9;
+        for (const auto& row : output) newest |= row["index"] == 9;
         require(newest, "rotation discarded newest record");
     });
     add("retention_age_and_total_bytes", [] {

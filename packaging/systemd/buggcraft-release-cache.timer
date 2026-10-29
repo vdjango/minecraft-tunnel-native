@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh Buggcraft release cache hourly
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+Unit=buggcraft-release-cache.service
+
+[Install]
+WantedBy=timers.target

@@ -41,15 +41,18 @@ struct Stream {
 };
 class Session:public std::enable_shared_from_this<Session> {
     Profile profile_;
-    std::string policy_, compression_;
+    std::string policy_, compression_, ice_family_;
     int game_port_;
     Json settings_;
     std::string player_,chat_name_;
+    const std::string member_token_=random_id(24);
+    bool lobby_supported_=false;
     bool game_chat_enabled_=false;
     std::string game_chat_name_;
     std::string game_chat_status_;
     std::unique_ptr<GameChat> game_chat_;
     std::vector<Profile> alternatives_;
+    std::vector<Profile> stun_profiles_;
     size_t route_index_=0;
     std::condition_variable changed_;
     Json room_info_=Json::object();
@@ -80,6 +83,14 @@ class Session:public std::enable_shared_from_this<Session> {
     };
     std::vector<std::shared_ptr<PeerWatch>> probes_;
     std::shared_ptr<rtc::PeerConnection> client_peer_;
+    std::shared_ptr<rtc::PeerConnection> file_peer_;
+    std::shared_ptr<rtc::DataChannel> file_channel_;
+    std::unordered_map<std::string,std::shared_ptr<rtc::PeerConnection>> file_peers_;
+    std::string file_attempt_;
+    bool file_negotiating_=false;
+    Clock::time_point file_deadline_{};
+    std::string peer_attempt_;
+    bool peer_attempts_supported_=false;
     ssh_channel signal_=nullptr, chat_=nullptr;
     unsigned chat_stage_=0;
     Clock::time_point next_chat_=Clock::now();
@@ -98,9 +109,6 @@ class Session:public std::enable_shared_from_this<Session> {
     int raw_forward_=0,zstd_forward_=0,mods_forward_=0;
     Clock::time_point peer_deadline_;
     Clock::time_point peer_retry_{};
-    Clock::time_point next_signal_{};
-    Clock::time_point signal_deadline_{};
-    unsigned signal_stage_=0;
     bool peer_negotiating_=false;
     unsigned peer_retries_=0;
     Clock::time_point next_presence_=Clock::now();
@@ -112,7 +120,7 @@ class Session:public std::enable_shared_from_this<Session> {
         unsigned stage=0;
         size_t offset=0;
         std::string output,input;
-        bool presence=false,background=false,budget_waited=false;
+        bool presence=false,members=false,background=false,budget_waited=false;
         Clock::time_point started=Clock::now();
         Clock::time_point deadline=Clock::now()+std::chrono::seconds(14);
     };
@@ -126,11 +134,12 @@ class Session:public std::enable_shared_from_this<Session> {
     void tick();
     void start_peer();
     void start_client_peer();
+    void start_file_peer();
     void advance_peers();
     void watch_peer(const std::shared_ptr<rtc::PeerConnection>&,const std::shared_ptr<rtc::DataChannel>&,std::string player);
     void fail_peer(const std::shared_ptr<rtc::PeerConnection>&,const std::string& reason,const std::string& player={});
     void receive_signal(const Json&);
-    std::shared_ptr<rtc::PeerConnection> create_peer(const std::string& key,bool client,std::string player={});
+    std::shared_ptr<rtc::PeerConnection> create_peer(const std::string& key,bool client,std::string player={},std::string attempt={},bool files=false);
     void add_data(const std::shared_ptr<rtc::DataChannel>&,NetSocket socket=invalid_socket,std::string player={},std::shared_ptr<rtc::PeerConnection> peer={});
     void accept_game();
     void accept_forward();
@@ -151,7 +160,7 @@ class Session:public std::enable_shared_from_this<Session> {
 public:
     const std::string identity=random_id(), role, secret, room;
     Session(Profile profile,std::string role,std::string secret,std::string policy,int game_port,Json settings,std::string compression,
-            std::vector<Profile> alternatives={},int listen_port=0,bool announce=true,std::string game_directory={},std::string chat_name={},bool game_chat_enabled=false,std::string game_chat_name={});
+            std::vector<Profile> alternatives={},int listen_port=0,bool announce=true,std::string game_directory={},std::string chat_name={},bool game_chat_enabled=false,std::string game_chat_name={},std::string ice_family="auto");
     ~Session();
     Json start();
     void stop();
@@ -168,4 +177,6 @@ void copy_into(Ring& ring,std::string_view data);
 NetSocket connect_game(int port,bool& connecting);
 void half_close(NetSocket socket);
 void validate_sdp(const std::string& sdp);
+Json candidate_counts(const std::string& sdp);
+Json candidate_details(const std::string& description);
 }

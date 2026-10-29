@@ -28,12 +28,13 @@ void Session::advance_presence(){
         });
     }
     if(!online_||Clock::now()<next_presence_||requests_.size()>4||!control_ready(true))return;
-    next_presence_=Clock::now()+std::chrono::seconds(2);
-    auto queue=[this](Json value,bool describe){
-        ControlRequest request;request.value=std::move(value);request.presence=describe;request.background=true;
+    next_presence_=Clock::now()+std::chrono::seconds(4);
+    auto queue=[this](Json value,bool describe,bool members=false){
+        ControlRequest request;request.value=std::move(value);request.presence=describe;request.members=members;request.background=true;
         request.result=std::make_shared<std::promise<Json>>();
         request.output=request.value.dump()+"\n";requests_.push_back(std::move(request));
     };
+    queue({{"op","ping"}},false);
     if(role=="host"){
         queue({{"op","availability"},{"available",game_available_}},true);
         Json players=nullptr,maximum=nullptr;
@@ -48,6 +49,18 @@ void Session::advance_presence(){
         }
         queue({{"op","presence"},{"players",players},{"maximum",maximum}},true);
     }else queue({{"op","describe"}},true);
+    if(lobby_supported_){
+        Json latency=role=="host"?Json(nullptr):control_rtt_ms_;
+        std::string kind=role=="host"?"local":"node";
+        for(const auto& watch:probes_)if(role=="client"&&direct_&&watch->heartbeat.replies()>0){
+            latency=watch->heartbeat.rtt_ms();kind="game";break;
+        }
+        if(role=="client"&&game_status_.is_object()&&game_status_.value("latency_ms",Json(nullptr)).is_number()){
+            latency=game_status_["latency_ms"];kind="game";
+        }
+        queue({{"op","members"},{"path",role=="host"?"local":direct_?"p2p":"relay"},
+            {"rtt_ms",latency},{"rtt_kind",kind}},false,true);
+    }
     bool diagnostics=false;
     {std::lock_guard guard(mutex_);diagnostics=room_info_.value("diagnostics",false);}
     if(diagnostics){

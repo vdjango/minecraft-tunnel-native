@@ -3,7 +3,6 @@
 #include "ssh.hpp"
 #include "route_score.hpp"
 #include <vector>
-#include <optional>
 namespace bridge {
 class RouteSelector {
     struct Candidate {Profile profile;RouteSample sample;Clock::time_point retry{};unsigned failures=0;};
@@ -18,7 +17,6 @@ public:
     void recovered(const Profile&,const Profile&);
     Json status()const;
     bool admissible(const Profile&)const;
-    std::optional<double> latency_ms(const Profile&)const;
     Json events();
 };
 }

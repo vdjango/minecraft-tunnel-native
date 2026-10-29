@@ -18,8 +18,55 @@ from collections import deque
 import asyncssh
 from asyncssh.forward import SSHForwarder
 from .directory import RoomControlSession
+from .accounts import AUTHENTICATION_FAILURE
 
 LOG = logging.getLogger(__name__)
+
+
+def minecraft_handshake_state(data):
+    """Return True for a valid handshake, False for hostile input, None if partial."""
+    view = memoryview(data)
+    offset = 0
+    packet_length = 0
+    for index in range(5):
+        if offset >= len(view):
+            return None
+        byte = view[offset]
+        offset += 1
+        packet_length |= (byte & 0x7f) << (7 * index)
+        if not byte & 0x80:
+            break
+    else:
+        return False
+    if packet_length < 6 or packet_length > 8192:
+        return False
+    if len(view) < offset + packet_length:
+        return None
+    packet = view[offset:offset + packet_length]
+    values = []
+    position = 0
+    for _ in range(3):
+        value = 0
+        for index in range(5):
+            if position >= len(packet):
+                return False
+            byte = packet[position]
+            position += 1
+            value |= (byte & 0x7f) << (7 * index)
+            if not byte & 0x80:
+                break
+        else:
+            return False
+        values.append(value)
+    if values[0] != 0:
+        return False
+    name_length = values[2]
+    if name_length > 255 or position + name_length + 3 > len(packet):
+        return False
+    position += name_length + 2
+    if position >= len(packet) or packet[position] not in (1, 2):
+        return False
+    return position + 1 == len(packet)
 
 
 def room_id(secret: str) -> str:
@@ -46,6 +93,7 @@ class Room:
     game_players: object = None
     game_max_players: object = None
     game_reported: float = 0
+    lobby: object = None
 
 
 class CountedForwarder(SSHForwarder):
@@ -60,6 +108,9 @@ class CountedForwarder(SSHForwarder):
         self.upload_bytes = self.download_bytes = 0
         self.blocked = {}
         self.started = time.monotonic()
+        self.handshake = bytearray()
+        self.handshake_started = time.monotonic()
+        self.handshake_validated = kind != 'game'
         room.streams.add(self)
         client.streams.add(self)
         client.relay.streams.add(self)
@@ -82,6 +133,18 @@ class CountedForwarder(SSHForwarder):
         super().close()
 
     def data_received(self, data, datatype=None):
+        if not self.handshake_validated:
+            self.handshake.extend(data)
+            state = minecraft_handshake_state(self.handshake)
+            if state is False or len(self.handshake) > 8192 or time.monotonic() - self.handshake_started > 10:
+                self.event('stream_rejected', reason='minecraft-handshake')
+                self.close()
+                return
+            if state is None:
+                return
+            self.handshake_validated = True
+            data = bytes(self.handshake)
+            self.handshake.clear()
         self.client.relay.capacity.record(len(data))
         self.upload_bytes += len(data)
         if self.client.relay.diagnostics:
@@ -251,6 +314,8 @@ class RoomPeer(asyncssh.SSHServer):
         self.streams = set()
         self.client_opening = 0
         self.chat_id = secrets.token_hex(12)
+        self.member_id = self.chat_id
+        self.membership_protected = False
 
     def connection_made(self, conn):
         self.conn = conn
@@ -266,6 +331,8 @@ class RoomPeer(asyncssh.SSHServer):
         if self.relay.diagnostics:
             self.relay.diagnostics.disconnected(self, exc)
         room = self.relay.rooms.get(self.room)
+        if room and room.lobby:
+            room.lobby.leave(self)
         if room and room.owner is not self:
             self.relay.room_event(self.room, room)
         if room and room.owner is self:
@@ -276,9 +343,10 @@ class RoomPeer(asyncssh.SSHServer):
                 stream.close()
             if not self.relay.closing:
                 self.relay.room_event(self.room, room, 'waiting', '房主连接暂时中断，请等待恢复；房间尚未关闭。')
-                room.expiry = asyncio.get_running_loop().call_later(
-                    self.relay.host_grace_seconds, self.relay.end_room, self.room,
-                    '房主长时间未恢复连接，房间已关闭。')
+                if not room.lobby or not room.lobby.active(room.lobby.manager):
+                    room.expiry = asyncio.get_running_loop().call_later(
+                        self.relay.host_grace_seconds, self.relay.end_room, self.room,
+                        '世界提供者长时间未恢复连接，房间已关闭。')
             LOG.info("room waiting %s", self.room)
 
     def begin_auth(self, username):
@@ -300,47 +368,78 @@ class RoomPeer(asyncssh.SSHServer):
     def password_auth_supported(self):
         return True
 
+    def reject_auth(self, reason):
+        count = getattr(self, '_auth_rejections', 0)
+        self._auth_rejections = count + 1
+        if count < 3:
+            LOG.warning('node_auth_rejected peer=%s reason=%s', self.chat_id, reason)
+            if self.relay.diagnostics:
+                self.relay.diagnostics.auth_rejected(self, reason)
+        return False
+
     async def validate_password(self, username, password):
         try:
             role, claimed_room = username.split(":", 1)
             credentials = json.loads(password)
             token, secret = credentials["token"], credentials.get("secret", '')
             if role not in ("host", "client", "directory"):
-                return False
-            self.account = self.relay.account_authenticate(token)
-            import inspect
-            if inspect.isawaitable(self.account):
-                self.account = await self.account
+                return self.reject_auth('invalid-role')
+            self.diagnostic_role = role
+            context = AUTHENTICATION_FAILURE.set(None)
+            try:
+                self.account = self.relay.account_authenticate(token)
+                import inspect
+                if inspect.isawaitable(self.account):
+                    self.account = await self.account
+                denial = AUTHENTICATION_FAILURE.get()
+            finally:
+                AUTHENTICATION_FAILURE.reset(context)
             if not isinstance(token, str) or (not hmac.compare_digest(token, self.relay.token) and not self.account):
-                return False
+                return self.reject_auth(denial or 'credential-rejected')
             self.credential = token
             if role == 'directory':
                 if claimed_room != 'rooms':
-                    return False
+                    return self.reject_auth('invalid-directory')
                 self.role, self.room = role, None
                 return True
             if not isinstance(secret, str) or not 32 <= len(secret) <= 128:
-                return False
+                return self.reject_auth('invalid-room-proof')
             if not hmac.compare_digest(room_id(secret), claimed_room):
-                return False
+                return self.reject_auth('room-proof-mismatch')
             existing = self.relay.rooms.get(claimed_room)
+            from .room_lobby import identity
+            member_token = credentials.get('member_token', '')
+            if member_token and (not isinstance(member_token, str) or not 32 <= len(member_token) <= 128 or
+                                 any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-' for c in member_token)):
+                return self.reject_auth('invalid-member-proof')
+            self.member_id = identity(claimed_room, member_token) if member_token else self.chat_id
+            self.membership_protected = bool(member_token)
+            if existing and existing.lobby:
+                if self.member_id in existing.lobby.blocked or any(
+                        self.account and v.get('account') == self.account for v in existing.lobby.blocked.values()):
+                    return self.reject_auth('room-removed')
+                if existing.lobby.active(self.member_id):
+                    return self.reject_auth('member-already-connected')
+                if role == 'host' and existing.owner.membership_protected and self.member_id != existing.lobby.provider:
+                    return self.reject_auth('world-provider-proof-required')
             if role == 'client' and not existing:
-                return False
+                return self.reject_auth('room-not-found')
             if role == 'client' and not self.relay.capacity.can_join(claimed_room):
-                return False
+                return self.reject_auth('room-capacity')
             if claimed_room in self.relay.closed_rooms:
-                return False
+                return self.reject_auth('room-closed')
             if role == "host" and ((existing and not existing.owner.conn.is_closed()) or
                     (not existing and (self.relay.draining or len(self.relay.rooms) >= self.relay.max_rooms))):
-                return False
+                return self.reject_auth('host-exists' if existing else 'node-capacity')
             self.role, self.room = role, claimed_room
             self.secret = secret
             return True
         except (ValueError, TypeError, KeyError, UnicodeError):
-            return False
+            return self.reject_auth('malformed-credentials')
 
     def auth_completed(self):
         if self.role == 'client' and not self.relay.capacity.can_join(self.room):
+            self.reject_auth('room-capacity')
             self.conn.close()
             return
         if self.role == "host":
@@ -348,6 +447,7 @@ class RoomPeer(asyncssh.SSHServer):
             existing = self.relay.rooms.get(self.room)
             if (existing and not existing.owner.conn.is_closed()) or (
                     not existing and (self.relay.draining or len(self.relay.rooms) >= self.relay.max_rooms)):
+                self.reject_auth('host-exists' if existing else 'node-capacity')
                 self.conn.close()
                 return
             if existing:
@@ -359,6 +459,17 @@ class RoomPeer(asyncssh.SSHServer):
             else:
                 self.relay.rooms[self.room] = Room(self, secret=self.secret)
         self.authenticated = True
+        if self.role in ('host', 'client') and self.room in self.relay.rooms:
+            room = self.relay.rooms[self.room]
+            if room.lobby is None:
+                from .room_lobby import RoomLobby
+                room.lobby = RoomLobby(self.relay, room)
+            if self.role == 'host' and not self.membership_protected and room.lobby.provider != self.member_id:
+                previous = room.lobby.provider
+                room.lobby.provider = self.member_id
+                if room.lobby.manager == previous:
+                    room.lobby.manager = self.member_id
+            room.lobby.join(self)
         if self.relay.diagnostics:
             self.relay.diagnostics.connected(self)
         if self.role in ('host', 'client') and self.room in self.relay.rooms:

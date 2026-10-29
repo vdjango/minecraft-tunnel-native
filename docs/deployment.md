@@ -41,6 +41,16 @@ export BUGGCRAFT_NATIVE_CORE=/opt/minecraft-tunnel-native/runtime/bin/buggcraft-
 
 ## systemd
 
+### 反向代理与自动网段更新
+
+Cloudflare 网段来自官方纯文本端点 `https://www.cloudflare.com/ips-v4/` 与 `https://www.cloudflare.com/ips-v6/`，无需复制网页中的 CIDR。服务启动后异步刷新，之后每 24 小时重试；验证两份列表的地址族、数量和默认路由后才一起替换。失败保留最近成功缓存及其时间，不清空已有网段，也不阻塞服务启动。首次部署尚无缓存且无法访问来源时，不能假设 Cloudflare 已被信任。
+
+管理设置的“可信反向代理网段”只填额外代理，每行一个 CIDR；自动列表存放于 `cloudflare_proxy_cidrs`，最近成功时间为 `cloudflare_proxy_updated`，管理员 API 可检查。手工与自动列表合并生效，禁止默认路由。读取转发头前先核对直接 TCP 对端是否可信，非可信来源的 `X-Forwarded-Proto` 和 `CF-Connecting-IP` 不生效。
+
+若 Cloudflare 前面/后面另有 Nginx 等代理，应核对节点实际看到的上一跳，并只额外信任必要地址；由该代理覆盖转发头。配置可信网段不会自动配置 CDN、证书或防火墙。公共页面不提供后台导航，但后台路径仍需访问控制；有额外管理网段限制需求时在反向代理或防火墙配置。
+
+### 服务权限
+
 以下示例约定源码位于 `/opt/minecraft-tunnel-native`，虚拟环境为其中的 `.venv`，原生安装目录为 `runtime`。运行账号需要读取这些文件；持久化数据由 systemd 创建。
 
 新安装时创建服务账号：
@@ -75,6 +85,16 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+ReadWritePaths=/var/lib/buggcraft-node
 LimitNOFILE=8192
 
 [Install]
@@ -90,6 +110,8 @@ sudo journalctl -u buggcraft-node -n 80 --no-pager
 ```
 
 已有数据应迁移到 `/var/lib/buggcraft-node` 并归属该服务账号。使用其他路径时，需要同时调整 unit 的访问权限和写入范围。
+
+以上权限与安装包模板保持一致。已有 `/etc/systemd/system/buggcraft-node.service` 或 drop-in 可能覆盖安装包设置，升级源码不等于沙箱已生效。用 `systemctl cat buggcraft-node`、`systemctl show buggcraft-node` 检查后再执行 `daemon-reload` 和维护重启。`ProtectHome=true` 时程序与证书不能依赖服务不可读的用户 home 路径。
 
 ## 容量与升级
 
@@ -109,3 +131,5 @@ sudo journalctl -u buggcraft-node -n 80 --no-pager
 升级前备份持久化目录并保留上一版代码、依赖和原生运行目录。先在独立目录完成构建与测试，确认完整依赖可加载，再停止服务、切换版本并重启。重启会中断该节点上的现有连接，应安排维护时间。回退时切回保留的完整版本，状态格式有变化时同时恢复对应备份。
 
 上线验收至少包含外部玩家的 A 建房/B 加入、实际游戏数据交换、断开重连及逐玩家日志检查。进程存活或 `--version` 返回成功不能代替这些验收。
+
+全网在线总数不代表本机负载，旧成员缺少统计能力时还可能漏计私密房间；详情查询的 `partial` 应保留提示。诊断页面只展示本节点日志，应在房间实际归属节点核对。恢复边界见[连接恢复与兼容](protocol/compatibility.md)，排查步骤见[开发指南](development.md)。

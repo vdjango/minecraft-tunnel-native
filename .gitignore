@@ -27,3 +27,6 @@ admin-credentials.txt
 node-state.json
 relay-profile.json
 compatibility/src/
+
+frontend/node_modules/
+frontend/coverage/

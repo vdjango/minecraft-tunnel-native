@@ -16,6 +16,29 @@ LOG = logging.getLogger(__name__)
 SAFE = re.compile(r'[a-zA-Z0-9_-]{1,90}')
 
 
+def critical_event(event):
+    return event not in ('sample', 'client_report')
+
+
+def transport_fields(value):
+    """Only fixed categories and bounded numeric transport facts reach journals."""
+    if not isinstance(value, dict):
+        return {}
+    result = {key: item for key, item in value.items()
+              if key in ('schema', 'ssh_error_code', 'ssh_status', 'ssh_rx_packets',
+                         'ssh_tx_packets', 'ssh_rx_bytes', 'ssh_tx_bytes', 'rx_age_ms',
+                         'poll_gap_ms', 'max_poll_gap_ms', 'probe_attempts')
+              and type(item) is int and 0 <= item < 2**64}
+    if type(value.get('ssh_connected')) is bool:
+        result['ssh_connected'] = value['ssh_connected']
+    kind = value.get('ssh_error_kind')
+    if kind in ('none', 'socket-eof', 'socket-reset', 'socket-timeout', 'socket-aborted',
+                'network-unreachable', 'remote-disconnect', 'packet-integrity',
+                'packet-length', 'socket-write', 'unclassified'):
+        result['ssh_error_kind'] = kind
+    return result
+
+
 def player_identity(peer):
     account = getattr(peer, 'account', None)
     return ('account-' + hashlib.sha256(account.encode()).hexdigest()[:32]
@@ -32,15 +55,36 @@ class Diagnostics:
         self.task = None
         self.loop_lag_ms = 0
         self.last_prune = 0
+        self.sequence = 0
+        self.flush_lock = asyncio.Lock()
 
     def emit(self, peer, event, **fields):
         session = self.active.get(peer)
         if not session:
             return
+        self._enqueue(session['player'], session['session'], event, fields)
+
+    def auth_rejected(self, peer, reason):
+        player, session = 'anonymous-' + peer.chat_id, 'auth-' + peer.chat_id
+        role = getattr(peer, 'diagnostic_role', peer.role)
+        self._enqueue(player, session, 'authentication_rejected', dict(player=player, session=session,
+                      reason=reason, role=role if role in ('host', 'client', 'directory') else 'unknown'))
+
+    def _enqueue(self, player, session, event, fields):
         if len(self.queue) == self.queue.maxlen:
             self.dropped += 1
-        self.queue.append((session['player'], session['session'],
-                           dict(at=time.time(), event=event, **fields)))
+            if not critical_event(event):
+                return
+            victim = next((item for item in self.queue if not critical_event(item[2]['event'])), None)
+            if victim is None:
+                return
+            self.queue.remove(victim)
+        self.sequence += 1
+        self.queue.append((player, session,
+                           dict(at=time.time(), event=event, sequence=self.sequence,
+                                process_id=os.getpid(),
+                                monotonic_ms=time.monotonic_ns() // 1_000_000,
+                                journal_dropped=self.dropped, journal_write_errors=self.write_errors, **fields)))
 
     def connected(self, peer):
         if peer.role not in ('host', 'client'):
@@ -79,9 +123,11 @@ class Diagnostics:
             code = getattr(exc, 'code', None)
             self.emit(peer, 'disconnected', reason='service_shutdown' if self.relay.closing else
                       ('heartbeat_timeout' if getattr(peer, 'disconnect_reason', None) == 'heartbeat-timeout' else
+                       'control_rpc_timeout' if getattr(peer, 'disconnect_reason', None) == 'control-rpc-timeout' else
                        'transport_error' if exc else 'transport_closed'),
                       error_type=type(exc).__name__ if exc else None,
                       error_code=code if type(code) is int else None,
+                      transport=transport_fields(getattr(peer, 'transport_diagnostic', None)),
                       **self.public_session(session))
             del self.active[peer]
 
@@ -131,7 +177,7 @@ class Diagnostics:
             values.append({
                 'username': session['username'],
                 'role': session['role'],
-                'room': room.title if room else '房间暂不可用',
+                'room': (room.title if room.public else '私密房间') if room else '房间暂不可用',
                 'started': session['started'],
                 'path': session['path'] if fresh else 'unknown',
                 'control_rtt_ms': session['control_rtt_ms'] if fresh else None,
@@ -186,6 +232,10 @@ class Diagnostics:
             await self.flush()
 
     async def flush(self):
+        async with self.flush_lock:
+            await self._flush()
+
+    async def _flush(self):
         batch = []
         while self.queue:
             batch.append(self.queue.popleft())
@@ -202,30 +252,80 @@ class Diagnostics:
         grouped = defaultdict(list)
         for player, session, row in batch:
             grouped[(player, session)].append(row)
+        for (player, session), rows in grouped.items():
+            for suffix, selected, limit in (('', rows, 16 * 1024**2),
+                    ('.events', [row for row in rows if critical_event(row['event'])], 4 * 1024**2)):
+                if not selected:
+                    continue
+                try:
+                    self._append(player, session + suffix, selected, limit)
+                except (OSError, ValueError):
+                    self.write_errors += 1
+                    LOG.warning('Player diagnostic journal unavailable (failure %d); forwarding continues', self.write_errors)
         try:
-            for (player, session), rows in grouped.items():
-                directory = self.root / player
-                if self.root.is_symlink() or directory.is_symlink():
-                    raise OSError('Symlink journal directory')
-                directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-                if os.name != 'nt':
-                    directory.chmod(0o700)
-                path = directory / (session + '.jsonl')
-                if path.is_symlink():
-                    raise OSError('Symlink journal file')
-                flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND | getattr(os, 'O_NOFOLLOW', 0)
-                descriptor = os.open(path, flags, 0o600)
-                with os.fdopen(descriptor, 'a', encoding='utf-8') as output:
-                    for row in rows:
-                        output.write(json.dumps(row, ensure_ascii=False, allow_nan=False) + '\n')
-                if os.name != 'nt':
-                    path.chmod(0o600)
             if self.root.is_dir() and time.monotonic() - self.last_prune > 300:
                 self._prune()
                 self.last_prune = time.monotonic()
+            if self.root.is_dir() and not self.root.is_symlink():
+                temporary = self.root / 'journal-health.tmp'
+                if temporary.is_symlink():
+                    raise OSError('Symlink journal health file')
+                flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, 'O_NOFOLLOW', 0)
+                with os.fdopen(os.open(temporary, flags, 0o600), 'w', encoding='utf-8') as output:
+                    json.dump(dict(at=time.time(), schema=1, process_id=os.getpid(), dropped_events=self.dropped,
+                        write_errors=self.write_errors, pending_events=len(self.queue), retention_days=self.days,
+                        max_bytes=self.max_bytes, critical_events=True), output)
+                temporary.replace(self.root / 'journal-health.json')
         except (OSError, ValueError):
             self.write_errors += 1
-            LOG.warning('Player diagnostic journal unavailable (failure %d); forwarding continues', self.write_errors)
+            LOG.warning('Player diagnostic journal maintenance unavailable (failure %d)', self.write_errors)
+
+    def _append(self, player, session, rows, limit):
+        directory = self.root / player
+        if self.root.is_symlink() or directory.is_symlink():
+            raise OSError('Symlink journal directory')
+        directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if os.name != 'nt':
+            directory.chmod(0o700)
+        path = directory / (session + '.jsonl')
+        if path.is_symlink():
+            raise OSError('Symlink journal file')
+        size = path.stat().st_size if path.exists() else 0
+        output = None
+        header = None
+        try:
+            for row in rows:
+                text = json.dumps(row, ensure_ascii=False, allow_nan=False) + '\n'
+                count = len(text.encode('utf-8'))
+                if size and size + count > limit:
+                    if output is not None:
+                        output.close()
+                        output = None
+                    if header is None:
+                        with path.open(encoding='utf-8') as source:
+                            first = source.readline()
+                        try:
+                            header = first if json.loads(first).get('event') == 'connected' else ''
+                        except ValueError:
+                            header = ''
+                    previous = path.with_suffix('.1.jsonl')
+                    if previous.is_symlink():
+                        raise OSError('Symlink rotated journal')
+                    path.replace(previous)
+                    size = 0
+                if output is None:
+                    flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND | getattr(os, 'O_NOFOLLOW', 0)
+                    output = os.fdopen(os.open(path, flags, 0o600), 'a', encoding='utf-8')
+                    if not size and header:
+                        output.write(header)
+                        size = len(header.encode('utf-8'))
+                output.write(text)
+                size += count
+        finally:
+            if output is not None:
+                output.close()
+        if os.name != 'nt':
+            path.chmod(0o600)
 
     def _paths(self):
         if self.root.is_symlink() or not self.root.is_dir():
@@ -238,27 +338,17 @@ class Diagnostics:
         paths = sorted(self._paths(), key=lambda p: p.stat().st_mtime)
         total = sum(path.stat().st_size for path in paths)
         cutoff = time.time() - self.days * 86400
-        active_sessions = tuple(self.active.values())
-        active = {s['session'] for s in active_sessions}
+        ordinary = sum(p.stat().st_size for p in paths if '.events.' not in p.name)
         for index, path in enumerate(paths):
-            if path.stem in active:
-                # Rotate long-running sessions as well; preserve their identity
-                # in the fresh file instead of allowing unbounded growth.
-                if path.stat().st_size > 16 * 1024**2:
-                    rows = self.read(path.parent.name, path.stem)['events']
-                    header = next((r for r in rows if r.get('event') == 'connected'), None)
-                    if header is None:
-                        header = next((dict(at=time.time(), event='connected', **self.public_session(s))
-                                       for s in active_sessions if s['session'] == path.stem), None)
-                    if header:
-                        previous = path.with_suffix('.1.jsonl')
-                        if previous.is_symlink():
-                            raise OSError('Symlink rotated journal')
-                        path.replace(previous)
-                        path.write_text(json.dumps(header) + '\n' + json.dumps(dict(at=time.time(), event='journal_rotated')) + '\n', encoding='utf-8')
-                        path.chmod(0o600)
-                continue
-            if path.stat().st_mtime < cutoff or total > self.max_bytes or index < len(paths) - 5000:
+            critical = '.events.' in path.name
+            if path.stat().st_mtime < cutoff or index < len(paths) - 5000 or (not critical and ordinary > self.max_bytes * 3 // 4):
+                size = path.stat().st_size
+                total -= size
+                if not critical:
+                    ordinary -= size
+                path.unlink()
+        for path in paths:
+            if total > self.max_bytes and path.exists():
                 total -= path.stat().st_size
                 path.unlink()
         for directory in self.root.iterdir():
@@ -275,9 +365,16 @@ class Diagnostics:
                 with path.open(encoding='utf-8') as source:
                     first = json.loads(source.readline())
                 if first.get('event') == 'connected':
-                    items[path.stem] = {k: first.get(k) for k in
+                    identity = first.get('session') or path.stem
+                    items[identity] = {k: first.get(k) for k in
                         ('player', 'session', 'username', 'role', 'room', 'authenticated', 'started')}
-                    items[path.stem]['online'] = False
+                    items[identity]['online'] = False
+                elif first.get('event') == 'authentication_rejected':
+                    identity = first.get('session')
+                    if identity:
+                        items[identity] = dict(player=first['player'], session=identity,
+                            username='认证被拒绝', role=first.get('role'), room=None,
+                            authenticated=False, started=first['at'], online=False)
             except (OSError, ValueError):
                 continue
         for session in tuple(self.active.values()):
@@ -305,6 +402,31 @@ class Diagnostics:
                     events.append(json.loads(row))
                 except ValueError:
                     continue
-            return {'events': events, 'truncated': len(rows) == 3600}
+            critical = deque(maxlen=3600)
+            for suffix in ('.events.1.jsonl', '.events.jsonl'):
+                part = path.parent / (session + suffix)
+                if part.is_symlink():
+                    raise ValueError('Symlink diagnostic path')
+                if part.is_file():
+                    with part.open(encoding='utf-8') as source:
+                        for line in source:
+                            try:
+                                critical.append(json.loads(line))
+                            except ValueError:
+                                continue
+            # Existing admin viewers/exporters consume events, so merge retained
+            # incidents back into that timeline instead of hiding them in a new field.
+            def identity(row):
+                return json.dumps(row, sort_keys=True, ensure_ascii=True)
+            seen = {identity(row) for row in events}
+            for row in critical:
+                key = identity(row)
+                if key not in seen:
+                    events.append(row)
+                    seen.add(key)
+            latest = max((row.get('at', 0) for row in events), default=0)
+            events.sort(key=lambda row: row.get('at', latest))
+            return {'events': events, 'truncated': len(rows) == 3600 or len(critical) == 3600,
+                    'critical_events': list(critical), 'critical_truncated': len(critical) == 3600}
         except FileNotFoundError:
             return {'events': [], 'truncated': False}

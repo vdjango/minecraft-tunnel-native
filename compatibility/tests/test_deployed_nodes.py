@@ -4,11 +4,13 @@ import ipaddress
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import socket
 import struct
 import sys
 import unittest
+from urllib.parse import urljoin
 
 import aiohttp
 import asyncssh
@@ -16,6 +18,7 @@ import asyncssh
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from tunnel.relay import room_id
 from tunnel.stun import COOKIE
+from tunnel.federation import identity
 
 
 @unittest.skipUnless(os.environ.get('BUGGCRAFT_TEST_DEPLOYED') == '1',
@@ -32,11 +35,12 @@ class DeployedNodeTests(unittest.IsolatedAsyncioTestCase):
             connection.close()
         await asyncio.gather(*(c.wait_closed() for c in self.connections))
 
-    async def connect(self, profile, role='directory', secret=''):
+    async def connect(self, profile, role='directory', secret='', member_token=None):
         connection = await asyncssh.connect(
             profile['server_host'], profile['server_port'],
             username=role + ':' + (room_id(secret) if secret else 'rooms'),
-            password=json.dumps({'token': profile['token'], 'secret': secret}),
+            password=json.dumps({'token': profile['token'], 'secret': secret,
+                                 'member_token': member_token or secrets.token_urlsafe(32)}),
             known_hosts=([asyncssh.import_public_key(profile['server_public_key'])], [], []),
             config=None, client_keys=[], agent_path=None, connect_timeout=10,
             x509_trusted_certs=None, x509_trusted_cert_paths=[])
@@ -58,7 +62,20 @@ class DeployedNodeTests(unittest.IsolatedAsyncioTestCase):
                     for path in ('/', '/developers', '/admin/nodes'):
                         async with client.get(node['web_url'] + path, ssl=pin) as response:
                             self.assertEqual(response.status, 200, path)
-                            self.assertNotIn(node['profile']['token'], await response.text())
+                            body = (await response.read()).decode('utf-8')
+                            self.assertNotIn(node['profile']['token'], body)
+                            if path == '/developers':
+                                asset = re.search(r'<script[^>]+src="([^"]*vue-page-developers\.js[^"]*)"', body)
+                                self.assertIsNotNone(asset, 'Developer page must load the built Vue content')
+                                async with client.get(urljoin(node['web_url'], asset.group(1)), ssl=pin) as script:
+                                    self.assertEqual(script.status, 200)
+                                    docs = (await script.read()).decode('utf-8')
+                                self.assertIn('文档核对：2026-10-28', docs)
+                                self.assertIn('.buggpack', docs)
+                                self.assertIn('resourcepacks', docs)
+                                self.assertIn('room-lobby-v1', docs)
+                                self.assertIn('公开准备房间尚未开放游戏世界时', docs)
+                                self.assertIn('logs_request', docs)
                     async with client.get(node['web_url'] + '/api/status', ssl=pin) as response:
                         self.assertEqual(response.status, 200)
                         status = await response.json()
@@ -68,9 +85,14 @@ class DeployedNodeTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(status['game_players_source'], 'host_minecraft_status')
                     self.assertGreaterEqual(status['game_counts_reported'], 0)
                     self.assertGreaterEqual(status['game_counts_unknown'], 0)
-                    self.assertEqual(status['network_nodes'], 2)
-                    self.assertEqual(len(status['nodes']), 2)
-                    self.assertTrue(all(n['status'] == 'online' for n in status['nodes']))
+                    # Health includes configured/expired peers. They do not
+                    # count as live nodes and must not hide a deployed target.
+                    expected = {identity(n['profile']['server_public_key']) for n in self.nodes}
+                    live = {n['id'] for n in status['nodes']
+                            if n['status'] in ('online', 'indirect')}
+                    self.assertEqual(live, expected)
+                    self.assertEqual(status['network_nodes'], len(expected))
+                    self.assertEqual(status['id'], identity(node['profile']['server_public_key']))
                     self.assertNotIn(node['profile']['token'], json.dumps(status))
                     async with client.get(node['web_url'] + '/api/admin', ssl=pin) as response:
                         self.assertEqual(response.status, 401)
@@ -173,6 +195,90 @@ class DeployedNodeTests(unittest.IsolatedAsyncioTestCase):
         finally:
             game.close()
             await game.wait_closed()
+
+    async def test_preparation_members_consent_transfer_and_kick_on_both_public_nodes(self):
+        async def rejected(connection, operation, **fields):
+            async with connection.create_process(subsystem='buggcraft-rooms-v1') as process:
+                process.stdin.write(json.dumps({'op': operation, **fields}) + '\n')
+                response = json.loads(await asyncio.wait_for(process.stdout.readline(), 10))
+                self.assertFalse(response.get('ok'), operation + ' must be rejected')
+
+        for owner_node, entry_node in (self.nodes, self.nodes[::-1]):
+            with self.subTest(owner=owner_node['name']):
+                secret = secrets.token_urlsafe(32)
+                key = room_id(secret)
+                host = await self.connect(owner_node['profile'], 'host', secret)
+                directory = await self.connect(entry_node['profile'])
+                guest = third = None
+                try:
+                    self.assertIn('room-lobby-v1', (await self.rpc(directory, 'ping'))['capabilities'])
+                    await self.rpc(host, 'configure', title='Preparation deployment acceptance',
+                                   public=True, require_invite=True, capacity=4,
+                                   game=dict(version='1.21.8', loader='vanilla'))
+                    async with asyncio.timeout(25):
+                        while True:
+                            page = await self.rpc(directory, 'list', query='Preparation deployment acceptance')
+                            if any(row['id'] == key for row in page['rooms']):
+                                break
+                            await asyncio.sleep(.7)
+                    located = await self.rpc(directory, 'locate', id=key)
+                    self.assertEqual(located['profile']['server_public_key'], owner_node['profile']['server_public_key'])
+                    resolved = await self.rpc(directory, 'resolve', id=key)
+                    self.assertEqual(resolved['room']['availability'], 'waiting')
+                    self.assertTrue(resolved['room']['require_invite'])
+                    self.assertNotIn('secret', resolved)
+                    guest = await self.connect(located['profile'], 'client', secret)
+                    snapshot = await self.rpc(guest, 'members')
+                    target, provider = snapshot['self_id'], snapshot['provider_id']
+                    self.assertEqual(snapshot['online'], 2)
+                    self.assertEqual((await self.rpc(guest, 'describe'))['availability'], 'waiting')
+                    update = dict(config_id=snapshot['config_id'], seq=1, task='public-install',
+                                  state='downloading', stage='mods', done=256, total=1024, speed=128)
+                    self.assertTrue((await self.rpc(guest, 'member_update', **update))['accepted'])
+                    self.assertFalse((await self.rpc(guest, 'member_update', **update))['accepted'])
+                    row = next(row for row in (await self.rpc(host, 'members'))['members'] if row['id'] == target)
+                    self.assertEqual((row['done'], row['total'], row['speed']), (256, 1024, 128))
+                    await rejected(host, 'logs_read', member=target)
+                    await self.rpc(host, 'logs_request', member=target)
+                    request = (await self.rpc(guest, 'members'))['logs']['request']
+                    await self.rpc(guest, 'logs_answer', request=request['id'], allow=True)
+                    await self.rpc(guest, 'logs_append', entries=[dict(seq=1, category='mods', level='error',
+                        text=r'sodium.jar C:\Users\Private\mods password=secret https://example.test/private')])
+                    rows = (await self.rpc(host, 'logs_read', member=target))['entries']
+                    self.assertEqual(len(rows), 1)
+                    self.assertIn('sodium.jar', rows[0]['text'])
+                    for private in ('Private', 'secret', 'example.test'):
+                        self.assertNotIn(private, rows[0]['text'])
+                    await self.rpc(guest, 'logs_revoke')
+                    await rejected(host, 'logs_read', member=target)
+                    offer = (await self.rpc(host, 'owner_offer', member=target))['transfer']
+                    await self.rpc(guest, 'owner_answer', offer=offer['id'], accept=True)
+                    changed = await self.rpc(guest, 'members')
+                    self.assertEqual((changed['manager_id'], changed['provider_id']), (target, provider))
+                    await rejected(host, 'configure', title='Must not change')
+                    await self.rpc(guest, 'configure', title='Transferred preparation acceptance')
+                    proof = secrets.token_urlsafe(32)
+                    third = await self.connect(located['profile'], 'client', secret, proof)
+                    third_id = (await self.rpc(third, 'members'))['self_id']
+                    await rejected(third, 'member_kick', member=target)
+                    await self.rpc(guest, 'member_kick', member=third_id)
+                    await asyncio.wait_for(third.wait_closed(), 10)
+                    with self.assertRaises(asyncssh.PermissionDenied):
+                        await self.connect(located['profile'], 'client', secret, proof)
+                    await self.rpc(guest, 'member_unblock', member=third_id)
+                    resumed = await self.connect(located['profile'], 'client', secret, proof)
+                    self.assertEqual((await self.rpc(resumed, 'members'))['self_id'], third_id)
+                    resumed.close(); await resumed.wait_closed()
+                    host.close(); await host.wait_closed()
+                    self.assertEqual((await self.rpc(guest, 'describe'))['availability'], 'waiting')
+                    self.assertEqual((await self.rpc(guest, 'members'))['manager_id'], target)
+                finally:
+                    if guest and not guest.is_closed():
+                        await self.rpc(guest, 'close')
+                    for connection in (third, guest, host, directory):
+                        if connection:
+                            connection.close()
+                            await connection.wait_closed()
 
     async def test_public_ssh_rejects_unknown_host_key_and_bad_credentials(self):
         for node in self.nodes:

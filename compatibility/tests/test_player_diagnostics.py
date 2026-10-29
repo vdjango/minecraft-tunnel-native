@@ -37,11 +37,13 @@ class DiagnosticTests(unittest.IsolatedAsyncioTestCase):
         client=await self.connect('client',secret)
         from tunnel.relay import room_id
         reader,writer=await client.open_connection(room_id(secret),25565)
-        payload=b'never-save-private-game-payload-'+secrets.token_bytes(64)
-        writer.write(payload);await writer.drain();self.assertEqual(await reader.readexactly(len(payload)),payload)
+        payload=b'\x10\x00\xfd\x05\x09localhost\x63\xdd\x02'+b'never-save-private-game-payload-'+secrets.token_bytes(64)
+        writer.write(payload);await writer.drain();self.assertEqual(await asyncio.wait_for(reader.readexactly(len(payload)),3),payload)
         writer.write_eof();await asyncio.wait_for(reader.read(),3);writer.close();await writer.wait_closed()
         client.close();await client.wait_closed();await asyncio.sleep(.05);await self.diag.flush()
-        files=list(self.diag.root.glob('*/*.jsonl'));self.assertEqual(len(files),2)
+        files=list(self.diag.root.glob('*/*.jsonl'))
+        self.assertEqual(sum('.events.' not in p.name for p in files),2)
+        self.assertEqual(sum('.events.' in p.name for p in files),2)
         journal=''.join(p.read_text(encoding='utf-8') for p in files)
         for private in (secret,self.relay.token,'never-save-private-game-payload'):self.assertNotIn(private,journal)
         events=[json.loads(row) for p in files for row in p.read_text(encoding='utf-8').splitlines()]
@@ -73,6 +75,6 @@ class DiagnosticTests(unittest.IsolatedAsyncioTestCase):
         for _ in range(10):self.diag.emit(peer,'test_marker')
         self.assertGreater(self.diag.dropped,0)
         with patch.object(Path,'mkdir',side_effect=OSError('Disk full')):await self.diag.flush()
-        self.assertEqual(self.diag.write_errors,1)
+        self.assertEqual(self.diag.write_errors,2)
         # A journal failure must not stop actual authenticated room operations.
         self.assertTrue((await self.call(self.connections[-1],{'op':'ping'}))['ok'])

@@ -3,44 +3,89 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="color-scheme" content="light">
-  <meta name="description" content="下载 Buggcraft Minecraft 启动器、Windows 运行包和故障信息收集工具。">
-  <title>下载 Buggcraft</title>
-  <style>
-    :root{color-scheme:light;--bg:#f5f7fa;--panel:#ffffff;--line:#dce3eb;--text:#182538;--muted:#66768a;--accent:#1769cf}
-    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 "Segoe UI","Microsoft YaHei UI",sans-serif}.wrap{width:min(1020px,calc(100% - 36px));margin:auto}
-    header{background:#ffffff;border-bottom:1px solid var(--line)}nav{height:68px;display:flex;align-items:center;justify-content:space-between}.brand{font-size:20px;font-weight:750;text-decoration:none}nav a:last-child{color:var(--muted);text-decoration:none}
-    main{padding:70px 0 84px}h1{margin:0;font-size:42px;line-height:1.15} .lead{max-width:690px;margin:14px 0 34px;color:var(--muted);font-size:18px}.release{padding:26px 28px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:none;margin-top:16px}
-    .top{display:flex;align-items:center;justify-content:space-between;gap:28px;flex-wrap:wrap}.eyebrow{margin:0;color:var(--accent);font-size:13px;font-weight:700}.release h2{margin:4px 0;font-size:23px}.detail{margin:0;color:var(--muted)}.button{display:inline-flex;align-items:center;min-height:46px;padding:9px 17px;border-radius:5px;background:var(--accent);color:#ffffff;font-weight:750;text-decoration:none;white-space:nowrap}
-    .links{display:flex;gap:22px;flex-wrap:wrap;margin-top:18px}.links a{color:var(--accent);text-underline-offset:4px}.note{margin:18px 0 0;padding-top:17px;border-top:1px solid var(--line);color:var(--muted);font-size:14px}.status{font-size:13px;color:var(--muted);margin-top:10px}.meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px;color:var(--muted);font-size:13px;overflow-wrap:anywhere}.meta strong{display:block;color:var(--text);font-weight:600}
-    footer{border-top:1px solid var(--line);padding:22px 0;color:var(--muted);font-size:13px}.foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.foot a{color:var(--accent);text-decoration:none}
-    a:focus-visible{outline:2px solid var(--accent);outline-offset:5px}.button:hover{background:#1259b2}
-    @media(max-width:640px){main{padding:48px 0 56px}h1{font-size:35px}.release{padding:20px}.top{align-items:flex-start;flex-direction:column;gap:16px}.meta{grid-template-columns:1fr}.lead{font-size:16px}}
-  </style>
-</head>
-<body>
-  <header><nav class="wrap"><a class="brand" href="https://bugg.icu">Buggcraft</a><a href="https://github.com/vdjango/buggcraft">源码与问题反馈 →</a></nav></header>
-  <main class="wrap">
-    <p class="eyebrow">BUGGCRAFT · WINDOWS X64</p><h1>下载启动器</h1>
-    <p class="lead">轻量安装程序会在首次启动时下载经过 SHA-256 校验的运行组件。也可以下载完整运行包，在网络受限的电脑上离线安装。</p>
-    <section class="release" aria-labelledby="setup-title"><div class="top">
-      <div><p class="eyebrow">推荐 · 联网安装</p><h2 id="setup-title">Buggcraft 安装程序</h2><p class="detail">Windows 10/11 x64 · 约 370 KB</p></div>
-      <a class="button" href="/Buggcraft-Setup.exe">下载安装程序</a>
-    </div><p class="note">首次启动需联网下载约 107 MB 运行组件。当前安装包尚未签名，Windows 可能显示 SmartScreen 提示；不要关闭系统防护。下载被拦截发生在程序启动前，因此不会生成应用日志。</p></section>
-    <section class="release" aria-labelledby="offline-title"><div class="top">
-      <div><p class="eyebrow">离线安装</p><h2 id="offline-title">完整 Windows 运行包</h2><p class="detail" id="runtime-size">正在读取版本信息…</p></div>
-      <a class="button" id="runtime-link" href="/Buggcraft-runtime-windows-x64.zip">下载完整运行包</a>
-    </div><div class="meta"><span>版本<strong id="version">读取中</strong></span><span>SHA-256<strong id="sha256">读取中</strong></span><span>系统<strong>Windows 10/11 · 64 位</strong></span></div></section>
-    <section class="release"><div class="top"><div><p class="eyebrow">故障排查</p><h2>收集启动日志</h2><p class="detail">将脚本与安装程序放在同一目录后运行，检查并移除 ZIP 中的个人信息再发送。</p></div><a class="text-link" href="/collect-launcher-diagnostics.ps1">下载日志收集脚本 →</a></div><p class="status">启动器在运行后会在本地保存日志；SmartScreen 在启动前拦截时，应用本身无法记录被拦截事件。</p></section>
-  </main>
-  <footer><div class="wrap foot"><span><a href="https://bugg.icu">Buggcraft</a> · 开源 Minecraft 启动器</span><span><a href="https://node.bugg.icu">社区节点</a> · <a href="https://github.com/vdjango/buggcraft/releases">GitHub Releases</a></span></div></footer>
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="下载适用于 Windows、macOS 和 Linux 的 Buggcraft Minecraft Java 启动器，查看发行版本与历史版本。">
+  <link rel="canonical" href="https://download.bugg.icu/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Buggcraft">
+  <meta property="og:title" content="下载 Buggcraft Minecraft 启动器">
+  <meta property="og:description" content="选择 Windows、macOS 或 Linux，下载 Buggcraft Minecraft Java 启动器。">
+  <meta property="og:url" content="https://download.bugg.icu/">
+  <meta name="twitter:card" content="summary">
+  <meta name="theme-color" content="#100d19">
+  <title>下载 Buggcraft · 选择你的系统</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="https://bugg.icu/favicon-32-81de325b08de.png">
   <script>
-    fetch('/release.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json()}).then(data=>{
-      document.querySelector('#runtime-link').href='/'+encodeURIComponent(data.version)+'/'+encodeURIComponent(data.archive);
-      document.querySelector('#runtime-size').textContent='Windows 10/11 x64 · '+(data.size/1000000).toFixed(1)+' MB';
-      document.querySelector('#version').textContent=data.version;
-      document.querySelector('#sha256').textContent=data.sha256;
-    }).catch(()=>{document.querySelector('#runtime-size').textContent='版本信息暂不可用，请稍后刷新。';document.querySelector('#version').textContent='暂不可用';document.querySelector('#sha256').textContent='暂不可用'});
+    (() => {
+      const root = document.documentElement;
+      try { root.dataset.theme = localStorage.getItem('buggcraft.theme') === 'light' ? 'light' : 'dark'; }
+      catch (_) { root.dataset.theme = 'dark'; }
+    })();
   </script>
+  <script src="https://bugg.icu/platform.js?v=20261025-platform-auto"></script>
+  <style>
+    :root{color-scheme:dark;--bg:#100d19;--panel:#191623;--surface:#211b30;--line:#665c8d;--text:#f5f1ff;--muted:#b5aec8;--soft:#c1afff;--accent:#8057ff;--purple:#997aff;font-family:"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif;font-synthesis:none}
+    :root[data-theme="light"]{color-scheme:light;--bg:#f5f1ff;--panel:#fbf9ff;--surface:#eee9f9;--line:#9586c9;--text:#211a35;--muted:#625a77;--soft:#5540b2;--accent:#704de0;--purple:#805bea}
+    *{box-sizing:border-box}html{min-width:320px;scroll-behavior:smooth;scroll-padding-top:86px}body{min-height:100vh;margin:0;background:radial-gradient(ellipse at 74% 4%,#8057ff13,transparent 32%),var(--bg);color:var(--text);font-size:16px;line-height:1.65}a{color:inherit;text-decoration:none}button{font:inherit;color:inherit}code{font-family:Consolas,"SFMono-Regular",monospace;font-size:.92em;color:var(--soft)}[hidden]{display:none!important}::selection{background:var(--accent);color:#fff}
+    .wrap{width:min(1060px,calc(100% - 48px));margin-inline:auto}.site-header{position:sticky;z-index:10;top:0;border-bottom:1px solid color-mix(in srgb,var(--line) 65%,transparent);background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(16px)}.nav{display:flex;min-height:70px;align-items:center;gap:16px}.brand{display:flex;align-items:center;gap:10px;margin-right:auto}.brand-mark{display:grid;width:36px;height:36px;place-items:center;border:1px solid var(--purple);border-radius:9px;background:var(--accent);color:#fff;font-weight:900}.brand-name{display:grid;line-height:1.35}.brand-name strong{font-size:12px;letter-spacing:1.4px}.brand-name small{color:var(--muted);font-size:9px;letter-spacing:1px}.nav-link,.theme-toggle{padding:8px 12px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--muted);font-size:12px;font-weight:650}.nav-link:hover,.theme-toggle:hover{color:var(--text);background:var(--surface)}.theme-toggle{cursor:pointer;white-space:nowrap}
+    main{padding:44px 0 64px}.page-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:28px}.eyebrow{margin:0 0 8px;color:var(--soft);font-size:11px;font-weight:750;letter-spacing:1.2px}.page-intro h1{margin:0;font-size:clamp(34px,5vw,48px);font-weight:800;letter-spacing:-.7px;line-height:1.2}.page-intro h1 span{color:var(--soft)}.lead{max-width:620px;margin:12px 0 0;color:var(--muted);font-size:15px}.release-summary{min-width:190px;padding:14px 17px;border:1px solid var(--line);border-radius:9px;background:var(--panel)}.release-summary small,.release-summary span{display:block;color:var(--muted);font-size:11px}.release-summary strong{display:block;margin:2px 0;font-size:18px}
+    .download-layout{display:grid;grid-template-columns:minmax(0,1fr) 255px;gap:17px;align-items:start}.download-main,.side-card{border:1px solid var(--line);border-radius:11px;background:linear-gradient(145deg,color-mix(in srgb,var(--panel) 95%,var(--accent) 5%),var(--panel))}.download-main{min-width:0;padding:24px}.side-stack{display:grid;gap:14px}.side-card{padding:17px}.side-card h2{margin:0 0 10px;font-size:15px}.side-card p{margin:0;color:var(--muted);font-size:12px;line-height:1.8}.section-overline{margin:0 0 10px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.8px}.platform-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 19px}.platform-tab{display:flex;min-height:47px;align-items:center;justify-content:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--muted);font-size:14px;font-weight:700;cursor:pointer}.platform-tab:hover{border-color:var(--purple);color:var(--text)}.platform-tab[aria-pressed="true"]{border-color:var(--purple);background:color-mix(in srgb,var(--accent) 20%,var(--panel));color:var(--text);box-shadow:inset 0 -2px var(--purple)}.platform-tab .symbol{color:var(--soft);font-size:17px}.selected-platform{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start}.selected-platform h2{margin:0;font-size:24px}.platform-description{margin:4px 0 0;color:var(--muted);font-size:13px}.detected-pill,.release-kind{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid var(--line);border-radius:999px;color:var(--soft);background:var(--surface);font-size:11px;font-weight:700;white-space:nowrap}.detected-pill:before{width:7px;height:7px;border-radius:50%;background:var(--purple);content:""}.arch-picker{display:flex;gap:8px;margin-top:16px}.arch-button{padding:7px 11px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--muted);font-size:12px;font-weight:650;cursor:pointer}.arch-button[aria-pressed="true"]{border-color:var(--purple);background:var(--surface);color:var(--text)}.release-box{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:20px;padding:16px;border:1px solid color-mix(in srgb,var(--line) 75%,transparent);border-radius:9px;background:var(--bg)}.release-box h3{margin:0;font-size:14px}.release-box p{margin:3px 0 0;color:var(--muted);font-size:12px}.download-button{display:inline-flex;min-height:46px;align-items:center;justify-content:center;gap:9px;padding:10px 16px;border:1px solid var(--accent);border-radius:7px;background:var(--accent);color:#fff;font-size:13px;font-weight:750;white-space:nowrap;transition:filter .15s}.download-button:hover{filter:brightness(1.1)}.download-button[aria-disabled="true"]{border-color:var(--line);background:var(--surface);color:var(--muted);cursor:not-allowed;pointer-events:none}.release-links{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px}.text-link{color:var(--soft);font-size:12px;font-weight:650}.text-link:hover{color:var(--text)}.status-message{min-height:23px;margin:12px 0 0;color:var(--muted);font-size:12px}.status-message:empty{display:none}.status-message.error{color:#d8add5}.release-links+.status-message{margin-top:4px}
+    .steps{display:grid;gap:11px;margin:13px 0 0;padding:0;list-style:none}.steps li{display:grid;grid-template-columns:25px minmax(0,1fr);gap:9px;align-items:start;color:var(--muted);font-size:12px}.step-no{display:grid;width:23px;height:23px;place-items:center;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--soft);font-family:Consolas,monospace;font-size:10px}.history-section{margin-top:27px}.history-heading{display:flex;align-items:end;justify-content:space-between;gap:15px;margin-bottom:11px}.history-heading h2{margin:0;font-size:19px}.history-heading p{margin:2px 0 0;color:var(--muted);font-size:12px}.history-list{display:grid;gap:7px}.history-entry{overflow:hidden;border:1px solid var(--line);border-radius:8px;background:var(--panel)}.history-entry summary{display:flex;min-height:51px;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;list-style:none}.history-entry summary::-webkit-details-marker{display:none}.history-entry summary:after{margin-left:auto;color:var(--soft);content:"＋";font-size:16px}.history-entry[open] summary:after{content:"−"}.history-tag{min-width:90px;font-size:14px;font-weight:750}.history-date{color:var(--muted);font-size:12px}.release-kind{margin-left:auto;padding:3px 8px;font-size:10px}.history-assets{display:flex;flex-wrap:wrap;gap:8px;padding:0 14px 13px}.history-download{display:inline-flex;min-height:34px;align-items:center;gap:7px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--soft);font-size:11px;font-weight:650}.history-download:hover{border-color:var(--purple);color:var(--text)}.release-notes{flex-basis:100%;padding-top:5px;color:var(--muted);font-size:12px}.release-notes summary{display:inline-flex;min-height:0;padding:4px 0;color:var(--soft);cursor:pointer}.release-notes pre{max-width:100%;margin:8px 0 0;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.7}.history-empty{padding:18px;border:1px dashed var(--line);border-radius:8px;color:var(--muted);font-size:13px;text-align:center}.history-more{display:block;margin:11px auto 0;padding:7px 12px;border:1px solid var(--line);border-radius:7px;background:transparent;color:var(--soft);font-size:12px;cursor:pointer}.fine-print{margin:22px 0 0;padding:13px 15px;border-left:2px solid var(--purple);border-radius:0 7px 7px 0;background:var(--surface);color:var(--muted);font-size:12px;line-height:1.8}.site-footer{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:17px 0 22px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}.site-footer nav{display:flex;flex-wrap:wrap;gap:14px}.site-footer a:hover{color:var(--soft)}a:focus-visible,button:focus-visible{outline:3px solid var(--soft);outline-offset:3px}
+    @media(max-width:760px){.wrap{width:calc(100% - 32px)}.nav{min-height:62px;gap:7px}.nav-link,.theme-toggle{padding:7px 8px;font-size:11px}.brand-name small{font-size:8px}.page-intro{align-items:flex-start;flex-direction:column;gap:16px;margin-bottom:20px}.release-summary{display:grid;width:100%;grid-template-columns:1fr auto;align-items:center}.release-summary small{grid-column:1/-1}.release-summary strong{font-size:16px}.download-layout{grid-template-columns:1fr}.download-main{padding:18px}.side-stack{grid-template-columns:1fr 1fr}.selected-platform{grid-template-columns:1fr;gap:8px}.detected-pill{justify-self:start}.release-box{align-items:flex-start;flex-direction:column}.release-box .download-button{width:100%}.history-heading{align-items:flex-start;flex-direction:column}}
+    @media(max-width:460px){body{font-size:15px}.wrap{width:calc(100% - 26px)}.brand{gap:7px}.brand-mark{width:32px;height:32px}.brand-name strong{font-size:10px}.brand-name small{font-size:7px;letter-spacing:.5px}.nav{gap:5px}.nav-link,.theme-toggle{padding:6px;font-size:10px}.nav-link{font-size:0}.nav-link:after{content:"官网";font-size:10px}.theme-toggle{max-width:75px;white-space:normal;line-height:1.2}main{padding-top:27px}.page-intro h1{font-size:35px}.lead{font-size:13px}.platform-tabs{gap:5px}.platform-tab{min-height:43px;gap:5px;padding:7px 4px;font-size:12px}.platform-tab .symbol{font-size:14px}.download-main{padding:14px}.selected-platform h2{font-size:21px}.arch-picker{flex-wrap:wrap}.release-box{padding:13px}.history-entry summary{gap:8px;padding-inline:10px}.history-tag{min-width:auto;font-size:12px}.history-date{font-size:10px}.release-kind{font-size:9px}.history-assets{padding-inline:10px}.history-download{font-size:10px}.side-stack{grid-template-columns:1fr}.site-footer{flex-direction:column}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+    /* Give the platform choice room; keep supporting details out of the first view. */
+    .page-intro{max-width:780px;align-items:flex-start;margin:48px auto 24px}.page-intro h1{font-size:clamp(36px,5vw,48px)}
+    .download-layout{display:block;max-width:780px;margin:0 auto}.download-main{padding:34px;border-radius:12px}.section-overline{margin-bottom:15px}
+    .platform-tabs{gap:11px;margin-bottom:29px}.platform-tab{min-height:54px;border-radius:8px;font-size:15px}
+    .selected-platform{align-items:center;padding:6px 2px}.selected-platform h2{font-size:26px}.platform-description{font-size:14px}
+    .release-box{min-height:116px;margin-top:27px;padding:22px;border-radius:9px}.release-box h3{font-size:15px}.release-box p{font-size:13px}.download-button{min-width:190px;min-height:52px;font-size:14px}
+    .release-links{gap:20px;margin-top:19px}.text-link{font-size:13px}
+    .history-section{max-width:780px;margin:68px auto 34px}.history-heading{margin-bottom:18px}.history-heading h2{font-size:22px}.history-heading p{font-size:13px}.history-list{gap:10px}.history-entry summary{min-height:62px;padding:14px 17px}.history-tag{font-size:15px}.history-assets{gap:9px;padding:0 17px 16px}
+    .support-details{display:grid;max-width:780px;gap:10px;margin:32px auto 56px}.info-details{border:1px solid var(--line);border-radius:8px;background:var(--panel)}.info-details summary{padding:14px 17px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer}.info-details>p,.info-details>.text-link{margin:0 17px 16px;color:var(--muted);font-size:12px;line-height:1.8}.info-details>.text-link{display:inline-flex;color:var(--soft)}.info-details .fine-print{margin:0 17px 16px;padding:10px 12px;font-size:11px}
+    @media(max-width:760px){.page-intro{margin:29px auto 20px}.download-main{padding:25px}.platform-tabs{gap:7px;margin-bottom:22px}.platform-tab{min-height:49px}.release-box{margin-top:21px;padding:18px}.history-section{margin-top:48px}.history-heading h2{font-size:20px}}
+    @media(max-width:460px){.page-intro{margin-top:23px}.download-main{padding:19px}.platform-tabs{gap:5px}.platform-tab{font-size:12px}.selected-platform h2{font-size:22px}.release-box{padding:15px}.history-section{margin-top:41px}.history-entry summary{min-height:55px;padding:11px}.history-date{font-size:10px}.history-tag{font-size:13px}.release-kind{font-size:9px}.info-details summary{padding:12px 14px}.info-details>p,.info-details>.text-link{margin-right:14px;margin-left:14px}}
+  </style>
+<link rel="modulepreload" href="/vue-runtime-CrwlM8TR.js"></head>
+<body>
+  <header class="site-header"><nav class="wrap nav" aria-label="网站导航">
+    <a class="brand" href="https://bugg.icu/"><span class="brand-mark">B</span><span class="brand-name"><strong>BUGGCRAFT</strong><small>MINECRAFT JAVA LAUNCHER</small></span></a>
+    <a class="nav-link" href="https://bugg.icu/">返回官网</a><a class="nav-link" href="https://download.bugg.icu/admin/">版本管理</a>
+    <button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="false">浅色主题</button>
+  </nav></header>
+  <main class="wrap">
+    <section class="page-intro" aria-labelledby="page-title">
+      <div><p class="eyebrow">BUGGCRAFT LAUNCHER · OFFICIAL DOWNLOADS</p><h1 id="page-title">下载 <span>Buggcraft</span></h1></div>
+      <aside class="release-summary" hidden><small>最近公开发行</small><strong id="release-summary-version">正在读取版本…</strong><span id="release-summary-date">读取官网版本缓存</span></aside>
+    </section>
+
+    <div class="download-layout">
+      <section class="download-main" aria-labelledby="platform-title">
+        <p class="section-overline">选择操作系统</p>
+        <div class="platform-tabs" role="group" aria-label="操作系统">
+          <button class="platform-tab" type="button" data-platform="windows" aria-pressed="false"><span class="symbol" aria-hidden="true">▦</span>Windows</button>
+          <button class="platform-tab" type="button" data-platform="mac" aria-pressed="false"><span class="symbol" aria-hidden="true">⌘</span>macOS</button>
+          <button class="platform-tab" type="button" data-platform="linux" aria-pressed="false"><span class="symbol" aria-hidden="true">◈</span>Linux</button>
+        </div>
+        <div class="selected-platform">
+          <div><h2 id="platform-title">Windows</h2><p class="platform-description" id="platform-description"></p><div class="arch-picker" id="platform-architecture" hidden><button class="arch-button" type="button" data-arch="arm64" aria-pressed="true">Apple Silicon · M 系列</button><button class="arch-button" type="button" data-arch="x86_64" aria-pressed="false">Intel</button></div></div>
+          <span class="detected-pill" id="detected-pill">与你的系统相符</span>
+        </div>
+        <div class="release-box"><div><h3 id="selected-release-title">正在检查公开发行文件</h3><p id="selected-release-meta">下载链接会对应上方所选系统。</p></div><a id="selected-download" class="download-button" href="#" aria-disabled="true">正在读取下载列表</a></div>
+        <div class="release-links"><a id="checksum-link" class="text-link" href="#" hidden>SHA-256 校验文件 ↓</a><a id="release-notes-link" class="text-link" href="#history-title">查看本地发行说明 ↓</a></div>
+        <p class="status-message" id="download-status" role="status" aria-live="polite"></p>
+      </section>
+      </div>
+
+    <section class="history-section" aria-labelledby="history-title"><div class="history-heading"><div><h2 id="history-title">历史版本</h2><p>新版本由发布后台管理，发布后立即出现在这里。</p></div></div><div class="history-list" id="release-history" aria-live="polite"><div class="history-empty">正在读取版本记录…</div></div><button class="history-more" id="history-more" type="button" hidden>显示更多版本</button></section>
+
+    <div class="support-details">
+      <details class="info-details"><summary>第一次使用？</summary><ol class="steps"><li><span class="step-no">01</span><span>下载当前系统的启动器。</span></li><li><span class="step-no">02</span><span>Windows 直接运行；macOS 解压 ZIP 后打开应用；Linux 为单文件程序。</span></li><li><span class="step-no">03</span><span>使用你自己的 Minecraft Java 版账号和游戏文件。</span></li></ol><p class="fine-print">Buggcraft 是 Minecraft Java 版启动器，不包含 Minecraft 游戏本体。Windows 版本可能显示 SmartScreen 提示；请确认下载来源为本官网提供的安装文件。macOS 芯片类型可在上方手动切换。</p></details>
+      <details class="info-details"><summary>发布新版本</summary><p>GitHub Actions 构建完成后，平台自动同步四个平台的安装包并缓存、校验，无需手动上传。后台选择需要审核时，版本先进入待审核；选择无需审核时，校验通过后直接发布。修改设置只影响后续入库版本。</p><a class="text-link" href="https://download.bugg.icu/admin/">打开版本管理后台 ↗</a></details>
+    </div>
+  </main>
+  <footer class="site-footer wrap"><span>Buggcraft · Minecraft Java 启动器</span><nav aria-label="更多信息"><a href="https://github.com/vdjango/buggcraft">开源代码 ↗</a><a href="https://node.bugg.icu/network">联机节点</a><a href="https://node.bugg.icu/feedback?new=1">问题反馈</a></nav></footer>
+<script type="module" src="/vue-page-download.js?v=9de8a9011f74"></script>
 </body>
 </html>

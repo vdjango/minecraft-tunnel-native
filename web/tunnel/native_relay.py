@@ -254,11 +254,12 @@ class RelayServer(PythonRelay):
             if not self.closing and self.process.returncode is None:
                 self.process.kill()
 
-    def _disconnected(self, identity, reason='transport-closed'):
+    def _disconnected(self, identity, reason='transport-closed', transport=None):
         peer = self.native_peers.pop(identity, None)
         if not peer:
             return
         peer.disconnect_reason = reason
+        peer.transport_diagnostic = transport
         peer.conn.closed = True
         for key, channel in tuple(self.native_channels.items()):
             if channel.peer is peer:
@@ -301,7 +302,7 @@ class RelayServer(PythonRelay):
                 allowed = peer.authenticated and not peer.conn.closed
             return dict(allowed=bool(allowed))
         if op == 'disconnected':
-            self._disconnected(identity, value.get('reason', 'transport-closed'))
+            self._disconnected(identity, value.get('reason', 'transport-closed'), value.get('transport'))
             return
         if op == 'stats':
             self.native_stats.update(value)

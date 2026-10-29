@@ -10,13 +10,17 @@
 namespace bridge {
 // The network thread only enqueues bounded metadata. One writer owns disk I/O.
 class Journal {
-    struct Row { std::string player, session, text; };
+    struct Row { std::string player, session, text; bool critical=false; };
     std::filesystem::path root_;
     std::mutex mutex_;
     std::condition_variable changed_;
+    std::condition_variable flushed_;
     std::deque<Row> queue_;
     size_t queued_bytes_=0;
     bool stopping_=false;
+    bool writing_=false;
+    size_t in_flight_=0;
+    uint64_t sequence_=0;
     const size_t max_bytes_, rotate_bytes_;
     const unsigned days_;
     std::atomic<uint64_t> dropped_{0},errors_{0};
@@ -33,6 +37,7 @@ public:
                nlohmann::json fields=nlohmann::json::object());
     uint64_t dropped() const { return dropped_; }
     uint64_t errors() const { return errors_; }
+    nlohmann::json snapshot(unsigned timeout_ms=2000);
     static std::filesystem::path default_root();
 };
 Journal& journal();

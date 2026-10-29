@@ -13,8 +13,9 @@ function renderUsers(){
     const td=document.createElement('td'),button=document.createElement('button');button.className='secondary';button.textContent=a.blocked?'恢复访问':'停用本地访问';button.onclick=async()=>{button.disabled=true;try{await api('/api/account/block',{account:a.account,blocked:!a.blocked});await loadAdmin(false);}catch(e){message(e);}finally{button.disabled=false;}};td.append(button);row.append(td);return row;
   }));
 }
-function renderPlayers(players=[]){
-  $('admin-player-count').textContent=players.length+' 个当前在线';
+function renderPlayers(players=[],total=players.length,partial=false){
+  const expected=Number.isSafeInteger(total)&&total>=0?total:players.length;
+  $('admin-player-count').textContent=expected+' 个全网在线会话 · 已取到 '+players.length+' 条详情'+(partial?' · 部分节点暂不可达':'');
   const roles={host:'房主',client:'访客'},paths={p2p:'P2P直连',relay:'节点中转',mixed:'混合',auto:'协商中',unknown:'待确认',unavailable:'不可用'};
   const latency=value=>Number.isFinite(value)?value.toFixed(1)+' ms':'—';
   $('admin-players').replaceChildren(...players.map(player=>{
@@ -29,7 +30,8 @@ function renderPlayers(players=[]){
 $('admin-user-filter').oninput=renderUsers;
 const capacityFields = [['max-rooms','max_rooms'],['room-capacity','room_capacity'],['bandwidth','bandwidth_mb_s'],['reserve','reserve_percent'],['player-budget','per_player_mb_s']];
 async function api(path, data) {
-  const response = await fetch(path, {method:data === undefined ? 'GET' : 'POST',
+  try {
+  const response = await fetch(path, {signal:AbortSignal.timeout(8000),method:data === undefined ? 'GET' : 'POST',
     headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},
     ...(data === undefined ? {} : {body:JSON.stringify(data)})});
   const text = await response.text();
@@ -37,6 +39,7 @@ async function api(path, data) {
   try { value = JSON.parse(text); } catch { value = {error:text}; }
   if (!response.ok) throw new Error(value.error || '请求失败，请稍后重试。');
   return value;
+  }catch(error){if(error.name==='TimeoutError'||error.name==='AbortError')throw Error('连接超时，请重试；已显示的数据仍保留。');throw error;}
 }
 function message(value, id = 'admin-feedback') { $(id).textContent = value.message || String(value); }
 function clearAction() {
@@ -82,18 +85,39 @@ function renderNodes(state) {
 async function loadAdmin(fill = true) {
   if (loading) return;
   loading = true;
+  $('admin-panel').setAttribute('aria-busy','true');
+  if(fill)message('正在读取管理数据…');
   try {
-    const state = await api('/api/admin'); csrf = state.csrf;
+    const section = location.pathname.split('/')[2] || 'nodes';
+    const state = await api('/api/admin?section='+encodeURIComponent(section)); csrf = state.csrf;
     renderAdminBandwidth(state.bandwidth);
     $('login-form').hidden = true; $('admin-panel').hidden = false;
     renderNodes(state);
-    renderPlayers(state.players);
+    renderPlayers(state.players,state.total,state.partial);
+    const proxyCount=Array.isArray(state.cloudflare_proxy_cidrs)?state.cloudflare_proxy_cidrs.length:0;
+    const proxyStatus=$('cloudflare-proxy-status');
+    const attempt=state.cloudflare_proxy_last_attempt?new Date(state.cloudflare_proxy_last_attempt*1000).toLocaleString():'尚未尝试';
+    const updated=state.cloudflare_proxy_updated?new Date(state.cloudflare_proxy_updated*1000).toLocaleString():'从未成功';
+    if(state.cloudflare_proxy_last_result==='running'){
+      proxyStatus.textContent='正在刷新官方列表；当前使用 '+proxyCount+' 条缓存网段。最近尝试：'+attempt+'。';
+      proxyStatus.dataset.state='pending';
+    }else if(state.cloudflare_proxy_last_result==='success'){
+      proxyStatus.textContent='刷新成功：'+proxyCount+' 条。最近成功：'+updated+'。';
+      proxyStatus.dataset.state='success';
+    }else if(state.cloudflare_proxy_last_result==='failed'){
+      proxyStatus.textContent='刷新失败：'+(state.cloudflare_proxy_last_error||'未知错误')+'。最近尝试：'+attempt+'；最近成功：'+updated+'。'+(state.cloudflare_proxy_updated?'继续使用上次成功缓存（'+proxyCount+' 条）。':'当前没有可用的自动网段缓存。');
+      proxyStatus.dataset.state='error';
+    }else{
+      proxyStatus.textContent='自动网段 '+proxyCount+' 条，最近尝试：'+attempt+'；最近成功：'+updated+'。';
+      proxyStatus.dataset.state='pending';
+    }
     accountRows=state.accounts;renderUsers();
     if (fill) {
       if (!$('mail').hidden) {
-        const mail = await api('/api/admin/mail');
-        for (const key of ['host','port','username','from_name']) $('mail-' + key.replace('_','-')).value = mail[key];
-        $('mail-required').checked = mail.required;
+        void api('/api/admin/mail').then(mail=>{
+          for (const key of ['host','port','username','from_name']) $('mail-' + key.replace('_','-')).value = mail[key];
+          $('mail-required').checked = mail.required;
+        }).catch(error=>message(error,'mail-feedback'));
       }
       $('setting-name').value = state.name; $('setting-public').checked = state.public_join;
       $('setting-proxies').value=state.trusted_proxy_cidrs||'';
@@ -101,7 +125,8 @@ async function loadAdmin(fill = true) {
       $('setting-drain').checked = state.draining; $('setting-registration').checked = state.registration_open;
       for (const [id, key] of capacityFields) $('setting-' + id).value = state.capacity[key];
     }
-  } finally { loading = false; }
+    if(fill)message('管理数据已更新。');
+  } finally { loading = false;$('admin-panel').setAttribute('aria-busy','false'); }
 }
 $('login-form').onsubmit = async event => {
   event.preventDefault(); const button = event.submitter; button.disabled = true;
@@ -152,7 +177,7 @@ $('logout').onclick = async () => {
     $('login-form').hidden = false; $('federation-invite').value = ''; $('leave-form').hidden = true; message('');
   } catch (e) { message(e); }
 };
-loadAdmin().catch(() => {});
+if (!$('admin-panel').hidden) loadAdmin().catch(error=>message(error));
 for (const link of document.querySelectorAll('.console-nav a')) {
   const current = location.pathname === '/admin' ? '/admin/nodes' : location.pathname;
   if (link.getAttribute('href') === current) link.setAttribute('aria-current', 'page');

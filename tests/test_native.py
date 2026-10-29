@@ -61,6 +61,32 @@ class NativeTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse((await self.call(client, {'op':'close'}))['ok'])
         self.assertEqual((await self.call(client, {'op':'describe'}))['result']['title'], 'Native world')
 
+    async def test_public_preparation_room_is_visible_without_game_port(self):
+        directory = await self.connect()
+        secret = secrets.token_urlsafe(32)
+        key = room_id(secret)
+        host = await self.connect('host', secret)
+        configured = await self.call(host, {'op': 'configure', 'title': 'Waiting for world',
+                                            'public': True, 'require_invite': False, 'game': {}})
+        self.assertTrue(configured['ok'])
+        page = (await self.call(directory, {'op': 'list', 'query': 'Waiting for world'}))['result']
+        listing = next(row for row in page['rooms'] if row['id'] == key)
+        self.assertEqual(listing['availability'], 'waiting')
+        self.assertFalse(listing['require_invite'])
+        resolved = (await self.call(directory, {'op': 'resolve', 'id': key}))['result']
+        self.assertEqual(resolved['secret'], secret)
+        self.assertEqual(resolved['room']['availability'], 'waiting')
+
+        self.assertTrue((await self.call(host, {'op': 'configure', 'require_invite': True}))['ok'])
+        resolved = (await self.call(directory, {'op': 'resolve', 'id': key}))['result']
+        self.assertNotIn('secret', resolved)
+        self.assertTrue(resolved['room']['require_invite'])
+
+        self.assertTrue((await self.call(host, {'op': 'configure', 'public': False}))['ok'])
+        page = (await self.call(directory, {'op': 'list', 'query': 'Waiting for world'}))['result']
+        self.assertFalse(any(row['id'] == key for row in page['rooms']))
+        self.assertFalse((await self.call(directory, {'op': 'resolve', 'id': key}))['ok'])
+
     async def test_core_crash_disconnects_peers_and_notifies_service(self):
         directory = await self.connect()
         self.relay.process.kill()
@@ -82,6 +108,32 @@ class NativeTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(connection.is_closed())
         self.assertTrue((await self.call(connection, {'op':'ping'}))['ok'])
 
+    async def test_control_handler_timeout_is_distinct_from_heartbeat_timeout(self):
+        secret = secrets.token_urlsafe(32)
+        connection = await self.connect('host', secret)
+        peer = self.relay.rooms[room_id(secret)].owner
+        dispatch = self.relay._dispatch
+        entered, release = asyncio.Event(), asyncio.Event()
+        async def stalled(value):
+            if value.get('op') == 'channel_data':
+                entered.set()
+                await release.wait()
+                return {'allowed': False}
+            return await dispatch(value)
+        self.relay._dispatch = stalled
+        try:
+            process = await connection.create_process(subsystem='buggcraft-rooms-v1')
+            process.stdin.write('{"op":"ping"}\n')
+            await asyncio.wait_for(entered.wait(), 3)
+            await asyncio.wait_for(connection.wait_closed(), 16)
+            self.assertEqual(peer.disconnect_reason, 'control-rpc-timeout')
+            # SSH keepalive responses still arrive while the Python handler waits.
+            self.assertLess(peer.transport_diagnostic['rx_age_ms'], 10000)
+            self.assertGreaterEqual(peer.transport_diagnostic['probe_attempts'], 1)
+        finally:
+            release.set()
+            self.relay._dispatch = dispatch
+
     async def test_blackholed_host_expires_without_affecting_other_room(self):
         proxy = await BlackholeProxy(self.relay.port).start()
         self.addAsyncCleanup(proxy.close)
@@ -102,6 +154,12 @@ class NativeTests(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue((await self.call(stable, {'op':'ping'}))['ok'])
                 await asyncio.sleep(.5)
         self.assertEqual(original_peer.disconnect_reason, 'heartbeat-timeout')
+        evidence = original_peer.transport_diagnostic
+        self.assertGreaterEqual(evidence['rx_age_ms'], 20000)
+        self.assertGreaterEqual(evidence['probe_attempts'], 3)
+        self.assertLess(evidence['poll_gap_ms'], 5000)
+        self.assertGreater(evidence['ssh_rx_packets'], 0)
+        self.assertGreater(evidence['ssh_tx_packets'], 0)
         self.assertIn(room_id(stable_secret), self.relay.rooms)
         # Break the proxy only during teardown; until now there was no FIN/RST.
         await proxy.close()

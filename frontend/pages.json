@@ -1,0 +1,38 @@
+{
+  "account": [
+    "common.js",
+    "access-code.js",
+    "accounts.js",
+    "account-page.js",
+    "launcher-login.js"
+  ],
+  "admin": [
+    "admin-bandwidth.js",
+    "admin.js"
+  ],
+  "connect": [
+    "common.js",
+    "access-code.js",
+    "connect.js"
+  ],
+  "diagnostics": [
+    "common.js",
+    "diagnostics.js"
+  ],
+  "feedback": [
+    "common.js",
+    "feedback.js"
+  ],
+  "index": [
+    "common.js",
+    "portal.js"
+  ],
+  "network": [
+    "common.js",
+    "network.js"
+  ],
+  "setup": [
+    "setup.js"
+  ],
+  "developers": []
+}

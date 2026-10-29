@@ -66,10 +66,12 @@ class FederationResilienceTests(unittest.IsolatedAsyncioTestCase):
         reader, writer = await asyncio.open_connection('127.0.0.1', int(joined['address'].rsplit(':',1)[1]))
         self.addCleanup(writer.close)
         payload = secrets.token_bytes(65536)
+        handshake = b'\x10\x00\xfd\x05\x09localhost\x63\xdd\x02'
         async def verify():
-            writer.write(payload)
+            writer.write(handshake + payload)
             await writer.drain()
-            self.assertEqual(await asyncio.wait_for(reader.readexactly(len(payload)), 3), payload)
+            self.assertEqual(await asyncio.wait_for(reader.readexactly(len(handshake) + len(payload)), 3),
+                             handshake + payload)
         await verify()
         await a.close()
         if graceful:

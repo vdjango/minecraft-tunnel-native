@@ -163,11 +163,11 @@ class SupportBrowserTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('diagnostic transport payload',json.dumps(exported))
         self.assertFalse(self.errors,self.errors)
 
-    async def test_login_returns_to_access_code_or_issue_submission(self):
+    async def test_login_returns_to_node_address_or_issue_submission(self):
         from playwright.async_api import expect
         await self.register_page(self.page,'return_user')
         await self.page.locator('#account-logout').click()
-        for target,selector in [('/account/access','#account-connect'),('/feedback?new=1','#issue-create')]:
+        for target,selector in [('/account/access','#node-address'),('/feedback?new=1','#issue-create')]:
             await self.page.goto(self.url+'/login?next='+target)
             await self.page.locator('#account-id').fill('return_user')
             await self.page.locator('#account-password').fill('a distinct browser test password')
@@ -206,36 +206,40 @@ class SupportBrowserTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_theme_switch_persists_across_pages_reload_and_tabs(self):
         from playwright.async_api import expect
-        await expect(self.page.locator('html')).to_have_attribute('data-theme','light')
+        await expect(self.page.locator('html')).to_have_attribute('data-theme','dark')
         dark=await self.page.evaluate('getComputedStyle(document.body).backgroundColor')
-        self.assertEqual(dark,'rgb(245, 247, 250)')
-        await self.page.get_by_role('button',name='切换到深色主题').click()
+        self.assertNotEqual(dark,'rgb(245, 247, 250)')
+        await self.page.get_by_role('button',name='切换到浅色主题').click()
         for path in ('/','/login','/account','/connect','/admin/users','/admin/diagnostics','/feedback','/developers'):
             await self.page.goto(self.url+path)
-            await expect(self.page.locator('html')).to_have_attribute('data-theme','dark')
-            await expect(self.page.get_by_role('button',name='切换到浅色主题')).to_be_visible()
+            await expect(self.page.locator('html')).to_have_attribute('data-theme','light')
+            await expect(self.page.get_by_role('button',name='切换到深色主题')).to_be_visible()
             self.assertNotEqual(await self.page.evaluate('getComputedStyle(document.body).backgroundColor'),dark,path)
-            self.assertFalse(await self.page.evaluate('document.documentElement.scrollWidth>innerWidth'),path)
-        code=self.page.locator('.docs-code').first
-        self.assertEqual(await code.evaluate('el=>getComputedStyle(el).backgroundColor'),'rgb(34, 43, 57)')
+            overflow=await self.page.evaluate('''() => ({width:innerWidth,scroll:document.documentElement.scrollWidth,
+              offenders:[...document.querySelectorAll('body *')].filter(el=>el.getBoundingClientRect().right>innerWidth+1)
+                .slice(0,6).map(el=>[el.tagName,el.className,Math.round(el.getBoundingClientRect().right)])})''')
+            self.assertLessEqual(overflow['scroll'],overflow['width'],(path,overflow))
         other=await self.context.new_page()
         self.addAsyncCleanup(other.close)
         await other.goto(self.url+'/login')
-        await self.page.get_by_role('button',name='切换到浅色主题').click()
-        await expect(other.locator('html')).to_have_attribute('data-theme','light')
+        light_code=await self.page.locator('.docs-code').first.evaluate('el=>getComputedStyle(el).backgroundColor')
+        await self.page.get_by_role('button',name='切换到深色主题').click()
+        await expect(other.locator('html')).to_have_attribute('data-theme','dark')
+        code=self.page.locator('.docs-code').first
+        self.assertNotEqual(await code.evaluate('el=>getComputedStyle(el).backgroundColor'),light_code)
         await other.reload()
-        await expect(other.locator('html')).to_have_attribute('data-theme','light')
+        await expect(other.locator('html')).to_have_attribute('data-theme','dark')
         self.assertEqual(await other.evaluate('getComputedStyle(document.body).backgroundColor'),dark)
-        self.assertEqual(await other.evaluate('localStorage.getItem("buggcraft.theme")'),'light')
+        self.assertEqual(await other.evaluate('localStorage.getItem("buggcraft.theme")'),'dark')
         self.assertFalse(self.errors,self.errors)
 
     async def test_theme_still_switches_when_browser_storage_is_disabled(self):
         from playwright.async_api import expect
         await self.context.add_init_script('Object.defineProperty(window,"localStorage",{get(){throw new Error("storage disabled")}})')
         await self.page.goto(self.url+'/login')
-        await expect(self.page.locator('html')).to_have_attribute('data-theme','light')
-        await self.page.get_by_role('button',name='切换到深色主题').click()
         await expect(self.page.locator('html')).to_have_attribute('data-theme','dark')
-        await self.page.reload()
+        await self.page.get_by_role('button',name='切换到浅色主题').click()
         await expect(self.page.locator('html')).to_have_attribute('data-theme','light')
+        await self.page.reload()
+        await expect(self.page.locator('html')).to_have_attribute('data-theme','dark')
         self.assertFalse(self.errors,self.errors)

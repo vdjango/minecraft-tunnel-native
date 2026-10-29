@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "ssh.hpp"
+#include "../core/transport_diagnostics.hpp"
 #include "profile_exchange.hpp"
 #include <libssh/server.h>
 #include <openssl/evp.h>
@@ -9,6 +10,7 @@
 #include <mutex>
 #include <regex>
 namespace bridge {
+Json Ssh::diagnostics() const { return transport_diagnostics(session_, traffic_, heartbeat_); }
 namespace {
 std::string base64_decode(std::string value) {
     if(value.empty() || value.size()>8192 || value.size()%4==1) throw Failure(-32602,"Invalid access code");
@@ -54,10 +56,12 @@ Profile Profile::decode(const std::string& code) {
     if(code.size()>4096||!code.starts_with("buggnode1-"))throw Failure(-32602,"Invalid access code");
     return from_json(Json::parse(base64_decode(code.substr(10))));
 }
-Ssh::Ssh(const Profile& p,const std::string& user,const std::string& secret,int timeout_seconds)
+Ssh::Ssh(const Profile& p,const std::string& user,const std::string& secret,int timeout_seconds,const std::string& member_token)
     :heartbeat_(static_cast<uint64_t>(Clock::now().time_since_epoch().count())) {
     session_=ssh_new();if(!session_)throw std::bad_alloc();
     ssh_set_counters(session_,nullptr,&traffic_);
+    const char* stage="connect";
+    int authentication=SSH_AUTH_AGAIN;
     try {
         long timeout=timeout_seconds;int no=0;
         ssh_options_set(session_,SSH_OPTIONS_PROCESS_CONFIG,&no);
@@ -65,6 +69,7 @@ Ssh::Ssh(const Profile& p,const std::string& user,const std::string& secret,int 
         ssh_options_set(session_,SSH_OPTIONS_USER,user.c_str());ssh_options_set(session_,SSH_OPTIONS_TIMEOUT,&timeout);
         ssh_options_set(session_,SSH_OPTIONS_COMPRESSION,"none");
         if(ssh_connect(session_)!=SSH_OK)throw Failure(-32000,"Node connection failed");
+        stage="identity";
         ssh_key received=nullptr,pinned=nullptr;
         auto split=p.key.find(' ');auto material=p.key.substr(split+1);material=material.substr(0,material.find_first_of(" \r\n"));
         const int imported=ssh_pki_import_pubkey_base64(material.c_str(),ssh_key_type_from_name(p.key.substr(0,split).c_str()),&pinned);
@@ -72,12 +77,20 @@ Ssh::Ssh(const Profile& p,const std::string& user,const std::string& secret,int 
         const bool equal=imported==SSH_OK&&read==SSH_OK&&ssh_key_cmp(received,pinned,SSH_KEY_CMP_PUBLIC)==0;
         ssh_key_free(received);ssh_key_free(pinned);
         if(!equal){log("node_identity_rejected");throw Failure(-32030,"Node identity verification failed");}
+        stage="authenticate";
         Json credentials{{"token",p.token.substr(0,p.token.find('~'))}};if(!secret.empty())credentials["secret"]=secret;
+        if(!member_token.empty())credentials["member_token"]=member_token;
         auto password=credentials.dump();const int auth=ssh_userauth_password(session_,nullptr,password.c_str());
+        authentication=auth;
         OPENSSL_cleanse(password.data(),password.size());
         if(auth!=SSH_AUTH_SUCCESS)throw Failure(-32031,"Node authentication failed");
         tune_tcp(fd());ssh_set_blocking(session_,0);
-    }catch(...){ssh_disconnect(session_);ssh_free(session_);session_=nullptr;throw;}
+    }catch(...){
+        try{log("ssh_connection_failed",{{"node_host",p.host},{"node_port",p.port},{"stage",stage},
+            {"role",user.starts_with("host:")?"host":user.starts_with("client:")?"client":"directory"},
+            {"authentication_result",authentication},{"transport",diagnostics()}});}catch(...){}
+        ssh_disconnect(session_);ssh_free(session_);session_=nullptr;throw;
+    }
 }
 Ssh::~Ssh(){if(session_){ssh_disconnect(session_);ssh_free(session_);}}
 bool Ssh::heartbeat() {
@@ -100,12 +113,30 @@ ssh_channel Ssh::subsystem(const char* name) {
 Json Ssh::request(Json value,int timeout_seconds) {
     auto channel=subsystem("buggcraft-rooms-v1");
     try {
+        auto result=exchange(channel,value,timeout_seconds);free_channel(channel);return result;
+    }catch(...){free_channel(channel);throw;}
+}
+Json Ssh::exchange(ssh_channel channel,const Json& value,int timeout_seconds) {
         auto data=value.dump()+"\n";size_t offset=0;
         while(offset<data.size()){const int n=retry([&]{return ssh_channel_write(channel,data.data()+offset,static_cast<uint32_t>(data.size()-offset));});if(n<=0)throw Failure(-32000,"Node write failed");offset+=static_cast<size_t>(n);}
         std::string line;char buffer[4096];const auto deadline=Clock::now()+std::chrono::seconds(timeout_seconds);
         while(line.find('\n')==std::string::npos){int n=ssh_channel_read_nonblocking(channel,buffer,sizeof(buffer),0);if(n>0)line.append(buffer,static_cast<size_t>(n));else if(n==SSH_ERROR||ssh_channel_is_eof(channel)||Clock::now()>deadline)throw Failure(-32000,"Node response failed");else{PollFd descriptor{fd(),POLLIN,0};net_poll(&descriptor,1,10);}if(line.size()>65536)throw Failure(-32000,"Node response exceeds limit");}
-        auto result=Json::parse(line.substr(0,line.find('\n')));free_channel(channel);
+        auto result=Json::parse(line.substr(0,line.find('\n')));
         if(!result.is_object()||!result.value("ok",false)||!result.contains("result"))throw Failure(-32000,"Room operation rejected");return result["result"];
+}
+double Ssh::ping(){
+    // Prepare the transport and subsystem before timing. Reuse one channel so
+    // handshake, authentication and channel setup never become network RTT.
+    auto channel=subsystem("buggcraft-rooms-v1");
+    try{
+        double samples[3];
+        for(auto& sample:samples){const auto started=Clock::now();exchange(channel,{{"op","ping"}},2);
+            sample=std::chrono::duration<double,std::milli>(Clock::now()-started).count();}
+        // Three small echoes, median: retain sustained delay, limit one-off noise.
+        if(samples[0]>samples[1])std::swap(samples[0],samples[1]);
+        if(samples[1]>samples[2])std::swap(samples[1],samples[2]);
+        if(samples[0]>samples[1])std::swap(samples[0],samples[1]);
+        free_channel(channel);return samples[1];
     }catch(...){free_channel(channel);throw;}
 }
 int Ssh::forward(const char* name){int port=0;if(retry([&]{return ssh_channel_listen_forward(session_,name,0,&port);})!=SSH_OK)throw Failure(-32000,"Host forwarding unavailable");return port;}

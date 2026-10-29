@@ -103,15 +103,31 @@ cmake --install build --prefix "$PWD/runtime"
 
 ### 架构入口
 
+- [`docs/development.md`](docs/development.md)：节点开发入口、模块职责、本轮行为变化、诊断顺序与验证方法。
 - [`core/`](core/)：C++ 节点核心、连接状态与传输路径。
 - [`bridge/`](bridge/)：启动器调用的原生桥接实现和 C ABI。
 - [`web/`](web/)：节点管理、账号、房间目录和联邦服务。
 - [`tests/`](tests/)：原生协议、网络桥接、节点服务和联邦测试。
 - [`docs/bridge-library.md`](docs/bridge-library.md)：公共桥接 API 与运行时布局。
-- [`PROTOCOL_STANDARD.md`](PROTOCOL_STANDARD.md)：协议及兼容性约定。
+- [`PROTOCOL_STANDARD.md`](PROTOCOL_STANDARD.md)：分层协议索引；细节、语言示例见 [`docs/protocol/`](docs/protocol/README.md)。
+- [`docs/protocol/game-metadata.md`](docs/protocol/game-metadata.md)：Minecraft 版本、加载器、模组摘要、完整清单分页和下载参数。
+- [`docs/launcher-federation-flow.md`](docs/launcher-federation-flow.md)：入口缓存、房间归属、P2P/中继与节点故障流程图。
+- [`docs/security.md`](docs/security.md)：凭据、后台、代理、握手过滤和官方二进制识别的实际边界。
 - [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)：第三方组件与许可证。
 
 性能测试的环境、方法和边界见[性能说明](docs/performance.md)；各平台构建与回归结果见 [GitHub Actions](https://github.com/vdjango/minecraft-tunnel-native/actions/workflows/core.yml)。测量结果不等同于公网容量保证。
+
+### 当前行为与接入注意（2026-10-28）
+
+- 房间内容同步支持必需模组以及可选资源包、光影，新增 `resources_*` 摘要与 `kind:"resources"`；外观内容不影响联机匹配。与启动器 `.buggpack` 的内容规则见[游戏环境与内容同步](docs/protocol/game-metadata.md)。
+
+- 公开房间可同步 Minecraft 版本、协议号、加载器/版本和模组摘要。实例信息由启动器提供，桥扫描 `mods`；预览最多 24 项，完整清单通过独立桥接接口分页取得，不通过网页下载接口。
+- `/api/status.players` 为存活联邦节点的房主/访客桥会话总数，包含私密房间；容量、路径分布与 `game_players` 仍是本节点指标。全网详情可能部分可用，须处理 `partial`，不能把列表长度当实际游戏人数。
+- Cloudflare IPv4/IPv6 代理网段在服务启动后后台获取，之后每 24 小时刷新，失败保留缓存；手工列表只维护额外可信代理。
+- 已建立会话在 SSH 故障后按缓存候选重建，连续失败会停止并报告 `backup-unavailable`。联邦没有一致性选主或 TCP 状态复制，已断开的游戏需重新加入；具体缓存和重试边界见[恢复与兼容](docs/protocol/compatibility.md)。
+- 后台从公共导航移除，管理路由仍须管理员鉴权。握手过滤不能证明官方桥，也不是完整 Minecraft 防火墙；详见[安全说明](docs/security.md)。
+
+节点网页 `/developers` 是独立 HTML 指南，仓库分层文档是字段契约。修改接口时需要同时维护两处；文档日期不代表对应版本已部署。
 
 ## 贡献与安全
 

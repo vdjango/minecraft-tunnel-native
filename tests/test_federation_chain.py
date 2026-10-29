@@ -100,6 +100,10 @@ class FederationChainTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(writer.close)
         payload = secrets.token_bytes(65536)
         latencies = []
+        writer.write(bridge_tests.GAME_HANDSHAKE)
+        await writer.drain()
+        self.assertEqual(await reader.readexactly(len(bridge_tests.GAME_HANDSHAKE)),
+                         bridge_tests.GAME_HANDSHAKE)
 
         async def block():
             before = time.perf_counter()

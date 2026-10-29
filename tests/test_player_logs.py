@@ -17,6 +17,30 @@ from tunnel.diagnostics import Diagnostics, player_identity
 
 
 class PlayerLogTests(unittest.IsolatedAsyncioTestCase):
+    async def test_disconnect_keeps_numeric_ssh_evidence_without_arbitrary_text(self):
+        for reason, expected in (('heartbeat-timeout', 'heartbeat_timeout'),
+                                 ('control-rpc-timeout', 'control_rpc_timeout')):
+            peer = self.peer(reason)
+            self.logs.connected(peer)
+            peer.disconnect_reason = reason
+            peer.transport_diagnostic = dict(schema=1, rx_age_ms=20001, poll_gap_ms=51,
+                probe_attempts=3, ssh_connected=True, ssh_error_kind='socket-reset',
+                ssh_error_code=2, ssh_rx_packets=80, ssh_tx_packets=90,
+                password='never-log-me', error_text='private-disconnect-message',
+                ssh_rx_bytes='private-value', ssh_tx_bytes=float('inf'), ssh_status=True)
+            self.logs.disconnected(peer, None)
+            await self.logs.flush()
+            session = next(s for s in self.logs.sessions() if s['player'] == player_identity(peer))
+            event = self.logs.read(session['player'], session['session'])['events'][-1]
+            self.assertEqual(event['reason'], expected)
+            self.assertEqual(event['transport']['rx_age_ms'], 20001)
+            self.assertEqual(event['transport']['ssh_error_kind'], 'socket-reset')
+            self.assertNotIn('ssh_rx_bytes', event['transport'])
+            self.assertNotIn('ssh_tx_bytes', event['transport'])
+            self.assertNotIn('ssh_status', event['transport'])
+            self.assertNotIn('private', json.dumps(event))
+            self.assertNotIn('never-log-me', json.dumps(event))
+
     async def asyncSetUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix='buggcraft-player-logs-')
         self.addCleanup(self.temporary.cleanup)
@@ -44,11 +68,79 @@ class PlayerLogTests(unittest.IsolatedAsyncioTestCase):
             self.logs.connected(peer)
             self.logs.disconnected(peer, None)
         await self.logs.flush()
-        self.assertEqual(len(list((self.root / player_identity(first)).glob('*.jsonl'))), 2)
-        self.assertEqual(len(list(self.root.iterdir())), 4)
+        self.assertEqual(len(list((self.root / player_identity(first)).glob('*.events.jsonl'))), 2)
+        self.assertEqual(len([p for p in self.root.iterdir() if p.is_dir()]), 4)
         content = ''.join(path.read_text(encoding='utf-8') for path in self.root.glob('*/*.jsonl'))
         self.assertNotIn(account, content)
         self.assertEqual(len(Diagnostics(self.root, self.relay).sessions()), 5)
+
+    async def test_sample_flood_cannot_evict_connection_and_disconnect_evidence(self):
+        self.logs.queue = deque(maxlen=3)
+        peer = self.peer()
+        self.logs.connected(peer)
+        self.logs.emit(peer, 'sample', upload_bytes=1)
+        self.logs.emit(peer, 'sample', upload_bytes=2)
+        peer.disconnect_reason = 'heartbeat-timeout'
+        self.logs.disconnected(peer, None)
+        # An unrelated still-connected player continues producing samples.
+        other = self.peer('other')
+        self.logs.connected(other)
+        for _ in range(100):
+            self.logs.emit(other, 'sample')
+        await self.logs.flush()
+        events = [json.loads(line) for path in self.root.glob('*/*.events.jsonl')
+                  for line in path.read_text(encoding='utf-8').splitlines()]
+        self.assertTrue(any(row['event'] == 'disconnected' and row['reason'] == 'heartbeat_timeout' for row in events))
+        self.assertGreater(self.logs.dropped, 0)
+        health = json.loads((self.root / 'journal-health.json').read_text(encoding='utf-8'))
+        self.assertEqual(health['dropped_events'], self.logs.dropped)
+        self.assertEqual(health['pending_events'], 0)
+
+    async def test_incident_and_identity_survive_bulk_rotation_and_restart(self):
+        peer = self.peer()
+        self.logs.connected(peer)
+        session = dict(self.logs.active[peer])
+        await self.logs.flush()
+        self.logs._append(session['player'], session['session'],
+                          [dict(event='sample', padding='x' * 250) for _ in range(12)], 400)
+        self.logs.disconnected(peer, ConnectionResetError('private-message'))
+        await self.logs.flush()
+        restarted = Diagnostics(self.root, self.relay)
+        self.assertEqual(len(restarted.sessions()), 1)
+        critical = restarted.read(session['player'], session['session'])['critical_events']
+        self.assertTrue(any(row['event'] == 'connected' for row in
+                            restarted.read(session['player'], session['session'])['events']))
+        self.assertEqual([row['event'] for row in critical], ['connected', 'disconnected'])
+        self.assertLess(critical[0]['sequence'], critical[1]['sequence'])
+        self.assertLessEqual(critical[0]['monotonic_ms'], critical[1]['monotonic_ms'])
+        self.assertNotIn('private-message', json.dumps(critical))
+
+    async def test_storage_budget_reserves_incidents_before_newer_samples(self):
+        directory = self.root / 'anonymous-one'
+        directory.mkdir(parents=True)
+        incident = directory / 'session.events.jsonl'
+        incident.write_text('{"event":"disconnected"}\n', encoding='utf-8')
+        sample = directory / 'session.jsonl'
+        sample.write_text('x' * 5000, encoding='utf-8')
+        self.logs.max_bytes = 4096
+        self.logs._prune()
+        self.assertTrue(incident.exists())
+        self.assertFalse(sample.exists())
+
+    async def test_critical_rotation_preserves_offline_identity_and_deduplicates_headers(self):
+        peer = self.peer()
+        self.logs.connected(peer)
+        session = dict(self.logs.active[peer])
+        await self.logs.flush()
+        self.logs._append(session['player'], session['session'] + '.events',
+            [dict(at=10000000000 + index, event='stream_closed', index=index, padding='x' * 200)
+             for index in range(20)], 1200)
+        self.logs.active.clear()
+        restarted = Diagnostics(self.root, self.relay)
+        self.assertEqual(len(restarted.sessions()), 1)
+        events = restarted.read(session['player'], session['session'])['events']
+        self.assertEqual(sum(row['event'] == 'connected' for row in events), 1)
+        self.assertTrue(any(row.get('index') == 19 for row in events))
 
     async def test_headless_lifecycle_flushes_on_shutdown(self):
         lifecycle = self.logs.lifecycle(None)

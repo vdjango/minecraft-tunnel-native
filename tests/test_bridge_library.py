@@ -95,6 +95,13 @@ class LibraryServicesTests(services.BridgeServicesTests):
         self.assertNotIn('error', response, response)
         return response['result']
 
+    async def call_raw(self, process, method, params=None):
+        if isinstance(process, asyncio.subprocess.Process):
+            return await services.BridgeServicesTests.call_raw(self, process, method, params)
+        # The same service error assertions must exercise the C ABI instead
+        # of assuming that every bridge exposes process stdin/stdout pipes.
+        return await asyncio.to_thread(process.request, method, params)
+
     async def test_library_p2p_and_relay_share_the_same_native_session(self):
         await fixture.BridgeTests.test_two_native_processes_mixed_p2p_relay(self)
 

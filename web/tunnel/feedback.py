@@ -344,7 +344,28 @@ class Feedback:
             await asyncio.gather(*tasks,return_exceptions=True)
 
     async def page(self, request):
-        return self.portal.support_page('feedback.html', 'feedback' if request.path.startswith('/admin/') else None)
+        admin_mode = request.path.startswith('/admin/')
+        authenticated = True
+        try:
+            if admin_mode:
+                self.portal.session(request)
+            else:
+                self.portal.account_api.session(request)
+        except web.HTTPUnauthorized:
+            authenticated = False
+        page = self.portal.support_page('feedback.html', 'feedback' if admin_mode and authenticated else None).text
+        if not admin_mode:
+            page = page.replace('<a class="secondary" href="/admin">管理员登录</a>', '')
+            page = re.sub(r'<a id="feedback-admin-link"[^>]*>.*?</a>', '', page)
+        elif not authenticated:
+            page = page.replace('<div class="management-layout">', '<div>')
+            page = re.sub(r'<nav class="console-nav".*?</nav>', '', page, flags=re.S)
+        if authenticated:
+            page = page.replace('<div id="feedback-content" hidden>', '<div id="feedback-content">')
+        else:
+            page = page.replace('<section id="feedback-login" class="user-card" hidden>',
+                                '<section id="feedback-login" class="user-card">')
+        return web.Response(text=page, content_type='text/html')
 
     async def list_issues(self, request):
         viewer=self.viewer(request)

@@ -23,6 +23,8 @@ void Session::watch_peer(const std::shared_ptr<rtc::PeerConnection>& peer,const 
 }
 void Session::fail_peer(const std::shared_ptr<rtc::PeerConnection>& peer,const std::string& reason,const std::string& player){
     if(!peer)return;
+    auto local=peer->localDescription(),remote=peer->remoteDescription();
+    log("peer_failure_details",{{"session",identity},{"player",player.empty()?player_:player},{"reason",reason},{"attempt",role=="client"?peer_attempt_:std::string{}},{"peer_state",static_cast<int>(peer->state())},{"ice_state",static_cast<int>(peer->iceState())},{"gathering_state",static_cast<int>(peer->gatheringState())},{"has_local_description",local.has_value()},{"has_remote_description",remote.has_value()},{"local_candidates",local?candidate_counts(std::string(*local)):Json(nullptr)},{"remote_candidates",remote?candidate_counts(std::string(*remote)):Json(nullptr)},{"local_endpoints",local?candidate_details(std::string(*local)):Json::array()},{"remote_endpoints",remote?candidate_details(std::string(*remote)):Json::array()}});
     bool changed=false;
     for(auto& watch:probes_)if(!watch->dead&&watch->peer.lock()==peer){watch->dead=true;changed=true;}
     for(auto& stream:streams_)if(stream->peer.lock()==peer)stream->dead=true;
@@ -47,27 +49,34 @@ void Session::start_client_peer(){
         for(auto& watch:probes_)if(watch->peer.lock()==client_peer_)watch->dead=true;
         client_peer_->resetCallbacks();client_peer_->close();
     }
-    client_peer_=create_peer({},true,player_);
+    peer_attempt_=random_id(12);
+    client_peer_=create_peer({},true,player_,peer_attempt_);
     rtc::DataChannelInit init;init.id=1;
     watch_peer(client_peer_,client_peer_->createDataChannel("probe",init),player_);
     peer_retry_={};peer_negotiating_=true;peer_deadline_=Clock::now()+std::chrono::seconds(12);
     client_peer_->setLocalDescription(rtc::Description::Type::Offer);
 }
+void Session::start_file_peer(){
+    if(role!="client"||!signal_||!peer_available_)return;
+    if(file_peer_&&file_peer_->state()==rtc::PeerConnection::State::Connected)return;
+    if(file_negotiating_&&file_peer_&&Clock::now()<file_deadline_&&
+       file_peer_->state()!=rtc::PeerConnection::State::Failed&&
+       file_peer_->state()!=rtc::PeerConnection::State::Closed)return;
+    if(file_peer_){file_peer_->resetCallbacks();file_peer_->close();file_peer_.reset();}
+    file_channel_.reset();
+    file_attempt_=random_id(12);
+    file_peer_=create_peer({},true,player_,file_attempt_,true);
+    // A data channel is required before creating the initial SDP offer. The
+    // first channel is reused by the first file transfer; later files open
+    // additional SCTP streams on the same independent PeerConnection.
+    file_channel_=file_peer_->createDataChannel("mods");
+    file_negotiating_=true;
+    file_deadline_=Clock::now()+std::chrono::seconds(12);
+    file_peer_->setLocalDescription(rtc::Description::Type::Offer);
+    log("file_peer_offer_started",{{"session",identity},{"attempt",file_attempt_}});
+}
 void Session::advance_peers(){
     const auto now=Clock::now();
-    // Recover the rendezvous channel without blocking game forwarding or
-    // renegotiating an already connected data channel.
-    if(policy_!="relay"&&signal_stage_!=2&&now>=next_signal_){
-        if(signal_&&now>=signal_deadline_){free_channel(signal_);signal_stage_=0;next_signal_=now+std::chrono::seconds(3);return;}
-        if(!signal_){signal_=ssh_channel_new(ssh_->get());signal_stage_=0;signal_deadline_=now+std::chrono::seconds(5);}
-        if(signal_){
-            const int result=signal_stage_==0?ssh_channel_open_session(signal_):ssh_channel_request_subsystem(signal_,"buggcraft-peer-v1");
-            if(result==SSH_OK){
-                if(++signal_stage_==2){peer_started_=true;log("peer_signal_reconnected",{{"session",identity}});}
-                wake_.notify();
-            }else if(result!=SSH_AGAIN){free_channel(signal_);signal_stage_=0;next_signal_=now+std::chrono::seconds(3);}
-        }else next_signal_=now+std::chrono::seconds(3);
-    }
     for(auto& watch:probes_){
         if(watch->dead)continue;
         auto peer=watch->peer.lock();if(!peer){watch->dead=true;continue;}
@@ -78,11 +87,7 @@ void Session::advance_peers(){
         }
         if(!watch->channel->isOpen())continue;
         if(watch->heartbeat.expired(now)){
-            log("peer_heartbeat_timeout",{{"session",identity},{"player",watch->player},
-                {"timeout_seconds",std::chrono::duration<double>(watch->heartbeat.timeout_window()).count()},
-                {"last_reply_age_ms",watch->heartbeat.age_ms(now)},
-                {"rtt_ms",watch->heartbeat.rtt_ms()},{"replies",watch->heartbeat.replies()},
-                {"probes",watch->heartbeat.probes()}});
+            log("peer_heartbeat_timeout",{{"session",identity},{"player",watch->player},{"timeout_seconds",20},{"last_reply_age_ms",watch->heartbeat.age_ms(now)}});
             fail_peer(peer,"heartbeat-timeout",watch->player);continue;
         }
         if(watch->channel->bufferedAmount()<256)if(auto message=watch->heartbeat.poll(now))try{watch->channel->send(*message);}catch(...){fail_peer(peer,"probe-send-failed",watch->player);}
@@ -94,6 +99,15 @@ void Session::advance_peers(){
     }
     std::erase_if(probes_,[](const auto& watch){return watch->dead;});
     if(peer_negotiating_&&now>=peer_deadline_)fail_peer(client_peer_,"negotiation-timeout");
+    if(file_negotiating_&&file_peer_&&file_peer_->state()==rtc::PeerConnection::State::Connected){
+        file_negotiating_=false;
+        log("file_peer_connected",{{"session",identity},{"attempt",file_attempt_}});
+    }else if(file_negotiating_&&now>=file_deadline_){
+        log("file_peer_negotiation_timeout",{{"session",identity},{"attempt",file_attempt_}});
+        if(file_peer_){file_peer_->resetCallbacks();file_peer_->close();file_peer_.reset();}
+        file_channel_.reset();
+        file_negotiating_=false;
+    }
     if(!online_&&!peer_negotiating_&&now>=peer_deadline_){become_ready();log("peer_fallback",{{"session",identity},{"reason","signaling-timeout"}});}
     if(peer_retry_!=Clock::time_point{}&&now>=peer_retry_&&signal_&&peer_available_){
         log("peer_retry_started",{{"session",identity},{"attempt",peer_retries_}});

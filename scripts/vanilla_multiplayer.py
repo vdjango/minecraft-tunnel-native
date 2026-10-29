@@ -24,7 +24,8 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = ROOT.parent
 sys.path[:0] = [str(ROOT / 'scripts'), str(WORKSPACE / 'buggcraft/src/buggcraft')]
 import minecraft_launcher_lib
-from hookup.relay import RelayProfile, TunnelHost, TunnelClient
+from hookup.profiles import RelayProfile
+from hookup.native_transport import TunnelHost, TunnelClient
 from remote_validate import connect
 
 JAVA = Path(r'C:\Program Files\Microsoft\jdk-21.0.8.9-hotspot\bin\java.exe')
@@ -51,6 +52,7 @@ def operate_windows(records, capture=True):
     user.SetProcessDPIAware()
     user.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
     user.MoveWindow.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.BOOL]
+    user.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.UINT]
     windows = {}
     callback_type = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
     def visit(handle, _):
@@ -67,13 +69,29 @@ def operate_windows(records, capture=True):
         time.sleep(.05)
         user.PostMessageW(handle, 0x101, code, 1 | (scan << 16) | (3 << 30))
     def command(handle, text):
-        key(handle, 0x54)  # Open Minecraft chat with T.
-        time.sleep(.3)
-        for char in '/' + text:
-            user.PostMessageW(handle, 0x102, ord(char), 1)
-            time.sleep(.012)
-        key(handle, 0x0D)
-        time.sleep(.7)
+        for attempt in range(3):
+            feedback = Path(record['game_directory']) / 'logs/latest.log'
+            start = feedback.stat().st_size
+            key(handle, 0x54)  # Open Minecraft chat with T.
+            time.sleep(.3)
+            for char in '/' + text:
+                user.PostMessageW(handle, 0x102, ord(char), 1)
+                time.sleep(.012)
+            key(handle, 0x0D)
+            deadline = time.monotonic() + 4
+            while time.monotonic() < deadline:
+                with feedback.open('rb') as source:
+                    source.seek(start)
+                    response = source.read().decode(errors='replace')
+                expected = {'tp': ('Teleported ',), 'clear': ('No items were found', 'Removed '),
+                    'give': ('Gave ',), 'setblock': ('Changed the block at', 'Could not set the block')}
+                if any(text in response for text in expected[text.split()[0]]):
+                    time.sleep(.3)
+                    return
+                time.sleep(.1)
+            key(handle, 0x1B)  # Dismiss a focus/menu transition before retrying.
+            time.sleep(.4)
+        raise AssertionError(f"Game window did not submit command: {record['name']} {text}")
     def click(handle, right=False):
         user.PostMessageW(handle, 0x204 if right else 0x201, 2 if right else 1, 0)
         time.sleep(.15)
@@ -81,7 +99,10 @@ def operate_windows(records, capture=True):
         time.sleep(1)
     for index, record in enumerate(records):
         handle = windows[record['pid']]
+        user.ShowWindow(handle, 9)
         user.MoveWindow(handle, (index % 2) * (width // 2), (index // 2) * (height // 2), width // 2, height // 2, True)
+        user.SetWindowPos(handle, 0, 0, 0, 0, 0, 0x0043)
+        time.sleep(.3)
         x = 24 + index * 3
         command(handle, f'tp @s {x + .5} -60 0.5 0 0')
         user.PostMessageW(handle, 0x100, 0x57, 1 | (user.MapVirtualKeyW(0x57, 0) << 16))
@@ -202,7 +223,7 @@ async def main():
         ssh = await asyncio.to_thread(connect)
         remote_logs = '/tmp/buggcraft-native-validation/vanilla-player-logs-' + ARTIFACTS.name
         remote_in, remote_out, remote_err = await asyncio.to_thread(ssh.exec_command,
-            'cd /tmp/buggcraft-native-validation && .venv/bin/python scripts/benchmark_server.py native --workers 4 --diagnostics-dir ' + remote_logs)
+            'cd /tmp/buggcraft-native-validation && BUGGCRAFT_NATIVE_CORE=/tmp/buggcraft-native-validation/pack-build/buggcraft-core .venv/bin/python scripts/benchmark_server.py native --workers 4 --diagnostics-dir ' + remote_logs)
         profile_data = json.loads(await asyncio.wait_for(asyncio.to_thread(remote_out.readline), 25))
         tunnel = forward(ssh.get_transport(), profile_data['port'])
         profile = RelayProfile('127.0.0.1', tunnel.server_address[1], profile_data['token'], profile_data['key'])
@@ -243,12 +264,27 @@ async def main():
         await asyncio.wait_for(game_ready.wait(), 100)
         server.stdin.write(b'gamerule doDaylightCycle false\ntime set day\ngamerule doMobSpawning false\n')
         await server.stdin.drain()
-        host = await endpoint(TunnelHost, profile, endpoints, game_port=game_port)
-        clients = [await endpoint(TunnelClient, profile, endpoints, invite=host.invite, listen_port=0) for _ in NAMES]
-        report['compression'] = [type(client.listener).__name__ for client in clients]
+        host = await endpoint(TunnelHost, profile, endpoints, game_port=0,
+                              room_settings=dict(game=dict(version='1.21.8', loader='vanilla')))
+        clients = [await endpoint(TunnelClient, profile, endpoints, invite=host.invite, listen_port=0)
+                   for _ in NAMES[1:]]
+        preparation = await host.lobby_request('members')
+        if preparation['online'] != 4 or any(client.room_info.get('availability') != 'waiting' for client in clients):
+            raise AssertionError('Four actual bridge members must join the preparation room before its world opens')
+        for client in clients:
+            manifest = await client.mod_manifest()
+            if manifest:
+                raise AssertionError('Vanilla preparation unexpectedly declared mods')
+            await client.lobby_request('member_update', config_id=preparation['config_id'],
+                task='verified-installed-vanilla', seq=100, state='ready', stage='verify')
+        report['preparation_room'] = dict(online=preparation['online'], world_waiting=True,
+            manifests_read=3, guests_used_existing_game=True)
+        await host.retarget_world(game_port)
+        ports = [game_port] + [client.listen_port for client in clients]
+        report['bridge'] = 'C++ through production launcher adapter'
         minecraft = next(WORKSPACE.glob('PCL */.minecraft'))
         records, commands = [], []
-        for name, client in zip(NAMES, clients):
+        for name, port in zip(NAMES, ports):
             game = ARTIFACTS / name
             game.mkdir()
             (game / 'options.txt').write_text('lang:en_us\nrenderDistance:4\nsimulationDistance:4\n'
@@ -257,7 +293,7 @@ async def main():
             options = dict(username=name, uuid=offline_uuid(name), token='0', executablePath=str(JAVA),
                 jvmArguments=['-Xms256M', '-Xmx1G'], gameDirectory=str(game),
                 launcherName='BuggcraftNativeValidation', launcherVersion='1', customResolution=True,
-                resolutionWidth='800', resolutionHeight='450', quickPlayMultiplayer=f'127.0.0.1:{client.listen_port}')
+                resolutionWidth='800', resolutionHeight='450', quickPlayMultiplayer=f'127.0.0.1:{port}')
             command = minecraft_launcher_lib.command.get_minecraft_command('1.21.8', str(minecraft), options)
             commands.append(command)
             output = (game / 'launch.log').open('w', encoding='utf-8')
@@ -265,7 +301,7 @@ async def main():
             process = await asyncio.create_subprocess_exec(*command, cwd=game, stdout=output, stderr=output,
                                                           creationflags=0x08000000)
             processes.append(process)
-            records.append(dict(name=name, pid=process.pid, port=client.listen_port, game_directory=str(game)))
+            records.append(dict(name=name, pid=process.pid, port=port, game_directory=str(game)))
             (ARTIFACTS / 'gui-processes.json').write_text(json.dumps(records, indent=2), encoding='utf-8')
             print('Vanilla client started:', name, flush=True)
             await asyncio.sleep(8)
@@ -339,6 +375,15 @@ async def main():
             if not all(f'[{name}: Changed the block at' in content for name in NAMES if name != record['name']):
                 raise AssertionError('A vanilla client did not receive the other clients\' block updates')
         report['cross_client_chat_sync'] = True
+        # Transfer only management. Actual connected Minecraft clients must stay in the world.
+        target = (await clients[0].lobby_request('members'))['self_id']
+        transfer = (await host.lobby_request('owner_offer', member=target))['transfer']
+        await clients[0].lobby_request('owner_answer', offer=transfer['id'], accept=True)
+        if (await clients[1].lobby_request('members'))['manager_id'] != target:
+            raise AssertionError('New manager is not visible to another actual bridge member')
+        await server_command('list', lambda line: 'players online' in line)
+        await server_command(f'data get entity {NAMES[1]} Health', lambda line: NAMES[1] in line and 'following entity data' in line)
+        report['management_transfer_kept_game_connected'] = True
         # Restart one real client, retaining its offline UUID and its game data.
         old_joins = sum(NAMES[-1] + ' joined the game' in line for line in lines)
         processes[-1].terminate()
@@ -376,6 +421,8 @@ async def main():
         for item, _task in reversed(endpoints):
             await item.stop()
         await asyncio.gather(*(task for _item, task in endpoints), return_exceptions=True)
+        from hookup.native_routes import manager
+        await manager().close()
         if server and server.returncode is None:
             server.stdin.write(b'stop\n')
             await server.stdin.drain()
@@ -405,8 +452,10 @@ async def main():
             ssh.close()
         for output in logs:
             output.close()
+        transport_log = ARTIFACTS / 'transport.log'
         compression = re.findall(r'relay_compression trace=\S+ codec=zstd-1 raw_bytes=(\d+) wire_bytes=(\d+)',
-                                 (ARTIFACTS / 'transport.log').read_text(encoding='utf-8', errors='replace'))
+                                 transport_log.read_text(encoding='utf-8', errors='replace')
+                                 if transport_log.exists() else '')
         raw = sum(int(item[0]) for item in compression)
         wire = sum(int(item[1]) for item in compression)
         report['compression_measurement'] = dict(raw_bytes=raw, framed_bytes=wire,
@@ -415,6 +464,7 @@ async def main():
         report['completed'] = time.strftime('%Y-%m-%d %H:%M:%S')
         (ARTIFACTS / 'report.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
         print('Vanilla validation artifacts:', ARTIFACTS, flush=True)
+    return report
 
 
 if __name__ == '__main__':

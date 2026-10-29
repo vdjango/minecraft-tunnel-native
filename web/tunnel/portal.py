@@ -13,6 +13,8 @@ from pathlib import Path
 import secrets
 import tempfile
 import time
+import urllib.error
+import urllib.request
 
 from aiohttp import web
 
@@ -56,7 +58,7 @@ def atomic_json(path, value):
             os.unlink(temporary)
 
 
-def _trusted_proxy_ranges(state):
+def _manual_proxy_ranges(state):
     ranges = state.get('trusted_proxy_cidrs')
     if ranges is None:
         ranges = []
@@ -70,7 +72,19 @@ def _trusted_proxy_ranges(state):
             except ValueError:
                 continue
     if not isinstance(ranges, list):
-        return []
+        ranges = []
+    return _normalize_proxy_ranges(ranges)
+
+
+def _trusted_proxy_ranges(state):
+    ranges = _manual_proxy_ranges(state)
+    cloudflare = state.get('cloudflare_proxy_cidrs', [])
+    if isinstance(cloudflare, list):
+        ranges.extend(cloudflare)
+    return _normalize_proxy_ranges(ranges)
+
+
+def _normalize_proxy_ranges(ranges):
     normalized = []
     for value in ranges:
         if not isinstance(value, str):
@@ -86,12 +100,37 @@ def _trusted_proxy_ranges(state):
     return normalized
 
 
+def _read_cloudflare_ranges():
+    normalized = []
+    for version in (4, 6):
+        url = f'https://www.cloudflare.com/ips-v{version}/'
+        request = urllib.request.Request(url, headers={'User-Agent': 'buggcraft-node/1'})
+        with urllib.request.urlopen(request, timeout=10) as response:
+            payload = response.read(64 * 1024 + 1).decode('ascii')
+        if len(payload) > 64 * 1024:
+            raise ValueError('Proxy list exceeds limit')
+        current = []
+        for value in payload.splitlines():
+            value = value.strip()
+            if not value:
+                continue
+            network = ipaddress.ip_network(value, strict=False)
+            if network.version != version or not network.prefixlen:
+                raise ValueError('Unexpected proxy network')
+            if str(network) not in current:
+                current.append(str(network))
+        if not current or len(current) > 100:
+            raise ValueError('Invalid proxy list')
+        normalized.extend(current)
+    return normalized
+
+
 class Portal:
     def __init__(self, relay, federation, state_path):
         self.relay, self.federation = relay, federation
         self.path = Path(state_path)
         self.state = json.loads(self.path.read_text(encoding='utf-8'))
-        self.state['trusted_proxy_cidrs'] = _trusted_proxy_ranges(self.state)
+        self.state['trusted_proxy_cidrs'] = _manual_proxy_ranges(self.state)
         self.state.setdefault('issued_profiles', {})
         self.federation.region = self.state.get('region','')
         self.started = time.monotonic()
@@ -100,6 +139,7 @@ class Portal:
         self.login_lock = asyncio.Semaphore(2)
         self.node_action_lock = asyncio.Lock()
         self.runner = None
+        self.proxy_refresh_task = None
         self.federation.on_change = self.save
         self.relay.draining = self.state.get('draining', False)
         self.relay.capacity.configure(self.state.get('capacity', self.relay.capacity.policy))
@@ -120,8 +160,10 @@ class Portal:
             web.get('/network', self.network_page), web.get('/network.js',self.asset),
             web.get('/admin-bandwidth.js',self.asset),
             web.get('/common.js', self.asset), web.get('/account-page.js', self.asset),
+            web.get('/launcher-login.js', self.asset),
             web.get('/connect.js', self.asset), web.get('/theme.css', self.asset),
             web.get('/theme.js', self.asset),
+            web.get(r'/{bundle:vue-[A-Za-z0-9_-]+\.js}', self.asset),
             web.get('/admin/diagnostics', self.diagnostics_page),
             web.get('/diagnostics.js', self.asset),
             web.get('/api/admin/diagnostics', self.diagnostics_sessions),
@@ -188,6 +230,11 @@ class Portal:
             'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; "
                                        "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
         })
+        if request.path.endswith(('.js', '.css')) and isinstance(response, web.FileResponse):
+            versioned = re.fullmatch(r'[a-f0-9]{12}', request.query.get('v', ''))
+            hashed = re.fullmatch(r'/vue-runtime-[A-Za-z0-9_-]+\.js', request.path)
+            response.headers['Cache-Control'] = ('public, max-age=31536000, immutable' if versioned or hashed
+                                                else 'public, max-age=0, must-revalidate')
         if request['external_scheme'] == 'https':
             response.headers['Strict-Transport-Security'] = 'max-age=86400'
         if isinstance(response, web.HTTPException):
@@ -198,7 +245,24 @@ class Portal:
         return web.Response(text=self.page_text('index.html'), content_type='text/html')
 
     async def account_page(self, request):
-        return web.Response(text=self.page_text('account.html'), content_type='text/html')
+        page = self.page_text('account.html')
+        try:
+            self.account_api.session(request)
+        except web.HTTPUnauthorized:
+            if request.path == '/register' and self.state.get('registration_open', False):
+                page = page.replace('<form id="account-login">', '<form id="account-login" hidden>')
+                page = page.replace('<form id="account-register" hidden>', '<form id="account-register">')
+                page = page.replace('>账号登录</h1>', '>注册账号</h1>')
+        else:
+            page = page.replace('<form id="account-login">', '<form id="account-login" hidden>')
+            page = page.replace('<div id="account-panel" hidden>', '<div id="account-panel">')
+            section = request.match_info.get('section', 'overview')
+            titles = {'overview': '用户中心', 'access': '连接启动器', 'profile': '个人资料',
+                      'security': '安全与备份', 'friends': '我的好友', 'players': '在线玩家'}
+            page = page.replace('>账号登录</h1>', '>' + titles[section] + '</h1>')
+            page = re.sub(r'<section data-view="([^"]+)"',
+                          lambda match: match.group(0) + (' hidden' if section not in match[1].split() else ''), page)
+        return web.Response(text=page, content_type='text/html')
 
     async def network_page(self,request):
         return web.Response(text=self.page_text('network.html'), content_type='text/html')
@@ -211,7 +275,22 @@ class Portal:
         raise web.HTTPFound('/account/access')
 
     async def diagnostics_page(self, request):
-        return self.support_page('diagnostics.html', 'diagnostics')
+        authenticated = True
+        try:
+            self.session(request)
+        except web.HTTPUnauthorized:
+            authenticated = False
+        response = self.support_page('diagnostics.html', 'diagnostics' if authenticated else None)
+        page = response.text
+        if authenticated:
+            page = page.replace(
+                '<section id="diagnostic-panel" hidden>',
+                '<section id="diagnostic-panel">')
+        else:
+            page = page.replace(
+                '<form id="diagnostic-login" class="user-card" hidden>',
+                '<form id="diagnostic-login" class="user-card">')
+        return web.Response(text=page, content_type='text/html')
 
     def management_nav(self, section):
         nav = (Path(__file__).with_name('web') / 'admin-nav.html').read_text(encoding='utf-8')
@@ -262,6 +341,15 @@ class Portal:
         for name in ('nodes', 'network-settings', 'settings', 'users', 'players', 'history', 'mail'):
             if name != selected:
                 page = page.replace('class="console-card" id="' + name + '"', 'class="console-card" hidden id="' + name + '"')
+        authenticated = True
+        try:
+            self.session(request)
+        except web.HTTPUnauthorized:
+            authenticated = False
+        if authenticated:
+            page = page.replace('<form id="login-form" class="console-card login-card">',
+                                '<form id="login-form" class="console-card login-card" hidden>')
+            page = page.replace('<div id="admin-panel" hidden>', '<div id="admin-panel">')
         return web.Response(text=page, content_type='text/html')
 
     async def developers_page(self, request):
@@ -290,7 +378,8 @@ class Portal:
                 'status': 'maintenance' if self.relay.draining else 'online',
                 'uptime_seconds': int(time.monotonic() - self.started),
                 'rooms': len(self.relay.rooms), 'connections': len(self.relay.peers),
-                'players': sum(self.relay.capacity.members(k) for k in self.relay.rooms),
+                'players': self.federation.online_players(),
+                'capacity': self.relay.capacity.snapshot(),
                 'players_include_p2p': True,
                 'p2p_players': paths['p2p'],
                 'relay_players': paths['relay'],
@@ -302,6 +391,7 @@ class Portal:
                 'streams': len(self.relay.streams), 'max_rooms': self.relay.max_rooms,
                 'max_connections': self.relay.max_connections, 'network_nodes': len(live),
                 'public_join': self.state.get('public_join', False),
+                'launcher_login': 1,
                 'registration_open': self.state.get('registration_open', False),
                 'email_verification': self.account_api.mail.required,
                 'network_mode': 'federated' if self.federation.seeds else 'standalone',
@@ -314,7 +404,7 @@ class Portal:
             source=ipaddress.ip_address(request.remote or '')
         except ValueError:
             return False
-        ranges = self.state.get('trusted_proxy_cidrs', [])
+        ranges = _trusted_proxy_ranges(self.state)
         if not isinstance(ranges, list):
             return False
         for value in ranges:
@@ -400,9 +490,14 @@ class Portal:
 
     async def admin(self, request):
         session = self.session(request)
+        section = request.query.get('section', 'all')
+        presence = (await self.federation.network_players() if section in ('all', 'players') else
+                    {'players': [], 'total': self.federation.online_players(), 'partial': False})
         store = self.account_api.store
-        accounts = dict(store.replication.directory)
-        accounts.update(store.records)
+        accounts = {}
+        if section in ('all', 'users'):
+            accounts.update(store.replication.directory)
+            accounts.update(store.records)
         users = []
         for account, record in sorted(accounts.items(), key=lambda item: item[1]['certificate']['username'].casefold()):
             local = account in store.records
@@ -423,8 +518,13 @@ class Portal:
                                   'capacity': self.relay.capacity.snapshot(),
                                   'registration_open': self.state.get('registration_open', False),
                                   'accounts': users,
-                                  'players': self.diagnostics.online_players(),
+                                  **presence,
                                   'trusted_proxy_cidrs': '\n'.join(self.state.get('trusted_proxy_cidrs', [])),
+                                  'cloudflare_proxy_cidrs': self.state.get('cloudflare_proxy_cidrs', []),
+                                  'cloudflare_proxy_updated': self.state.get('cloudflare_proxy_updated'),
+                                  'cloudflare_proxy_last_attempt': self.state.get('cloudflare_proxy_last_attempt'),
+                                  'cloudflare_proxy_last_result': self.state.get('cloudflare_proxy_last_result'),
+                                  'cloudflare_proxy_last_error': self.state.get('cloudflare_proxy_last_error'),
                                   'draining': self.relay.draining,
                                   'node_id': self.federation.id,
                                   'peers': [dict(node, blocked=node['id'] in self.federation.blocked,
@@ -595,10 +695,11 @@ class Portal:
 
     async def account_players(self, request):
         self.account_api.session(request)
-        return web.json_response({'players':self.diagnostics.online_players()},headers={'Cache-Control':'no-store'})
+        return web.json_response(await self.federation.network_players(),headers={'Cache-Control':'no-store'})
 
     async def start(self, host, port, ssl_context=None):
         self.federation.publish()
+        self.proxy_refresh_task = asyncio.create_task(self.proxy_refresh_loop())
         self.runner = web.AppRunner(self.app, access_log=None)
         await self.runner.setup()
         site = web.TCPSite(self.runner, host, port, ssl_context=ssl_context)
@@ -606,5 +707,46 @@ class Portal:
         return site
 
     async def close(self):
+        if self.proxy_refresh_task:
+            self.proxy_refresh_task.cancel()
+            await asyncio.gather(self.proxy_refresh_task, return_exceptions=True)
+            self.proxy_refresh_task = None
         if self.runner:
             await self.runner.cleanup()
+
+    async def refresh_cloudflare_proxies(self):
+        self.state['cloudflare_proxy_last_attempt'] = time.time()
+        self.state['cloudflare_proxy_last_result'] = 'running'
+        self.state.pop('cloudflare_proxy_last_error', None)
+        try:
+            ranges = await asyncio.to_thread(_read_cloudflare_ranges)
+            if not ranges:
+                raise ValueError('empty Cloudflare range list')
+        except (OSError, ValueError, UnicodeError) as error:
+            if isinstance(error, urllib.error.HTTPError):
+                reason = f'Cloudflare 返回 HTTP {error.code}'
+            elif isinstance(error, urllib.error.URLError) and isinstance(error.reason, TimeoutError):
+                reason = '连接超时'
+            elif isinstance(error, TimeoutError):
+                reason = '连接超时'
+            elif isinstance(error, UnicodeError):
+                reason = '返回内容编码无效'
+            elif isinstance(error, ValueError):
+                reason = '返回的网段列表无效'
+            else:
+                reason = '网络连接失败'
+            self.state['cloudflare_proxy_last_result'] = 'failed'
+            self.state['cloudflare_proxy_last_error'] = reason
+            self.save()
+            return False
+        self.state['cloudflare_proxy_cidrs'] = ranges
+        self.state['cloudflare_proxy_updated'] = time.time()
+        self.state['cloudflare_proxy_last_result'] = 'success'
+        self.state.pop('cloudflare_proxy_last_error', None)
+        self.save()
+        return True
+
+    async def proxy_refresh_loop(self):
+        while True:
+            await self.refresh_cloudflare_proxies()
+            await asyncio.sleep(24 * 60 * 60)
