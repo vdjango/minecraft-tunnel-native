@@ -35,7 +35,7 @@ defineProps<{seed:Record<string,string>}>();
     <section class="history-section" aria-labelledby="history-title"><div class="history-heading"><div><h2 id="history-title">历史版本</h2><p>新版本由发布后台管理，发布后立即出现在这里。</p></div></div><div class="history-list" id="release-history" aria-live="polite"><div class="history-empty">正在读取版本记录…</div></div><button class="history-more" id="history-more" type="button" hidden>显示更多版本</button></section>
 
     <div class="support-details">
-      <details class="info-details"><summary>第一次使用？</summary><ol class="steps"><li><span class="step-no">01</span><span>下载当前系统的启动器。</span></li><li><span class="step-no">02</span><span>Windows 直接运行；macOS 解压 ZIP 后打开应用；Linux 为单文件程序。</span></li><li><span class="step-no">03</span><span>使用你自己的 Minecraft Java 版账号和游戏文件。</span></li></ol><p class="fine-print">Buggcraft 是 Minecraft Java 版启动器，不包含 Minecraft 游戏本体。Windows 版本可能显示 SmartScreen 提示；请确认下载来源为本官网提供的安装文件。macOS 芯片类型可在上方手动切换。</p></details>
+      <details class="info-details"><summary>第一次使用？</summary><ol class="steps"><li><span class="step-no">01</span><span>下载当前系统的启动器。</span></li><li><span class="step-no">02</span><span>解压下载的 ZIP：Windows 运行 Buggcraft.exe，macOS 打开 Buggcraft.app，Linux 运行启动程序。</span></li><li><span class="step-no">03</span><span>使用你自己的 Minecraft Java 版账号和游戏文件。</span></li></ol><p class="fine-print">Buggcraft 是 Minecraft Java 版启动器，不包含 Minecraft 游戏本体。Windows 版本可能显示 SmartScreen 提示；请确认下载来源为本官网提供的安装文件。macOS 芯片类型可在上方手动切换。</p></details>
       <details class="info-details"><summary>发布新版本</summary><p>GitHub Actions 构建完成后，平台自动同步四个平台的安装包并缓存、校验，无需手动上传。后台选择需要审核时，版本先进入待审核；选择无需审核时，校验通过后直接发布。修改设置只影响后续入库版本。</p><a class="text-link" href="https://download.bugg.icu/admin/">打开版本管理后台 ↗</a></details>
     </div>
   </main>
