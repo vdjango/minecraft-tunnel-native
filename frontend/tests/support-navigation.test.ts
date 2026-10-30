@@ -2,6 +2,7 @@ import {createApp, type Component} from 'vue';
 import {describe, expect, it} from 'vitest';
 import FeedbackPage from '../src/pages/feedback.vue';
 import DiagnosticsPage from '../src/pages/diagnostics.vue';
+import AccountPage from '../src/pages/account.vue';
 
 function render(page: Component, layoutClass: string) {
   const host = document.createElement('div');
@@ -12,6 +13,18 @@ function render(page: Component, layoutClass: string) {
 }
 
 describe('support page navigation after Vue handoff', () => {
+  it('uses the same user menu on account and feedback pages', () => {
+    const account = render(AccountPage, '');
+    const feedback = render(FeedbackPage, '');
+    try {
+      const links = (root: HTMLElement) => [...root.querySelectorAll<HTMLAnchorElement>('.account-nav a')]
+        .map(link => [link.getAttribute('href'), link.textContent?.trim()]);
+      expect(links(feedback.host)).toEqual(links(account.host));
+      expect(feedback.host.querySelector('.account-nav a[href="/feedback"]')?.getAttribute('aria-current')).toBe('page');
+      expect(links(account.host)).toHaveLength(7);
+    } finally {account.close(); feedback.close();}
+  });
+
   for(const [name, page] of [['feedback', FeedbackPage], ['diagnostics', DiagnosticsPage]] as const) {
     it(`${name} keeps the administrator menu off public pages`, () => {
       const view = render(page, '');

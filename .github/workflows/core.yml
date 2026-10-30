@@ -21,8 +21,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+        working-directory: .
       - run: python -m pip install playwright==1.64.0
       - run: python -m playwright install --with-deps chromium
+      - name: Verify node uptime survives restart
+        working-directory: .
+        run: python -m unittest tests.test_node_uptime tests.test_friend_codes_http -v
       - name: Exercise built support pages in Chromium
         working-directory: .
         run: python -m unittest tests.test_support_browser -v

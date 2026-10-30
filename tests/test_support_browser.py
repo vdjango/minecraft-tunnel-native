@@ -25,7 +25,11 @@ class PageServer(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         admin = path.startswith('/admin/')
-        if path in ('/feedback', '/admin/feedback', '/anonymous/feedback', '/admin/diagnostics'):
+        if path == '/':
+            html = (WEB / 'index.html').read_text(encoding='utf-8')
+            html = html.replace('{{SITE_HEADER}}', (WEB / 'site-header.html').read_text(encoding='utf-8'))
+            self.respond(200, 'text/html; charset=utf-8', html.encode())
+        elif path in ('/feedback', '/admin/feedback', '/anonymous/feedback', '/admin/diagnostics'):
             filename = 'diagnostics.html' if path.endswith('diagnostics') else 'feedback.html'
             html = (WEB / filename).read_text(encoding='utf-8')
             html = html.replace('{{SITE_HEADER}}', (WEB / 'site-header.html').read_text(encoding='utf-8'))
@@ -39,6 +43,13 @@ class PageServer(BaseHTTPRequestHandler):
                 html = html.replace('<form id="diagnostic-login" class="user-card" hidden>',
                                     '<form id="diagnostic-login" class="user-card">')
             self.respond(200, 'text/html; charset=utf-8', html.encode())
+        elif path == '/api/status':
+            payload = dict(name='Test node', id='node-test', status='online', uptime_seconds=3600,
+                           total_uptime_seconds=2*86400+3600, max_rooms=20, rooms=0, players=0,
+                           p2p_players=0, relay_players=0, unconfirmed_players=0,
+                           game_counts_reported=0, game_counts_unknown=0, game_players=0,
+                           fingerprint='test-fingerprint')
+            self.respond(200, 'application/json', json.dumps(payload).encode())
         elif path in ('/api/account/me', '/api/admin') and '/anonymous/' not in self.headers.get('Referer', ''):
             self.respond(200, 'application/json', b'{"csrf":"test-browser-csrf"}')
         elif path == '/api/feedback':
@@ -126,6 +137,26 @@ class SupportBrowserTests(unittest.TestCase):
                 page.screenshot(path=str(ARTIFACTS / f'feedback-list-{width}.png'), full_page=True)
                 self.assertEqual(errors, [])
                 page.close()
+
+    def test_feedback_user_menu_matches_account_navigation(self):
+        page, errors = self.visit('/feedback', 559)
+        page.wait_for_selector('#issue-list .issue-row')
+        links = page.locator('.user-feedback-nav a')
+        self.assertEqual(links.all_text_contents(), [
+            '概览', '连接启动器', '在线玩家', '好友', '个人资料', '安全与备份', '问题反馈'])
+        self.assertEqual(links.last.get_attribute('aria-current'), 'page')
+        self.assertFalse(page.evaluate('document.documentElement.scrollWidth > innerWidth'))
+        page.screenshot(path=str(ARTIFACTS / 'feedback-unified-menu-559.png'), full_page=True)
+        self.assertEqual(errors, [])
+
+    def test_home_shows_current_and_cumulative_uptime(self):
+        page, errors = self.visit('/', 559)
+        page.wait_for_function("document.querySelector('#total-days')?.textContent?.includes('累计运行 2.0 天')")
+        self.assertIn('1.0 时', page.locator('#uptime').inner_text())
+        self.assertEqual(page.locator('#total-days').inner_text(), '累计运行 2.0 天')
+        self.assertFalse(page.evaluate('document.documentElement.scrollWidth > innerWidth'))
+        page.screenshot(path=str(ARTIFACTS / 'node-cumulative-days-559.png'), full_page=True)
+        self.assertEqual(errors, [])
 
     def test_new_feedback_form_is_reachable_without_administrator_menu(self):
         page, errors = self.visit('/feedback?new=1', 559)

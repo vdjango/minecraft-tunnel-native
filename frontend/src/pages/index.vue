@@ -25,7 +25,7 @@ defineProps<{seed:Record<string,string>}>();
       <article><span class="metric-label">本机房间</span><strong id="rooms">—</strong><small id="room-limit">等待同步</small></article>
       <article><span class="metric-label">联邦在线会话</span><strong id="players">—</strong><small id="player-paths">P2P与中转统计待确认</small></article>
       <article><span class="metric-label">游戏内玩家</span><strong id="game-players">—</strong><small id="game-coverage">等待游戏上报</small></article>
-      <article><span class="metric-label">连续运行</span><strong id="uptime">—</strong><small>持续在线</small></article>
+      <article><span class="metric-label">连续运行</span><strong id="uptime">—</strong><small id="total-days" title="自启用累计统计起，更新节点后继续累加">累计运行统计中</small></article>
     </section>
 
 
