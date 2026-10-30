@@ -18,6 +18,20 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install playwright==1.64.0
+      - run: python -m playwright install --with-deps chromium
+      - name: Exercise built support pages in Chromium
+        working-directory: .
+        run: python -m unittest tests.test_support_browser -v
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: support-page-browser-screenshots
+          path: build/web-browser-artifacts/
+          if-no-files-found: warn
 
   protocol:
     strategy:
