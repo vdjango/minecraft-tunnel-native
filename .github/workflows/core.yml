@@ -19,7 +19,7 @@ jobs:
         shell: bash
         run: |
           python scripts/release_assets.py version --github-output "$GITHUB_OUTPUT"
-          python -m unittest tests.test_build_tools tests.test_release_assets -v
+          python -m unittest tests.test_build_tools tests.test_release_assets tests.test_network_proxy -v
       - name: Ubuntu build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libssl-dev libcurl4-openssl-dev ninja-build dpkg-dev
@@ -195,7 +195,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          options=(--verify-tag --title "Minecraft Tunnel Native $RELEASE_TAG" --generate-notes)
+          options=(--verify-tag --title "Minecraft Tunnel Native $RELEASE_TAG")
+          if [[ -f "docs/releases/$RELEASE_TAG.md" ]]; then
+            options+=(--notes-file "docs/releases/$RELEASE_TAG.md")
+          else
+            options+=(--generate-notes)
+          fi
           if [[ "$RELEASE_TAG" == *-* ]]; then options+=(--prerelease); fi
           if draft=$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null); then
             if [[ "$draft" != true ]]; then

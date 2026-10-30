@@ -8,14 +8,7 @@ import struct
 import unittest
 
 from tests import test_bridge as fixture
-from tests.network_proxy import BlackholeProxy
-
-
-class TcpOnlyRelay(BlackholeProxy):
-    async def start(self, host):
-        self.server = await asyncio.start_server(self.accept, host, 0)
-        self.port = self.server.sockets[0].getsockname()[1]
-        return self
+from tests.network_proxy import TcpOnlyRelay
 
 
 class DropUdp(asyncio.DatagramProtocol):
@@ -64,29 +57,23 @@ class PeerStunFallbackTests(unittest.IsolatedAsyncioTestCase):
                 for line in path.read_text(encoding='utf-8').splitlines()]
 
     async def test_relay_without_udp_uses_responsive_topology_stun(self):
-        loop = asyncio.get_running_loop()
         addresses = socket.gethostbyname_ex(socket.gethostname())[2]
         local_ip = next((ip for ip in addresses
                          if not ipaddress.ip_address(ip).is_loopback), None)
         if local_ip is None:
             self.skipTest('A non-loopback IPv4 interface is required for ICE')
 
-        proxy = await TcpOnlyRelay(self.node.port).start(local_ip)
+        proxy = await TcpOnlyRelay(self.node.port).start(local_ip, DropUdp)
         self.addAsyncCleanup(proxy.close)
-        dropped_transport, dropped = await loop.create_datagram_endpoint(
-            DropUdp, local_addr=(local_ip, proxy.port))
-        self.addCleanup(dropped_transport.close)
+        dropped = proxy.udp_protocol
         self.profile = dict(self.profile, server_host=local_ip, server_port=proxy.port)
 
         # Topology alternatives must also pass authenticated TCP routing
         # probes. Keep this route slower so the TCP-only relay stays selected.
-        alternative = await TcpOnlyRelay(self.node.port).start(local_ip)
+        alternative = await TcpOnlyRelay(self.node.port).start(local_ip, StunResponder)
         alternative.allowed = [SlowGate(), SlowGate()]
         self.addAsyncCleanup(alternative.close)
-        transport, _ = await loop.create_datagram_endpoint(
-            StunResponder, local_addr=(local_ip, alternative.port))
-        self.addCleanup(transport.close)
-        stun_port = transport.get_extra_info('sockname')[1]
+        stun_port = alternative.port
 
         host, guest = await self.process(), await self.process()
         host_node = await self.add_with_stun_alternative(host, stun_port)

@@ -1,5 +1,6 @@
 """Hold TCP bytes without FIN/RST: the kernels still ACK both connections."""
 import asyncio
+import errno
 
 
 class BlackholeProxy:
@@ -66,3 +67,38 @@ class BlackholeProxy:
             # Python 3.12 waits for accepted connections too. Release them
             # before waiting for the listening server to finish closing.
             await self.server.wait_closed()
+
+
+class TcpOnlyRelay(BlackholeProxy):
+    async def start(self, host, udp_factory=None):
+        if udp_factory is None:
+            self.server = await asyncio.start_server(self.accept, host, 0)
+            self.port = self.server.sockets[0].getsockname()[1]
+            return self
+        # Windows may exclude a port for UDP even when TCP can bind it. Let
+        # UDP choose its own usable port, then reserve that same port for TCP.
+        loop = asyncio.get_running_loop()
+        for attempt in range(16):
+            transport, protocol = await loop.create_datagram_endpoint(
+                udp_factory, local_addr=(host, 0))
+            port = transport.get_extra_info('sockname')[1]
+            try:
+                server = await asyncio.start_server(self.accept, host, port)
+            except OSError as error:
+                transport.close()
+                await asyncio.sleep(0)
+                if (error.errno not in (errno.EACCES, errno.EADDRINUSE)
+                        and getattr(error, 'winerror', None) not in (10013, 10048)):
+                    raise
+                if attempt == 15:
+                    raise
+            else:
+                self.server, self.port = server, port
+                self.udp_transport, self.udp_protocol = transport, protocol
+                return self
+
+    async def close(self):
+        transport = getattr(self, 'udp_transport', None)
+        if transport is not None:
+            transport.close()
+        await super().close()
