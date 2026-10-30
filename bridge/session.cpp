@@ -346,7 +346,11 @@ void Session::advance_requests(){
             auto end=request.input.find('\n');
             if(end==std::string::npos){if(result==SSH_ERROR||ssh_channel_is_eof(request.channel))throw Failure(-32000,"Room response failed");return;}
             auto response=Json::parse(request.input.substr(0,end));
-            if(!response.is_object()||!response.value("ok",false)||!response.contains("result"))throw Failure(-32000,"Room operation rejected");
+            if(!response.is_object()||!response.value("ok",false)||!response.contains("result")){
+                const auto reason=response.is_object()&&response.contains("error")&&response["error"].is_string()
+                    ?response["error"].get<std::string>():std::string{};
+                throw Failure(-32000,reason.empty()||reason.size()>200?"Room operation rejected":"Room operation rejected: "+reason);
+            }
             if(request.value.value("op",std::string{})=="ping"){
                 control_rtt_ms_=std::chrono::duration<double,std::milli>(Clock::now()-request.started).count();
                 event({{"type","node-latency"},{"latency_ms",control_rtt_ms_},{"method","application-echo"}});

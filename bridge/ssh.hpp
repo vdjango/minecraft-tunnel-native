@@ -12,7 +12,7 @@ using Json = nlohmann::json;
 using Clock = std::chrono::steady_clock;
 struct Failure : std::runtime_error {
     int code;
-    Failure(int number, const char* message):std::runtime_error(message),code(number){}
+    Failure(int number, const std::string& message):std::runtime_error(message),code(number){}
 };
 struct Profile {
     std::string host, token, key, name;
