@@ -166,6 +166,17 @@ dialog input,dialog textarea,dialog select{background:var(--bg)}
 .feedback-tabs button[aria-selected=true]{color:var(--mint);border-bottom-color:var(--accent)}
 .issue-row,.history-entry,.admin-node{border-color:color-mix(in srgb,var(--line) 60%,transparent)}
 .issue-row:hover{background:var(--surface)}
+#issue-list-panel{min-width:0}
+#issue-list-panel .feedback-filters{align-items:end;margin-bottom:12px}
+#issue-list{max-height:min(56vh,520px);overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;border-block:1px solid var(--line)}
+#issue-list[hidden]{display:none}
+#issue-list .issue-row{min-width:0;gap:3px 12px;padding:11px 12px}
+#issue-list .issue-row:last-child{border-bottom:0}
+#issue-list .issue-row strong{min-width:0;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#issue-list .issue-row small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#issue-list .issue-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+#issue-list-panel>.action-buttons{justify-content:flex-end;margin-top:12px}
+@media(max-width:760px){#issue-list{max-height:min(52vh,440px)}#issue-list .issue-row{grid-template-columns:auto minmax(0,1fr);gap:3px 8px;padding:10px 4px}#issue-list .issue-row small{grid-column:2}}
 .diagnostic-metrics>div{border:1px solid color-mix(in srgb,var(--line) 60%,transparent);border-radius:7px;background:var(--surface)}
 footer{margin-top:24px;border-color:color-mix(in srgb,var(--line) 70%,transparent);color:var(--muted)}
 :is(.docs-page .docs-hero,.docs-page .docs-side-inner,.docs-page .docs-path,.docs-page .docs-info-card,.docs-page .docs-steps li,.docs-page .docs-sample,.docs-page .docs-checklist li){border-radius:9px}
