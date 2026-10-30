@@ -13,6 +13,12 @@ function rule(selector: string) {
 }
 
 describe('feedback list layout', () => {
+  it('keeps page spacing stable with the Vue wrapper present', () => {
+    expect(rule('.shell')).toMatch(/margin:\s*0 auto/);
+    expect(rule('.user-site .user-main')).toMatch(/flex:\s*1/);
+    expect(css).not.toContain('.user-site>.user-main');
+  });
+
   it('keeps a full page of issues in a bounded, scrollable area', () => {
     expect(rule('#issue-list')).toMatch(/max-height:\s*min\(/);
     expect(rule('#issue-list')).toMatch(/overflow-y:\s*auto/);
