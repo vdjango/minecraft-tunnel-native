@@ -4,7 +4,7 @@ defineProps<{seed:Record<string,string>}>();
 
 <template>
 <header class="shell topbar site-header"><a class="brand" href="/"><span class="mark">B<span>·</span></span><span>BUGGCRAFT<small>MINECRAFT COMMUNITY</small></span></a><nav aria-label="网站导航"><a href="/network">节点网络</a><a href="/connect">连接启动器</a><a href="/developers">开发文档</a><a href="/feedback">问题反馈</a><a id="open-account" href="/account">用户中心</a></nav></header>
-<main class="shell user-main"><div :class="seed.layoutClass"><nav class="console-nav" aria-label="管理功能">
+<main class="shell user-main"><div :class="seed.layoutClass"><nav v-if="seed.layoutClass === 'management-layout'" class="console-nav" aria-label="管理功能">
   <span class="sidebar-label">节点管理</span>
   <a href="/admin/nodes">节点列表</a>
   <a href="/admin/network">连接网络</a>
