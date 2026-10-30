@@ -108,13 +108,23 @@ class PeerHeartbeatTests(unittest.IsolatedAsyncioTestCase):
         await rw.drain()
         self.assertEqual(await asyncio.wait_for(rr.readexactly(11), 5), b'relay-first')
         proxy.resume()
-        async with asyncio.timeout(45):
-            while (await self.state(guest, joined))['transport'] != 'p2p':
-                await self.exchange(stable, b'survivor-during-recovery')
-                rw.write(b'kept-relay-stream')
-                await rw.drain()
-                self.assertEqual(await asyncio.wait_for(rr.readexactly(17), 5), b'kept-relay-stream')
-                await asyncio.sleep(.2)
+        # A failed ICE negotiation can use its full 12-second deadline before
+        # exponential retry. Keep asserting actual direct recovery, but allow
+        # enough time for multiple attempts on a busy Windows CI runner.
+        try:
+            async with asyncio.timeout(90):
+                while (await self.state(guest, joined))['transport'] != 'p2p':
+                    await self.exchange(stable, b'survivor-during-recovery')
+                    rw.write(b'kept-relay-stream')
+                    await rw.drain()
+                    self.assertEqual(await asyncio.wait_for(rr.readexactly(17), 5), b'kept-relay-stream')
+                    await asyncio.sleep(.2)
+        except TimeoutError:
+            events = [(row['event'], row.get('reason'), row.get('delay_seconds'))
+                      for row in self.rows(joined['session']) if row['event'] in
+                      ('peer_retry_scheduled', 'peer_retry_started', 'peer_recovered',
+                       'peer_fallback', 'peer_answer_ignored', 'peer_heartbeat_timeout')]
+            self.fail(f'P2P did not recover after relay: {events[-30:]}')
         rw.write(b'relay-after-direct-recovery')
         await rw.drain()
         self.assertEqual(await asyncio.wait_for(rr.readexactly(27), 5), b'relay-after-direct-recovery')
