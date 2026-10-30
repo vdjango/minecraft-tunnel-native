@@ -264,6 +264,67 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result['path'], 'p2p', result)
         self.assertEqual(target.read_bytes(), payload)
 
+    async def test_twelve_parallel_mod_downloads_keep_gameplay_and_free_slots(self):
+        directory = self.logs / 'parallel-instance'
+        mods = directory / 'mods'
+        mods.mkdir(parents=True)
+        payloads = {f'mod-{i:02}.jar': os.urandom(256 * 1024) for i in range(24)}
+        for name, payload in payloads.items():
+            (mods / name).write_bytes(payload)
+        host, guest, hosted, joined = await self.direct_pair(directory, limit=512)
+        items = (await self.call(host, 'mods.manifest', dict(session=hosted['session'])))['items']
+        target = self.logs / 'parallel-downloads'
+        target.mkdir()
+        # The first fetch also waits for the independent file connection.
+        first = await self.fetch_transfer(guest, joined['session'], items[0], target / items[0]['name'])
+        self.assertEqual(first['state'], 'complete', first)
+        await self.call(guest, 'mods.cancel', dict(session=joined['session'], transfer=first['transfer']))
+        for batch in (items[1:13], items[12:24]):
+            transfers = []
+            for item in batch:
+                response = await self.call(guest, 'mods.fetch', dict(
+                    session=joined['session'], item=item, target=str(target / item['name'])))
+                transfers.append(response)
+            # Game bytes continue over the separate gameplay connection.
+            await self.exchange(joined, b'parallel mod download gameplay' * 10000)
+            for transfer in transfers:
+                result = await self.wait_transfer(guest, joined['session'], transfer)
+                self.assertEqual(result['state'], 'complete', result)
+                self.assertEqual(result['path'], 'p2p', result)
+                await self.call(guest, 'mods.cancel', dict(session=joined['session'], transfer=result['transfer']))
+        for item in items:
+            self.assertEqual((target / item['name']).read_bytes(), payloads[item['name']])
+        self.assertFalse(list(target.glob('*.part')))
+
+    async def test_mod_download_limit_and_cancel_release_all_sixteen_slots(self):
+        directory = self.logs / 'bounded-instance'
+        mods = directory / 'mods'
+        mods.mkdir(parents=True)
+        (mods / 'warmup.jar').write_bytes(b'warmup')
+        payload = os.urandom(512 * 1024)
+        (mods / 'large.jar').write_bytes(payload)
+        host, guest, hosted, joined = await self.direct_pair(directory, limit=64)
+        items = (await self.call(host, 'mods.manifest', dict(session=hosted['session'])))['items']
+        warmup = next(item for item in items if item['name'] == 'warmup.jar')
+        item = next(item for item in items if item['name'] == 'large.jar')
+        first = await self.fetch_transfer(guest, joined['session'], warmup, self.logs / 'warmup.jar')
+        self.assertEqual(first['state'], 'complete', first)
+        await self.call(guest, 'mods.cancel', dict(session=joined['session'], transfer=first['transfer']))
+        transfers = []
+        for index in range(16):
+            transfers.append(await self.call(guest, 'mods.fetch', dict(
+                session=joined['session'], item=item, target=str(self.logs / f'bounded-{index}.jar'))))
+        denied = await self.call_raw(guest, 'mods.fetch', dict(
+            session=joined['session'], item=item, target=str(self.logs / 'overflow.jar')))
+        self.assertEqual(denied['error']['code'], -32010, denied)
+        for transfer in transfers:
+            await self.call(guest, 'mods.cancel', dict(session=joined['session'], transfer=transfer['transfer']))
+        self.assertFalse(list(self.logs.glob('*.part')))
+        self.assertFalse(list(self.logs.glob('bounded-*.jar')))
+        complete = await self.fetch_transfer(guest, joined['session'], warmup, self.logs / 'after-cancel.jar')
+        self.assertEqual(complete['state'], 'complete', complete)
+        self.assertEqual((self.logs / 'after-cancel.jar').read_bytes(), b'warmup')
+
     async def test_chat_waits_for_ack_and_uses_authenticated_native_hello(self):
         host, guest, hosted, joined = await self.pair()
         async with asyncio.timeout(5):

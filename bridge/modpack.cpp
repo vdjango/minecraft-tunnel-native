@@ -9,6 +9,11 @@ namespace bridge {
 namespace {
 constexpr uint64_t maximum_file=2ull*1024*1024*1024;
 constexpr size_t maximum_manifest=512*1024;
+// Bound queues and open files while allowing several players to synchronise.
+// Each peer receive queue remains capped at 1 MiB; sends share one rate limit.
+constexpr size_t maximum_downloads=16;
+constexpr size_t maximum_serving=64;
+constexpr size_t maximum_transfer_records=128;
 std::pair<std::string,std::string> digest_file_hashes(const std::filesystem::path& path){
     std::ifstream input(path,std::ios::binary);
     if(!input)throw Failure(-32602,"Mod file cannot be opened");
@@ -166,7 +171,7 @@ Json ModTransfers::metadata()const{
     return result;
 }
 void ModTransfers::accept(ssh_channel channel){
-    if(serving_.size()>=4){free_channel(channel);return;}
+    if(serving_.size()>=maximum_serving){free_channel(channel);return;}
     auto transfer=std::make_shared<Transfer>();transfer->channel=channel;transfer->server=true;transfer->state="request";
     serving_.push_back(std::move(transfer));
 }
@@ -182,7 +187,7 @@ void ModTransfers::bind_peer_channel(const std::shared_ptr<Transfer>& transfer){
     transfer->peer_channel->onClosed([weak]{if(auto current=weak.lock())current->peer_closed=true;});
 }
 void ModTransfers::accept_peer(std::shared_ptr<rtc::DataChannel> channel){
-    if(!channel||serving_.size()>=4){if(channel)channel->close();return;}
+    if(!channel||serving_.size()>=maximum_serving){if(channel)channel->close();return;}
     auto transfer=std::make_shared<Transfer>();transfer->peer_channel=std::move(channel);
     transfer->p2p=true;transfer->server=true;transfer->state="request";bind_peer_channel(transfer);
     serving_.push_back(std::move(transfer));
@@ -207,7 +212,10 @@ Json ModTransfers::command(const std::string& method,const Json& params,const st
     if(method=="mods.fetch"&&!host&&!peer_channel)
         throw Failure(-32021,"P2P file channel is not connected; mod files are never sent through SSH relay");
     const auto active=std::count_if(transfers_.begin(),transfers_.end(),[](const auto& item){return item.second->state!="complete"&&item.second->state!="error";});
-    if(active>=4||transfers_.size()>=16)throw Failure(-32010,"Mod transfer limit reached");
+    if(static_cast<size_t>(active)>=maximum_downloads||transfers_.size()>=maximum_transfer_records){
+        if(peer_channel)peer_channel->close();
+        throw Failure(-32010,"Mod transfer limit reached");
+    }
     auto transfer=std::make_shared<Transfer>();auto& t=*transfer;t.room=room;t.manifest=method=="mods.manifest";
     t.kind=params.value("kind",std::string("mods"));
     if(t.kind!="mods"&&t.kind!="resources")throw Failure(-32602,"Invalid content kind");
