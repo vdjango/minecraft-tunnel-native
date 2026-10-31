@@ -267,6 +267,9 @@ class RoomControlSession(asyncssh.SSHServerSession):
         peer, relay = self.peer, self.peer.relay
         operation = request.get('op')
         room = relay.rooms.get(peer.room)
+        if operation == 'content_cache_grant':
+            from .content_cache import grant
+            return grant(peer, room, request)
         if operation == 'online_players' and peer.role == 'federation' and relay.diagnostics:
             offset = request.get('offset', 0)
             if type(offset) is not int or not 0 <= offset < 1000:
