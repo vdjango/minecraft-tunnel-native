@@ -87,6 +87,13 @@ defineProps<{seed:Record<string,string>}>();
 
 
         <button class="primary wide" type="submit">保存设置</button></form>
+        <div class="divider"></div>
+        <div class="section-heading"><div><span class="eyebrow muted">RESOURCE ACCELERATION</span><h3>资源下载加速</h3></div><span class="badge" id="room-origin-state">尚未接入</span></div>
+        <p>让源站临时补齐下载失败的模组和资源。先提交文件信息，只在确有需要时向房主请求对应文件；无需上传整个整合包。</p>
+        <p id="room-origin-address" class="muted"></p>
+        <form id="room-origin-form"><label>源站接入邀请<textarea id="room-origin-invitation" rows="3" maxlength="4096" placeholder="在源站后台 → 临时加速 → 接入联机节点，生成并复制邀请" autocomplete="off" spellcheck="false" required></textarea></label>
+        <div class="action-buttons"><button class="primary" type="submit">接入源站</button><button id="room-origin-disconnect" class="secondary" type="button" hidden>断开接入</button></div></form>
+        <p id="room-origin-feedback" class="feedback" role="status">粘贴一次即可接入，配置自动保存并立即生效，无需重启。邀请仅交给节点管理员。</p>
       </section>
       <section class="console-card" id="users"><span class="eyebrow muted">NETWORK USERS</span><h2>用户列表</h2><label>查找用户<input id="admin-user-filter" type="search" placeholder="用户名、账号 ID 或注册节点"></label><p id="admin-user-count"></p><div class="user-table-scroll"><table class="user-table"><thead><tr><th>用户</th><th>注册节点</th><th>同步状态</th><th>本地资料</th><th>副本</th><th>本地权限</th></tr></thead><tbody id="admin-accounts"></tbody></table></div></section>
       <section class="console-card" id="players"><span class="eyebrow muted">LIVE PLAYERS</span><h2>在线玩家</h2><p id="admin-player-count"></p><div class="user-table-scroll"><table class="user-table"><thead><tr><th>玩家</th><th>角色</th><th>房间</th><th>传输路径</th><th>P2P ping</th><th>节点控制 RTT</th><th>游戏状态 RTT</th></tr></thead><tbody id="admin-players"></tbody></table></div></section>

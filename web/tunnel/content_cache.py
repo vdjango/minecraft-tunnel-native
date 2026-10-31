@@ -18,6 +18,10 @@ def grant(peer, room, request):
     endpoint = os.environ.get('BUGGCRAFT_ROOM_CACHE_URL', '').rstrip('/')
     secret = os.environ.get('BUGGCRAFT_ROOM_CACHE_SECRET', '')
     issuer = os.environ.get('BUGGCRAFT_ROOM_CACHE_ISSUER', 'default')
+    configured = getattr(peer.relay, 'content_cache_config', None)
+    if configured is not None:
+        configured = configured if configured.get('enabled') else {}
+        endpoint, secret, issuer = (configured.get(key, '') for key in ('url', 'secret', 'issuer'))
     url = urlsplit(endpoint)
     if (not endpoint or url.scheme != 'https' or not url.hostname
             or url.username or url.password or url.path or url.query or url.fragment

@@ -113,6 +113,7 @@ async function loadAdmin(fill = true) {
     }
     accountRows=state.accounts;renderUsers();
     if (fill) {
+      if (!$('settings').hidden) void api('/api/admin/room-cache').then(renderRoomOrigin).catch(error=>message(error,'room-origin-feedback'));
       if (!$('mail').hidden) {
         void api('/api/admin/mail').then(mail=>{
           for (const key of ['host','port','username','from_name']) $('mail-' + key.replace('_','-')).value = mail[key];
@@ -134,6 +135,18 @@ $('login-form').onsubmit = async event => {
   try { const result = await api('/api/login', {username:$('username').value,password}); csrf = result.csrf; await loadAdmin(); message(''); }
   catch (e) { message(e); } finally { button.disabled = false; }
 };
+function renderRoomOrigin(state){
+  $('room-origin-state').textContent=state.configured?'已接入':'尚未接入';
+  $('room-origin-address').textContent=state.configured?state.url+' · '+state.name:'';
+  $('room-origin-disconnect').hidden=!state.configured;
+}
+$('room-origin-form').onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;
+  try{renderRoomOrigin(await api('/api/admin/room-cache',{action:'connect',invitation:$('room-origin-invitation').value.trim()}));
+    $('room-origin-invitation').value='';message('已接入源站，房间文件加速立即生效。','room-origin-feedback');
+  }catch(error){message(error,'room-origin-feedback');}finally{button.disabled=false;}};
+$('room-origin-disconnect').onclick=async event=>{const button=event.currentTarget;button.disabled=true;
+  try{renderRoomOrigin(await api('/api/admin/room-cache',{action:'disconnect'}));message('已断开资源源站，正常联机不受影响。','room-origin-feedback');}
+  catch(error){message(error,'room-origin-feedback');}finally{button.disabled=false;}};
 $('settings-form').onsubmit = async event => {
   event.preventDefault(); const button = event.submitter; button.disabled = true;
   try {

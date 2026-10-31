@@ -196,6 +196,9 @@ class Portal:
         from .accounts_web import AccountAPI
         self.account_api = AccountAPI(self)
         self.app.add_routes(self.account_api.routes)
+        from .content_cache_admin import ContentCacheAdmin
+        self.content_cache_admin = ContentCacheAdmin(self)
+        self.app.add_routes(self.content_cache_admin.routes)
         from .feedback import Feedback
         self.feedback = Feedback(self)
         self.app.add_routes(self.feedback.routes)
