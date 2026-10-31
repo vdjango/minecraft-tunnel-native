@@ -55,7 +55,11 @@ class RoomLobby:
     def join(self, peer):
         member = peer.member_id
         previous = self.members.get(member, {})
+        account = getattr(peer, 'account', None)
+        federation = getattr(self.relay, 'federation', None)
+        account_name = federation.accounts.social.name(account) if account and federation else ''
         self.members[member] = dict(previous, id=member, name=previous.get('name', '玩家'),
+            account_name=account_name,
             online=True, state=previous.get('state', 'idle'),
             updated=int(time.time()), _seen=time.monotonic(), _peer=peer)
         # Bound reconnect history independently of the node's live connection limit.
@@ -97,7 +101,7 @@ class RoomLobby:
     def public(self, value):
         stale = not value.get('online') or time.monotonic() - value.get('_seen', 0) > 20
         result = {key: item for key, item in value.items() if key in (
-            'id', 'name', 'online', 'state', 'stage', 'task', 'seq', 'done', 'total',
+            'id', 'name', 'account_name', 'online', 'state', 'stage', 'task', 'seq', 'done', 'total',
             'speed', 'files_done', 'files_total', 'code', 'updated', 'config_id')}
         result.update(manager=value['id'] == self.manager, provider=value['id'] == self.provider,
                       stale=stale, path='unknown' if stale else value.get('path', 'unknown'),
