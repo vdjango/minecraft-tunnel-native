@@ -131,9 +131,10 @@ async function loadAdmin(fill = true) {
 $('login-form').onsubmit = async event => {
   event.preventDefault(); const button = event.submitter; button.disabled = true;
   const password = $('admin-password').value; $('admin-password').value = '';
-  try { const result = await api('/api/login', {username:$('username').value,password}); csrf = result.csrf; await loadAdmin(); message(''); }
+  try { const result = await api('/api/login', {username:$('username').value,password}); csrf = result.csrf; $('login-form').hidden=true; $('admin-panel').hidden=false; await loadAdmin(); message(''); }
   catch (e) { message(e); } finally { button.disabled = false; }
 };
+if($('refresh-admin'))$('refresh-admin').onclick=()=>loadAdmin(false).catch(error=>message(error));
 $('settings-form').onsubmit = async event => {
   event.preventDefault(); const button = event.submitter; button.disabled = true;
   try {

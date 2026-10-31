@@ -15,14 +15,14 @@
   <meta name="theme-color" content="#100d19">
   <title>下载 Buggcraft · 选择你的系统</title>
   <link rel="icon" type="image/png" sizes="32x32" href="https://bugg.icu/favicon-32-81de325b08de.png">
-  <script>
+  <script data-cfasync="false">
     (() => {
       const root = document.documentElement;
       try { root.dataset.theme = localStorage.getItem('buggcraft.theme') === 'light' ? 'light' : 'dark'; }
       catch (_) { root.dataset.theme = 'dark'; }
     })();
   </script>
-  <script src="https://bugg.icu/platform.js?v=20261025-platform-auto"></script>
+  <script data-cfasync="false" src="https://bugg.icu/platform.js?v=20261025-platform-auto"></script>
   <style>
     :root{color-scheme:dark;--bg:#100d19;--panel:#191623;--surface:#211b30;--line:#665c8d;--text:#f5f1ff;--muted:#b5aec8;--soft:#c1afff;--accent:#8057ff;--purple:#997aff;font-family:"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif;font-synthesis:none}
     :root[data-theme="light"]{color-scheme:light;--bg:#f5f1ff;--panel:#fbf9ff;--surface:#eee9f9;--line:#9586c9;--text:#211a35;--muted:#625a77;--soft:#5540b2;--accent:#704de0;--purple:#805bea}
@@ -47,7 +47,7 @@
     @media(max-width:760px){.page-intro{margin:29px auto 20px}.download-main{padding:25px}.platform-tabs{gap:7px;margin-bottom:22px}.platform-tab{min-height:49px}.release-box{margin-top:21px;padding:18px}.history-section{margin-top:48px}.history-heading h2{font-size:20px}}
     @media(max-width:460px){.page-intro{margin-top:23px}.download-main{padding:19px}.platform-tabs{gap:5px}.platform-tab{font-size:12px}.selected-platform h2{font-size:22px}.release-box{padding:15px}.history-section{margin-top:41px}.history-entry summary{min-height:55px;padding:11px}.history-date{font-size:10px}.history-tag{font-size:13px}.release-kind{font-size:9px}.info-details summary{padding:12px 14px}.info-details>p,.info-details>.text-link{margin-right:14px;margin-left:14px}}
   </style>
-<script src="/vue-navigation-shell.js?v=4f1ed0aa5e14"></script><link rel="modulepreload" href="/vue-runtime-DzrfuheQ.js"></head>
+<script data-cfasync="false" src="/vue-navigation-shell.js?v=4b47e7f98a82"></script><link rel="modulepreload" href="/vue-runtime-DzrfuheQ.js"></head>
 <body>
   <header class="site-header"><nav class="wrap nav" aria-label="网站导航">
     <a class="brand" href="https://bugg.icu/"><span class="brand-mark">B</span><span class="brand-name"><strong>BUGGCRAFT</strong><small>MINECRAFT JAVA LAUNCHER</small></span></a>
@@ -86,6 +86,6 @@
     </div>
   </main>
   <footer class="site-footer wrap"><span>Buggcraft · Minecraft Java 启动器</span><nav aria-label="更多信息"><a href="https://github.com/vdjango/buggcraft">开源代码 ↗</a><a href="https://node.bugg.icu/network">联机节点</a><a href="https://node.bugg.icu/feedback?new=1">问题反馈</a></nav></footer>
-<script type="module" src="/vue-page-download.js?v=61551ddcc905"></script>
+<script data-cfasync="false" type="module" src="/vue-page-download.js?v=61551ddcc905"></script>
 </body>
 </html>

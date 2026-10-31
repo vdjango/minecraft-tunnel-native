@@ -7,13 +7,13 @@ defineProps<{seed:Record<string,string>}>();
   <header class="shell topbar site-header"><a class="brand" href="/"><span class="mark">B<span>·</span></span><span>BUGGCRAFT<small>MINECRAFT COMMUNITY</small></span></a><nav aria-label="网站导航"><a href="/network">节点网络</a><a href="/connect">连接启动器</a><a href="/developers">开发文档</a><a href="/feedback">问题反馈</a><a id="open-account" href="/account">用户中心</a></nav></header>
 
   <main class="shell console-main">
-    <div class="console-heading"><div class="eyebrow">YOUR NODE, YOUR DECISIONS</div><h1>管理你的节点。</h1><p id="console-subtitle"></p></div>
+    <div class="console-heading"><div class="eyebrow">YOUR NODE, YOUR DECISIONS</div><h1>管理你的节点。</h1><p id="console-subtitle"></p><button id="refresh-admin" class="secondary" type="button">刷新列表</button></div>
     <p class="feedback console-feedback" id="admin-feedback" role="status" aria-live="polite"></p>
     <form id="login-form" class="console-card login-card">
-      <span class="eyebrow muted">ADMINISTRATOR</span><h2>登录控制台</h2><p>使用此节点的管理员账户，用户账号不能管理节点。</p>
+      <span class="eyebrow muted">BUGGCRAFT · ADMINISTRATOR</span><h1>登录</h1><p>登录 Buggcraft 节点管理后台</p>
       <label>用户名<input id="username" autocomplete="username" value="admin" maxlength="64" required></label>
       <label>管理员密码<input id="admin-password" type="password" autocomplete="current-password" maxlength="256" required></label>
-      <button class="primary wide" type="submit">登录控制台 →</button>
+      <button class="primary wide" type="submit">登录</button>
     </form>
     <div id="admin-panel" hidden>
       <nav class="console-nav" aria-label="管理功能">
