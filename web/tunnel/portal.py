@@ -7,6 +7,8 @@ import hmac
 import html
 import ipaddress
 import json
+import logging
+import math
 import os
 import re
 from pathlib import Path
@@ -134,6 +136,12 @@ class Portal:
         self.state.setdefault('issued_profiles', {})
         self.federation.region = self.state.get('region','')
         self.started = time.monotonic()
+        try:
+            saved_uptime = float(self.state.get('total_uptime_seconds', 0))
+        except (TypeError, ValueError, OverflowError):
+            saved_uptime = 0.0
+        self.total_uptime_seconds = saved_uptime if math.isfinite(saved_uptime) and saved_uptime >= 0 else 0.0
+        self.last_uptime_checkpoint = self.started
         self.sessions = {}
         self.attempts = OrderedDict()
         self.login_lock = asyncio.Semaphore(2)
@@ -192,11 +200,36 @@ class Portal:
         self.feedback = Feedback(self)
         self.app.add_routes(self.feedback.routes)
         self.app.cleanup_ctx.append(self.feedback.lifecycle)
+        self.app.cleanup_ctx.append(self.uptime_lifecycle)
 
     def save(self):
+        now = time.monotonic()
+        self.total_uptime_seconds += max(0.0, now - self.last_uptime_checkpoint)
+        self.last_uptime_checkpoint = now
+        self.state['total_uptime_seconds'] = round(self.total_uptime_seconds, 3)
         self.state.update(name=self.federation.name, network_key=self.federation.network_key,
                           seeds=list(self.federation.seeds.values()), blocked=sorted(self.federation.blocked))
         atomic_json(self.path, self.state)
+
+    async def uptime_lifecycle(self, _app):
+        async def checkpoint():
+            while True:
+                await asyncio.sleep(60)
+                try:
+                    self.save()
+                except OSError as error:
+                    logging.getLogger(__name__).warning('Could not persist cumulative uptime: %s', error)
+
+        task = asyncio.create_task(checkpoint())
+        try:
+            yield
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+            try:
+                self.save()
+            except OSError as error:
+                logging.getLogger(__name__).warning('Could not persist uptime on shutdown: %s', error)
 
     @web.middleware
     async def guard(self, request, handler):
@@ -376,7 +409,8 @@ class Portal:
         paths = self.diagnostics.transport_counts()
         return {'name': self.federation.name, 'id': self.federation.id,
                 'status': 'maintenance' if self.relay.draining else 'online',
-                'uptime_seconds': int(time.monotonic() - self.started),
+                'uptime_seconds': int(now - self.started),
+                'total_uptime_seconds': int(self.total_uptime_seconds + max(0.0, now - self.last_uptime_checkpoint)),
                 'rooms': len(self.relay.rooms), 'connections': len(self.relay.peers),
                 'players': self.federation.online_players(),
                 'capacity': self.relay.capacity.snapshot(),

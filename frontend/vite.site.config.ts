@@ -11,6 +11,12 @@ export default defineConfig({
   plugins: [vue({template:{transformAssetUrls:false}}), {
     name: 'existing-page-controllers',
     writeBundle(_options,bundle) {
+      const themePath=resolve(web,'theme.js');
+      if(existsSync(themePath)){
+        const theme=readFileSync(themePath,'utf8').split('/* BUGGCRAFT PAGE SHELL */')[0].trimEnd();
+        writeFileSync(themePath,theme+'\n/* BUGGCRAFT PAGE SHELL */\n'+readFileSync(resolve(import.meta.dirname,'page-shell.js'),'utf8'));
+      }
+
       for(const name of Object.keys(pages)) {
         const entry=bundle['vue-page-'+name+'.js'];
         if(!entry || entry.type!=='chunk')continue;
@@ -60,16 +66,17 @@ export default defineConfig({
       const exports = ['accountView', 'loadSessions', 'refresh'].map(key => `if(typeof ${key}==='function') scope.expose('${key}',${key});`).join('\n');
       return `import {mountPage} from '${resolve(import.meta.dirname,'src/runtime.ts').replaceAll('\\','/')}';
         import Page from '@site-pages/${name}.vue';
-        mountPage(function(scope, pageViews) {
+        export function mount(){ mountPage(function(scope, pageViews) {
           const {fetch,setTimeout,clearTimeout,setInterval,clearInterval}=scope;
           ${source}\n${exports}\n
-        }, Page);`;
+        }, Page); } if(!window.__buggcraftRouteLoading)mount();`;
     },
   }],
   resolve:{alias:{'@site-pages':resolve(import.meta.dirname,'src/site-pages')}},
   build: {
     target: 'es2022', outDir: web, emptyOutDir: false, sourcemap: false,
     rollupOptions: {
+      preserveEntrySignatures: 'exports-only',
       input: Object.fromEntries(Object.keys(pages).map(name => ['page-' + name, 'page:' + name])),
       output: {entryFileNames:'vue-[name].js', chunkFileNames:'vue-runtime-[hash].js', assetFileNames:'vue-[name][extname]'},
     },

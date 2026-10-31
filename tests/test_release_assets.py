@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import os
 import tarfile
 import tempfile
@@ -64,6 +65,18 @@ class ReleaseAssetsTests(unittest.TestCase):
     def test_incomplete_runtime_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory, self.assertRaisesRegex(ValueError, "Incomplete"):
             release_assets.package(Path(directory), Path(directory) / "output", "windows-2022", "1.2.3")
+
+    def test_macos_arm_archive_uses_supported_runner_and_dylib(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runtime = self.make_runtime(directory)
+            (runtime / "lib/libbuggcraft_bridge.so").rename(runtime / "lib/libbuggcraft_bridge.dylib")
+            with mock.patch.object(release_assets.subprocess, "check_output", return_value="a" * 40):
+                archive = release_assets.package(runtime, Path(directory) / "output", "macos-15", "1.2.3")
+            self.assertEqual(archive.name, "buggcraft-native-1.2.3-macos-arm64.tar.gz")
+            with tarfile.open(archive) as tar:
+                self.assertEqual(tar.extractfile("runtime/lib/libbuggcraft_bridge.dylib").read(), b"test runtime\x00\xff")
+                info = json.load(tar.extractfile("runtime/share/buggcraft-native/build-info.json"))
+                self.assertEqual(info["platform"], "macos-arm64")
 
     def test_verify_requires_all_platforms_and_detects_tampering(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -47,6 +47,22 @@ class NativeFeedbackTests(unittest.IsolatedAsyncioTestCase):
                     self.assertFalse(result['ok'])
         self.assertEqual(self.portals[0].feedback.snapshot(), [])
 
+    async def test_unexpected_node_error_returns_response_instead_of_channel_eof(self):
+        profile = await self.profile()
+        async with await self.connection(profile) as connection:
+            with patch.object(self.portals[0].feedback, 'validate_data',
+                              side_effect=RuntimeError('internal fixture')), \
+                    self.assertLogs('tunnel.feedback_native', level='ERROR'):
+                async with connection.create_process(subsystem='buggcraft-feedback-upload-v1',
+                                                     encoding=None) as process:
+                    process.stdin.write(json.dumps(dict(consent=True, size=1,
+                        name='diagnostics.zip', metadata=self.metadata())).encode() + b'\n')
+                    process.stdin.write_eof()
+                    response = json.loads(await asyncio.wait_for(process.stdout.readline(), 5))
+                    self.assertFalse(response['ok'])
+                    self.assertIn('节点处理反馈', response['error'])
+        self.assertEqual(self.portals[0].feedback.snapshot(), [])
+
     async def test_large_upload_with_slow_disk_preserves_other_control_requests(self):
         profile = await self.profile()
         payload = b'large-diagnostic-line\n' * 250000
@@ -167,6 +183,31 @@ class NativeFeedbackTests(unittest.IsolatedAsyncioTestCase):
             process.stdin.close()
             await asyncio.wait_for(process.wait(), 10)
             self.assertNotIn(profile['token'].encode(), await process.stderr.read())
+
+    async def test_real_native_bridge_keeps_feedback_rejection_reason(self):
+        profile = await self.profile()
+        root = Path(__file__).resolve().parents[2]
+        archive = Path(self.temp.name) / 'diagnostics.zip'
+        archive.write_bytes(b'zip fixture')
+        binary = os.environ.get('BUGGCRAFT_BRIDGE_EXECUTABLE',
+            str(root / 'build' / ('buggcraft-bridge.exe' if os.name == 'nt' else 'buggcraft-bridge')))
+        process = await asyncio.create_subprocess_exec(binary, stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        async def call(method, params):
+            process.stdin.write(json.dumps(dict(jsonrpc='2.0', id=1, method=method, params=params)).encode() + b'\n')
+            await process.stdin.drain()
+            return json.loads(await asyncio.wait_for(process.stdout.readline(), 30))
+        try:
+            code = 'buggnode1-' + base64.urlsafe_b64encode(json.dumps(profile).encode()).decode().rstrip('=')
+            node = (await call('node.add', {'code': code}))['result']['node']
+            invalid = dict(self.metadata(), game_version='x' * 65)
+            result = await call('feedback.submit', dict(node=node, consent=True,
+                archive=str(archive), metadata=invalid))
+            self.assertIn('Feedback node rejected the upload:', result['error']['message'])
+            self.assertEqual(self.portals[0].feedback.snapshot(), [])
+        finally:
+            process.stdin.close()
+            await asyncio.wait_for(process.wait(), 10)
 
     async def test_real_launcher_export_and_independent_bridge_upload(self):
         launcher = Path(os.environ.get('BUGGCRAFT_LAUNCHER_SOURCE') or

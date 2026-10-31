@@ -2,6 +2,7 @@
 import asyncio
 import hashlib
 import json
+import logging
 import os
 import secrets
 
@@ -9,6 +10,9 @@ import asyncssh
 from aiohttp import web
 
 from .feedback import MAX_FILE, MAX_STORAGE, text
+
+
+LOG = logging.getLogger(__name__)
 
 
 class FeedbackUploadSession:
@@ -114,11 +118,21 @@ class FeedbackUploadSession:
                               'size': received, 'sha256': digest.hexdigest()})
         except (ValueError, KeyError, TypeError, OSError, web.HTTPException,
                 asyncssh.Error, asyncio.TimeoutError) as exc:
+            LOG.warning('Feedback upload rejected: %s', type(exc).__name__)
             self.respond({'ok': False, 'issue': issue_id,
                           'error': str(exc)[:160] if isinstance(exc, ValueError) else '诊断包接收失败，请稍后补传。'})
+        except Exception:
+            # An unexpected server error must produce a protocol response,
+            # rather than leaving the launcher with a generic channel EOF.
+            LOG.exception('Feedback upload failed unexpectedly')
+            self.respond({'ok': False, 'issue': issue_id,
+                          'error': '节点处理反馈时发生错误，请稍后重试。'})
         finally:
             if temporary is not None:
-                temporary.unlink(missing_ok=True)
+                try:
+                    temporary.unlink(missing_ok=True)
+                except OSError:
+                    LOG.exception('Could not remove incomplete feedback upload')
             self.channel.close()
 
     def close(self):

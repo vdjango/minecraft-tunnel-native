@@ -10,6 +10,9 @@ async function refresh(){if(refreshing)return;refreshing=true;try{
   $('game-players').textContent=s.game_counts_reported === 0 ? '—' : (s.game_counts_unknown ? s.game_players+'+' : s.game_players);
   $('game-coverage').textContent=s.game_counts_unknown?'等待 '+s.game_counts_unknown+' 个房间更新':'游戏内在线人数';
   $('uptime').textContent=timeLabel(s.uptime_seconds);$('room-limit').textContent='上限 '+s.max_rooms+' 个房间';
+  $('total-days').textContent = Number.isFinite(s.total_uptime_seconds)
+    ? '累计运行 ' + (s.total_uptime_seconds / 86400).toFixed(1) + ' 天'
+    : '累计运行统计中';
   $('fingerprint').textContent=s.fingerprint;$('node-id').textContent=s.id;
   document.body.classList.remove('offline');
 }catch{$('health').textContent='暂时无法连接';document.body.classList.add('offline');}finally{refreshing=false;}}

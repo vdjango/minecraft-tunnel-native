@@ -12,6 +12,7 @@ export function createScope() {
   const exposed = new Map<string, unknown>();
   const cleanup = new Set<() => void>();
   const state = reactive({ pending: 0, error: '' });
+  const pending = () => window.dispatchEvent(new CustomEvent('buggcraft:page-pending',{detail:state.pending}));
   const scope = {
     state,
     setTimeout(handler: TimerHandler, delay?: number, ...args: unknown[]): number {
@@ -26,13 +27,13 @@ export function createScope() {
     clearInterval(id?: number) { window.clearInterval(id); if(id !== undefined)timers.delete(id); },
     async fetch(input: RequestInfo | URL, init: RequestInit = {}) {
       if(!active) throw new DOMException('Page closed', 'AbortError');
-      const controller = new AbortController(); controllers.add(controller); state.pending++;
+      const controller = new AbortController(); controllers.add(controller); state.pending++; pending();
       const supplied=init.signal||(input instanceof Request?input.signal:undefined);
       const signal=controller.signal;
       const forwardAbort=()=>controller.abort(supplied?.reason);
       const deadline=window.setTimeout(()=>controller.abort(new DOMException('Request timed out','TimeoutError')),25000);
       let finished=false;
-      const finish=()=>{if(!finished){finished=true;window.clearTimeout(deadline);supplied?.removeEventListener('abort',forwardAbort);controllers.delete(controller);state.pending--;}};
+      const finish=()=>{if(!finished){finished=true;window.clearTimeout(deadline);supplied?.removeEventListener('abort',forwardAbort);controllers.delete(controller);state.pending--;pending();}};
       signal.addEventListener('abort',finish,{once:true});
       if(supplied?.aborted)forwardAbort();else supplied?.addEventListener('abort',forwardAbort,{once:true});
       try {
@@ -100,6 +101,9 @@ export function mountPage(initialize: (scope:PageScope,views:ReturnType<typeof c
     },
   }));
   application.mount(host);
+  window.dispatchEvent(new Event('buggcraft:page-ready'));
+  const leave=()=>{application.unmount();host.remove();window.removeEventListener('pagehide',close);window.removeEventListener('buggcraft:before-navigate',leave);};
+  window.addEventListener('buggcraft:before-navigate',leave,{once:true});
   const close=(event:PageTransitionEvent)=>{if(!event.persisted){application.unmount();host.remove();window.removeEventListener('pagehide',close);}};
   window.addEventListener('pagehide',close);
 }

@@ -158,9 +158,9 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(list(self.logs.glob('*.part')))
 
     async def direct_pair(self, directory, allow_mod_transfer=True, limit=512):
-        from tests.test_peer_stun_fallback import StunResponder, TcpOnlyRelay, SlowGate
+        from tests.test_peer_stun_fallback import StunResponder, SlowGate
+        from tests.network_proxy import TcpOnlyRelay
 
-        loop = asyncio.get_running_loop()
         local_ip = next((ip for ip in socket.gethostbyname_ex(socket.gethostname())[2]
                          if not ipaddress.ip_address(ip).is_loopback), None)
         if local_ip is None:
@@ -168,13 +168,10 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
         relay = await TcpOnlyRelay(self.node.port).start(local_ip)
         self.addAsyncCleanup(relay.close)
         self.profile = dict(self.profile, server_host=local_ip, server_port=relay.port)
-        alternative = await TcpOnlyRelay(self.node.port).start(local_ip)
+        alternative = await TcpOnlyRelay(self.node.port).start(local_ip, StunResponder)
         alternative.allowed = [SlowGate(), SlowGate()]
         self.addAsyncCleanup(alternative.close)
-        stun_transport, _ = await loop.create_datagram_endpoint(
-            StunResponder, local_addr=(local_ip, alternative.port))
-        self.addCleanup(stun_transport.close)
-        stun_port = stun_transport.get_extra_info('sockname')[1]
+        stun_port = alternative.port
 
         async def add_with_stun(process):
             code = 'buggnode1-' + base64.urlsafe_b64encode(

@@ -122,7 +122,11 @@ Json Ssh::exchange(ssh_channel channel,const Json& value,int timeout_seconds) {
         std::string line;char buffer[4096];const auto deadline=Clock::now()+std::chrono::seconds(timeout_seconds);
         while(line.find('\n')==std::string::npos){int n=ssh_channel_read_nonblocking(channel,buffer,sizeof(buffer),0);if(n>0)line.append(buffer,static_cast<size_t>(n));else if(n==SSH_ERROR||ssh_channel_is_eof(channel)||Clock::now()>deadline)throw Failure(-32000,"Node response failed");else{PollFd descriptor{fd(),POLLIN,0};net_poll(&descriptor,1,10);}if(line.size()>65536)throw Failure(-32000,"Node response exceeds limit");}
         auto result=Json::parse(line.substr(0,line.find('\n')));
-        if(!result.is_object()||!result.value("ok",false)||!result.contains("result"))throw Failure(-32000,"Room operation rejected");return result["result"];
+        if(!result.is_object()||!result.value("ok",false)||!result.contains("result")){
+            const auto reason=result.is_object()&&result.contains("error")&&result["error"].is_string()
+                ?result["error"].get<std::string>():std::string{};
+            throw Failure(-32000,reason.empty()||reason.size()>200?"Room operation rejected":"Room operation rejected: "+reason);
+        }return result["result"];
 }
 double Ssh::ping(){
     // Prepare the transport and subsystem before timing. Reuse one channel so

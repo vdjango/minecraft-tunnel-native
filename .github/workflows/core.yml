@@ -3,11 +3,46 @@ on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
 jobs:
+  web:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+        working-directory: .
+      - run: python -m pip install playwright==1.64.0
+      - run: python -m playwright install --with-deps chromium
+      - name: Verify node uptime survives restart
+        working-directory: .
+        run: python -m unittest tests.test_node_uptime tests.test_friend_codes_http -v
+      - name: Exercise built support pages in Chromium
+        working-directory: .
+        run: python -m unittest tests.test_support_browser -v
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: support-page-browser-screenshots
+          path: build/web-browser-artifacts/
+          if-no-files-found: warn
+
   protocol:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2022, macos-14, macos-15-intel]
+        os: [ubuntu-24.04, windows-2022, macos-15, macos-15-intel]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +54,7 @@ jobs:
         shell: bash
         run: |
           python scripts/release_assets.py version --github-output "$GITHUB_OUTPUT"
-          python -m unittest tests.test_build_tools tests.test_release_assets -v
+          python -m unittest tests.test_build_tools tests.test_release_assets tests.test_network_proxy -v
       - name: Ubuntu build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libssl-dev libcurl4-openssl-dev ninja-build dpkg-dev
@@ -42,7 +77,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Configure macOS
         if: runner.os == 'macOS'
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)"
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)"
       - name: Build native runtime
         run: python -u scripts/build_native.py
       - run: ctest --test-dir build --build-config Release --output-on-failure
@@ -164,7 +199,7 @@ jobs:
           if-no-files-found: warn
 
   release:
-    needs: protocol
+    needs: [protocol, web]
     if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
     runs-on: ubuntu-24.04
     permissions:
@@ -195,7 +230,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          options=(--verify-tag --title "Minecraft Tunnel Native $RELEASE_TAG" --generate-notes)
+          options=(--verify-tag --title "Minecraft Tunnel Native $RELEASE_TAG")
+          if [[ -f "docs/releases/$RELEASE_TAG.md" ]]; then
+            options+=(--notes-file "docs/releases/$RELEASE_TAG.md")
+          else
+            options+=(--generate-notes)
+          fi
           if [[ "$RELEASE_TAG" == *-* ]]; then options+=(--prerelease); fi
           if draft=$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null); then
             if [[ "$draft" != true ]]; then

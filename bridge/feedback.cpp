@@ -20,9 +20,12 @@ std::string read_line(Ssh& ssh, ssh_channel channel,
         const int count = ssh_channel_read_nonblocking(channel, buffer.data(),
                                                         static_cast<uint32_t>(buffer.size()), 0);
         if (count > 0) line.append(buffer.data(), static_cast<size_t>(count));
-        else if (count == SSH_ERROR || ssh_channel_is_eof(channel) ||
-                 std::chrono::steady_clock::now() > deadline)
-            throw Failure(-32000, "Feedback node response failed");
+        else if (count == SSH_ERROR)
+            throw Failure(-32000, "Feedback node read failed");
+        else if (ssh_channel_is_eof(channel))
+            throw Failure(-32000, "Feedback node closed the upload before sending a response");
+        else if (std::chrono::steady_clock::now() > deadline)
+            throw Failure(-32000, "Feedback node response timed out");
         else { PollFd descriptor{ssh.fd(), POLLIN, 0}; net_poll(&descriptor, 1, 20); }
         if (line.size() > 8192) throw Failure(-32000, "Feedback node response too large");
     }
@@ -46,8 +49,12 @@ void write_all(Ssh& ssh, ssh_channel channel, const char* data, size_t size,
 Json response_line(Ssh& ssh, ssh_channel channel,
                    std::chrono::steady_clock::time_point deadline) {
     auto value = Json::parse(read_line(ssh, channel, deadline));
-    if (!value.is_object() || !value.value("ok", false))
-        throw Failure(-32000, "Feedback node rejected the upload");
+    if (!value.is_object() || !value.value("ok", false)) {
+        const auto reason = value.is_object() && value.contains("error") && value["error"].is_string()
+            ? value["error"].get<std::string>() : std::string{};
+        throw Failure(-32000, reason.empty() || reason.size() > 200
+            ? "Feedback node rejected the upload" : "Feedback node rejected the upload: " + reason);
+    }
     return value;
 }
 }

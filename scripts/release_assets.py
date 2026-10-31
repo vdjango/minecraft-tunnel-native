@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PLATFORMS = {
     "ubuntu-24.04": "linux-x64",
     "windows-2022": "windows-x64",
-    "macos-14": "macos-arm64",
+    "macos-15": "macos-arm64",
     "macos-15-intel": "macos-x64",
 }
 TAG_PATTERN = re.compile(r"v(\d+\.\d+\.\d+)(?:-(alpha|beta|rc)\.(\d+))?")
