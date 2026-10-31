@@ -67,6 +67,7 @@ function accountEntry(view='login') {
   document.title=(view==='register'?'注册账号':'账号登录')+' · Buggcraft';
   $('page-title').textContent=view==='register'?'注册账号':'账号登录';
   $('recovery-import').hidden=view==='register';
+  document.dispatchEvent(new CustomEvent('launcher-account-state',{detail:{authenticated:false}}));
 }
 $('show-register').onclick=()=>accountEntry('register');
 $('back-to-login').onclick=()=>accountEntry();
@@ -215,7 +216,9 @@ async function showAccount() {
   if(vault?.email && !$('bind-email').value) $('bind-email').value=vault.email;
   renderIdentityFields();$('account-save').disabled=false;$('account-export').disabled=false;
   accountView(accountLauncherRequest?'access':returnView || (next.startsWith('/account/')?next.split('/').pop():location.pathname.startsWith('/account/')?location.pathname.split('/').pop():'overview'));
+  document.dispatchEvent(new CustomEvent('launcher-account-state',{detail:{authenticated:true,username:me.username}}));
   returnView=null;
+  if(accountLauncherRequest)return;
   if(next==='/feedback'||next==='/feedback?new=1'){location.assign(next);return;}
   try{await refreshFriends();}catch(e){feedback('friend-feedback',e);}
 }
@@ -289,22 +292,6 @@ $('account-save').onclick=async()=>{
     await showAccount();$('account-feedback').textContent='已按所选策略加密保存；副本状态以实际在线确认数量为准。';
   }catch(e){feedback('account-feedback',e);}finally{button.disabled=false;}
 };
-$('account-connect').onclick=async()=>{
-  const button=$('account-connect');button.disabled=true;
-  try {
-    if(!await requireIdentity('生成接入码需要确认账号身份'))return;
-    const result=await api('/api/profile',{format:Number($('access-code-format').value)});
-    if(result.identity!=='account') throw new Error('登录已过期，请重新登录后生成个人启动器接入码。');
-    const claims=JSON.parse(textDecoder.decode(from64(result.credential.split('.')[1])));
-    const expected={kty:launcherKey.kty,crv:launcherKey.crv,x:launcherKey.x,y:launcherKey.y};
-    if(JSON.stringify(ordered(claims.g?.d))!==JSON.stringify(ordered(expected))) throw new Error('账号已在其他标签页重新登录，请在当前页面验证密码后再生成接入码。');
-    if(result.code.startsWith('buggnode1-')) {
-      const profile={...result.profile,token:result.credential+'~'+launcherKey.d};
-      $('player-code').value='buggnode1-'+bytes64(utf8.encode(JSON.stringify(profile)));
-    } else $('player-code').value=result.code+'~'+launcherKey.d;
-    $('personal-result').hidden=false;$('connect-feedback').textContent='已生成。请妥善保管，不要发给他人。';
-  }catch(e){feedback('account-feedback',e);}finally{button.disabled=false;}
-};
 $('account-export').onclick=async()=>{const button=$('account-export');button.disabled=true;try{if(await requireIdentity('下载恢复文件需要确认账号身份'))exportRecovery(accountRecord);}catch(e){feedback('account-feedback',e);}finally{button.disabled=false;}};
 $('account-import').onchange=async event=>{
   try { const file=event.target.files[0];if(!file) return;if(file.size>20000) throw new Error('恢复文件过大。');
@@ -313,7 +300,7 @@ $('account-import').onchange=async event=>{
   }catch(e){feedback('account-feedback',e);}finally{event.target.value='';}
 };
 $('account-logout').onclick=async()=>{
-  try{await api('/api/account/logout',{});identityKey=null;vault=null;accountRecord=null;importedRecord=null;unlockedPassword='';accountCSRF='';launcherKey=null;loginGrant=null;loginProof=null;accountEntry();$('account-password').value='';$('account-notes').value='';$('account-nickname').value='';$('player-code').value='';$('personal-result').hidden=true;$('connect-feedback').textContent='';$('account-feedback').textContent='已退出。已复制的个人启动器接入码在原有效期内仍可用。';await refresh();}catch(e){feedback('account-feedback',e);}
+  try{await api('/api/account/logout',{});identityKey=null;vault=null;accountRecord=null;importedRecord=null;unlockedPassword='';accountCSRF='';launcherKey=null;loginGrant=null;loginProof=null;accountEntry();$('account-password').value='';$('account-notes').value='';$('account-nickname').value='';$('account-feedback').textContent='已退出网页账号。启动器登录可在「安全与备份」中单独撤销。';await refresh();}catch(e){feedback('account-feedback',e);}
 };
 // Refresh acknowledgements without overwriting settings the user is editing.
 let backupRefreshing=false;
@@ -321,6 +308,6 @@ setInterval(async()=>{
   if(backupRefreshing || document.hidden || $('account-panel').hidden) return;
   backupRefreshing=true;
   try { renderBackupStatus((await api('/api/account/me')).backup);await refreshFriends(); }
-  catch(e){if(e.status===401){identityKey=null;vault=null;accountRecord=null;unlockedPassword='';launcherKey=null;loginGrant=null;loginProof=null;$('player-code').value='';$('personal-result').hidden=true;accountEntry();$('account-feedback').textContent='登录已过期，请重新登录。';}else feedback('account-feedback',e);}
+  catch(e){if(e.status===401){identityKey=null;vault=null;accountRecord=null;unlockedPassword='';launcherKey=null;loginGrant=null;loginProof=null;accountEntry();$('account-feedback').textContent='登录已过期，请重新登录。';}else feedback('account-feedback',e);}
   finally { backupRefreshing=false; }
 },5000);

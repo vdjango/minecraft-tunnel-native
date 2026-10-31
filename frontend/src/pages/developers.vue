@@ -13,7 +13,7 @@ defineProps<{seed:Record<string,string>}>();
         <a href="#overview">接入方式</a><a href="#quickstart">开始接入</a><a href="#directory-api">节点和房间</a>
         <a href="#rooms-api">连接方式</a><a href="#lobby-api">准备与成员</a><a href="#mods-api">模组同步</a><a href="#status-api">全网状态口径</a><a href="#recovery-api">故障与备用</a><a href="#friends-api">账号与好友</a><a href="#examples">语言示例</a><a href="#operations-api">节点开发与运维</a><a href="#security-api">安全与测试</a>
       </nav>
-      <div class="docs-side-files"><span>协议与参考代码</span><a href="#protocol">分层协议索引</a><a href="#examples">各语言接入示例</a><a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/development.md">仓库开发指南 ↗</a></div>
+      <div class="docs-side-files"><span>协议与参考代码</span><a href="#protocol">分层协议索引</a><a href="#examples">各语言接入示例</a><a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/节点开发指南.md">仓库开发指南 ↗</a></div>
     </div></aside>
     <div class="docs-content">
       <section class="docs-hero" aria-labelledby="guide-title">
@@ -27,8 +27,8 @@ defineProps<{seed:Record<string,string>}>();
         <div class="docs-section-heading"><span>01 / OVERVIEW</span><h2>一个桥接层，覆盖不同连接环境</h2><p>推荐通过启动器随附或安装的 Buggcraft bridge 子进程接入。进程负责节点身份、房间信令、P2P 与中继切换。</p></div>
         <div class="docs-paths">
           <article class="docs-path"><div class="docs-path-icon">STATUS</div><h3>读取公开状态</h3><p>无需账号即可显示节点在线状态、容量和公开房间。</p><a href="#directory-api">查看目录接口 →</a></article>
-          <article class="docs-path"><div class="docs-path-icon">ROOMS</div><h3>加入游戏房间</h3><p>导入接入码后搜索房间。游戏连接默认尝试 P2P，失败时经节点中转。</p><a href="#rooms-api">查看连接流程 →</a></article>
-          <article class="docs-path"><div class="docs-path-icon">FRIENDS</div><h3>使用账号与好友</h3><p>个人启动器接入码用于识别登录账号；匿名接入可玩联机，但没有好友功能。</p><a href="#friends-api">查看账号说明 →</a></article>
+          <article class="docs-path"><div class="docs-path-icon">ROOMS</div><h3>加入游戏房间</h3><p>填写节点地址并在浏览器授权后搜索房间。游戏连接默认尝试 P2P，失败时经节点中转。</p><a href="#rooms-api">查看连接流程 →</a></article>
+          <article class="docs-path"><div class="docs-path-icon">FRIENDS</div><h3>使用账号与好友</h3><p>在浏览器确认账号与设备后，启动器自动取得个人身份并同步好友。</p><a href="#friends-api">查看账号说明 →</a></article>
         </div>
       </section>
 
@@ -36,17 +36,17 @@ defineProps<{seed:Record<string,string>}>();
         <div class="docs-section-heading"><span>02 / QUICK START</span><h2>用 JSON-RPC 启动桥接进程</h2><p>每行发送一个 JSON-RPC 2.0 请求，每个请求对应一行响应。先初始化协议，再添加节点，之后创建或加入房间。</p></div>
         <ol class="docs-steps">
           <li><strong>下载并启动桥接程序</strong><p>从 <a href="https://github.com/vdjango/minecraft-tunnel-native/actions/workflows/core.yml">原生构建</a> 下载对应系统的产物，解压后随启动器保留完整目录。通过子进程启动 <code>buggcraft-bridge.exe</code>（Windows）或 <code>buggcraft-bridge</code>（Linux/macOS），重定向输入输出并持续消费 stderr；不需要 Python 环境或语言专用 SDK。</p></li>
-          <li><strong>初始化并导入节点</strong><p>调用 <code>bridge.initialize</code>，再用 <code>node.add</code> 导入用户从可信节点取得的接入码。桥接进程负责凭据，不要把凭据写入日志。</p></li>
+          <li><strong>初始化并导入节点</strong><p>用户填写 HTTPS 节点地址，启动器生成设备密钥并调用 <code>POST /api/launcher/start</code>，自动打开返回的网页地址。用户登录并确认设备后，启动器以设备签名轮询 <code>POST /api/launcher/poll</code>，取得节点配置和授权。随后调用 <code>bridge.initialize</code> 和 <code>node.add</code>；配置由启动器编码传入，用户无需复制凭据。</p></li>
           <li><strong>连接房间</strong><p>用 <code>room.list</code> 读取公开目录。邀请码房间由用户提供邀请后调用 <code>room.join</code>；允许直接加入的公开房间先调用 <code>room.resolve</code>。<code>room.host</code> 可设置公开及邀请策略，创建受保护公开房间需节点支持相应能力。</p></li>
           <li><strong>启动游戏并清理会话</strong><p>把返回的 <code>127.0.0.1:端口</code> 交给 Minecraft。退出时调用 <code>room.close</code>；进程关闭时会清理剩余会话。</p></li>
         </ol>
-        <div class="docs-code"><span>启动可执行文件 · 参数不包含任何接入码</span><pre v-pre><code>buggcraft-bridge.exe
+        <div class="docs-code"><span>启动可执行文件 · 命令行不包含授权凭据</span><pre v-pre><code>buggcraft-bridge.exe
 # Linux / macOS: ./buggcraft-bridge
 # 构建信息: buggcraft-bridge --version</code></pre></div>
         <div class="docs-code"><span>请求示例 · node.add 与 room.join</span><pre v-pre><code>{"jsonrpc":"2.0","id":1,"method":"bridge.initialize","params":{"protocol":1}}
-{"jsonrpc":"2.0","id":2,"method":"node.add","params":{"code":"buggnode1-&lt;用户接入码&gt;"}}
+{"jsonrpc":"2.0","id":2,"method":"node.add","params":{"code":"buggnode1-&lt;启动器编码的授权节点配置&gt;"}}
 {"jsonrpc":"2.0","id":3,"method":"room.join","params":{"node":"&lt;返回的节点句柄&gt;","invite":"bugg1-&lt;房间邀请码&gt;","transport":"auto"}}</code></pre></div>
-        <div class="docs-note"><strong>桥接接口的版本边界</strong><p>标准报文采用 JSON-RPC 2.0；方法名、参数、限制和错误码由 Buggcraft 的 v1 profile 定义。不支持 batch 或状态通知，可用 <code>session.list</code> 刷新状态。运行时保留完整发行目录，当前产物未提供受信任签名或 Apple 公证。<a href="https://github.com/vdjango/buggcraft/blob/main/docs/technical/bridge-integration.md">查看桥接发行与接入说明</a>。</p></div>
+        <div class="docs-note"><strong>桥接接口的版本边界</strong><p>标准报文采用 JSON-RPC 2.0；方法名、参数、限制和错误码由 Buggcraft 的 v1 profile 定义。不支持 batch 或状态通知，可用 <code>session.list</code> 刷新状态。运行时保留完整发行目录，当前产物未提供受信任签名或 Apple 公证。<a href="https://github.com/vdjango/buggcraft/blob/main/docs/technical/启动器桥接集成.md">查看桥接发行与接入说明</a>。</p></div>
       </section>
 
       <section id="directory-api" class="docs-section">
@@ -54,7 +54,7 @@ defineProps<{seed:Record<string,string>}>();
         <div class="docs-table-wrap"><table class="docs-table"><caption>目录能力</caption><thead><tr><th scope="col">接口</th><th scope="col">用途</th></tr></thead><tbody>
           <tr><td><code>GET /api/status</code></td><td>读取公开状态；<code>players</code> 是存活联邦桥会话总数，容量、路径和游戏人数仍属本节点，详见<a href="#status-api">指标口径</a>。</td></tr>
           <tr><td><code>GET /api/account/players</code></td><td>账号登录后读取全网在线摘要；须处理 <code>partial</code> 和 <code>unavailable_nodes</code>，不提供管理员诊断日志。</td></tr>
-          <tr><td><code>node.add</code></td><td>验证并导入接入码，返回进程内使用的不透明节点句柄。</td></tr>
+          <tr><td><code>node.add</code></td><td>验证启动器取得的授权节点配置，返回进程内使用的不透明节点句柄。</td></tr>
           <tr><td><code>node.selected / node.routes</code>（原生桥）</td><td>读取综合延迟、负载及剩余名额选出的入口和备用线路。</td></tr>
           <tr><td><code>bridge.events</code>（原生桥）</td><td>读取并消费线路切换提示，使用非弹窗提示告知用户。</td></tr>
           <tr><td><code>room.list</code></td><td>分页获取公开房间；传入 offset，最多返回 50 项。</td></tr>
@@ -117,7 +117,7 @@ defineProps<{seed:Record<string,string>}>();
 {"jsonrpc":"2.0","id":21,"method":"mods.status","params":{"session":"&lt;访客session&gt;","transfer":"&lt;transfer&gt;","offset":0}}
 {"jsonrpc":"2.0","id":22,"method":"mods.fetch","params":{"session":"&lt;访客session&gt;","item":{"name":"example.jar","size":1234,"sha256":"&lt;清单中的SHA-256&gt;"},"target":"&lt;实例&gt;/mods/example.jar"}}
 {"jsonrpc":"2.0","id":23,"method":"mods.cancel","params":{"session":"&lt;访客session&gt;","transfer":"&lt;已完成的transfer&gt;"}}</code></pre></div>
-        <p>访客异步任务完成后读取 <code>items,offset,total</code>，以 <code>offset + items.length</code> 请求下一页，直到到达 <code>total</code>；每页最多 50 项。最多 4 个活动传输、16 条保留任务。私密房间跨节点不公开环境与标题；缺少环境字段不代表原版或完全匹配。哈希相同不证明模组安全。完整约束见<a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/protocol/game-metadata.md">游戏环境与模组同步</a>。</p>
+        <p>访客异步任务完成后读取 <code>items,offset,total</code>，以 <code>offset + items.length</code> 请求下一页，直到到达 <code>total</code>；每页最多 50 项。最多 4 个活动传输、16 条保留任务。私密房间跨节点不公开环境与标题；缺少环境字段不代表原版或完全匹配。哈希相同不证明模组安全。完整约束见<a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/protocol/游戏环境与模组同步.md">游戏环境与模组同步</a>。</p>
       </section>
 
       <section id="status-api" class="docs-section">
@@ -134,22 +134,22 @@ defineProps<{seed:Record<string,string>}>();
 
       <section id="recovery-api" class="docs-section">
         <div class="docs-section-heading"><span>FAILURE RECOVERY</span><h2>备用节点有上限，游戏连接需要重新加入</h2><p>房主桥选路决定新房间承载节点，联邦传播签名归属；访客先定位，再连接该节点，没有全网选主投票。</p></div>
-        <div class="docs-flow" aria-label="节点恢复流程"><div><span>DISCOVERY</span><strong>预先缓存可信入口</strong><small>固定公钥与有效凭据</small></div><b aria-hidden="true">→</b><div><span>RECONNECT</span><strong>失联后清理并重建</strong><small>创建时的候选，有界退避</small></div><b aria-hidden="true">→</b><div><span>STOP</span><strong>全部失效明确停止</strong><small>重新探测或更新接入码</small></div></div>
+        <div class="docs-flow" aria-label="节点恢复流程"><div><span>DISCOVERY</span><strong>预先缓存可信入口</strong><small>固定公钥与有效凭据</small></div><b aria-hidden="true">→</b><div><span>RECONNECT</span><strong>失联后清理并重建</strong><small>创建时的候选，有界退避</small></div><b aria-hidden="true">→</b><div><span>STOP</span><strong>全部失效明确停止</strong><small>重新探测或浏览器重新登录</small></div></div>
         <p>Buggcraft 启动器持久缓存最多 32 个入口，刷新失败或空拓扑保留最近有效结果；其他启动器须自行实现。桥导入最多 5 个备用配置，活动会话不会自动订阅后续新增候选。</p>
         <p>首次创建失败会返回错误，不留下永久重试任务；活动会话 SSH 失联后进入 <code>reconnecting</code>，连续失败最多延迟重试 6 次，间隔 1/2/4/8/10/10 秒，连接耗时另计。最终 <code>stopped</code>、原因 <code>backup-unavailable</code>；成功重建重置次数。</p>
-        <div class="docs-note"><strong>不能承诺无缝恢复</strong><p>仅 P2P 失效时，新游戏连接可经健康节点中继；SSH 故障会清理该会话的游戏流与 P2P。没有 TCP 状态复制，房主/访客独立尝试也可能落到不同节点。不要关闭公钥验证来恢复连接；所有备用不可用时提示可信来源更新接入码。详见<a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/launcher-federation-flow.md">联机与联邦流程图</a>及<a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/protocol/compatibility.md">兼容文档</a>。</p></div>
+        <div class="docs-note"><strong>不能承诺无缝恢复</strong><p>仅 P2P 失效时，新游戏连接可经健康节点中继；SSH 故障会清理该会话的游戏流与 P2P。没有 TCP 状态复制，房主/访客独立尝试也可能落到不同节点。不要关闭公钥验证来恢复连接；所有备用不可用时提示检查节点地址并在浏览器重新登录。详见<a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/启动器联邦接入流程.md">联机与联邦流程图</a>及<a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/protocol/连接恢复与兼容.md">兼容文档</a>。</p></div>
       </section>
 
       <section id="friends-api" class="docs-section">
-        <div class="docs-section-heading"><span>06 / ACCOUNTS &amp; FRIENDS</span><h2>登录账号与匿名联机分开</h2><p>匿名接入可以添加节点和加入房间，但不显示好友入口。好友需要账号身份、对方同意以及可达的联邦目录。</p></div>
-        <div class="docs-flow" aria-label="个人身份接入步骤"><div><span>01</span><strong>节点网页登录</strong><small>注册或登录</small></div><b aria-hidden="true">→</b><div><span>02</span><strong>领取个人启动器接入码</strong><small>主动导入启动器</small></div><b aria-hidden="true">→</b><div><span>03</span><strong>搜索并添加好友</strong><small>双方确认</small></div></div>
+        <div class="docs-section-heading"><span>06 / ACCOUNTS &amp; FRIENDS</span><h2>浏览器登录与设备授权</h2><p>启动器使用节点地址发起浏览器登录，授权成功后自动返回大厅并同步好友。好友需要账号身份、对方同意以及可达的联邦目录。旧版匿名客户端仍按原权限处理。</p></div>
+        <div class="docs-flow" aria-label="个人身份接入步骤"><div><span>01</span><strong>节点网页登录</strong><small>注册或登录</small></div><b aria-hidden="true">→</b><div><span>02</span><strong>在浏览器确认设备</strong><small>启动器自动取得授权</small></div><b aria-hidden="true">→</b><div><span>03</span><strong>搜索并添加好友</strong><small>双方确认</small></div></div>
         <div class="docs-split"><article class="docs-info-card"><h3>跨节点用户名搜索</h3><p>联邦节点同步公开用户名、账号 ID 和公钥。用户名目录不包含密码；查询结果不代表已经获得好友或房间权限。</p></article><article class="docs-info-card"><h3>登录与备份</h3><p>没有额外持久备份时，其他入口仍可路由到在线注册节点登录；注册节点不可用时需恢复文件。用户授权的加密副本可提供额外恢复来源，公开用户名目录本身不能恢复账号。</p></article></div>
         <div class="docs-code"><span>个人身份通过本机桥查询好友目录；account_lookup 不是独立 JSON-RPC 方法</span><pre v-pre><code>{"jsonrpc":"2.0","id":30,"method":"node.request","params":{"node":"&lt;node&gt;","request":{"op":"account_lookup","identifier":"alex"}}}</code></pre></div>
-        <div class="docs-note"><strong>个人启动器接入码是授权凭据</strong><p>新版接入码只包含签发节点的 HTTPS 地址和随机兑换引用，不再把节点连接配置直接编码进字符串；桥通过 HTTPS 兑换，最长有效 7 天。旧版接入码仍可导入。兑换后桥仍需取得节点连接地址，因此这不是端到端隐藏服务器地址的加密方案。持有该码的设备可代表账号操作；使用系统安全存储保护接入码，不要写入日志或公开配置文件。</p></div>
+        <div class="docs-note"><strong>设备授权与保持登录</strong><p>设备私钥保存在操作系统凭据库中。用户在浏览器确认当前账号与设备；临时授权有效 8 小时，保持登录时 30 天未使用失效、最长 180 天。设备使用签名挑战续期，用户可在安全设置撤销授权。网页不再提供旧版凭据生成入口；已有客户端继续通过兼容接口连接。</p></div>
       </section>
 
       <section id="examples" class="docs-section">
-        <div class="docs-section-heading"><span>07 / CODE EXAMPLES</span><h2>各语言复用同一个接口</h2><p>下列示例按语言分开。Java、C#、Python 展示本机子进程管道；C 和 C++ 展示官方 C ABI。接入码、邀请码和游戏启动函数由你的启动器提供，协议方法与返回结构保持一致。</p></div>
+        <div class="docs-section-heading"><span>07 / CODE EXAMPLES</span><h2>各语言复用同一个接口</h2><p>下列示例按语言分开。Java、C#、Python 展示本机子进程管道；C 和 C++ 展示官方 C ABI。授权节点配置、房间邀请码和游戏启动函数由你的启动器提供，协议方法与返回结构保持一致。</p></div>
         <div class="docs-samples">
           <details class="docs-sample" open><summary><span>Python</span><small>subprocess + JSON</small></summary><pre v-pre><code>import json, subprocess
 p = subprocess.Popen([bridge_path], stdin=subprocess.PIPE,
@@ -161,7 +161,7 @@ def rpc(i, method, params):
     if "error" in reply: raise RuntimeError(reply["error"]["message"])
     return reply["result"]
 rpc(1, "bridge.initialize", {"protocol":1})
-node = rpc(2, "node.add", {"code": access_code})["node"]
+node = rpc(2, "node.add", {"code": encoded_profile})["node"]
 room = rpc(3, "room.join", {"node":node, "invite":invite, "transport":"auto"})
 launch_minecraft(room["address"])
 rpc(4, "room.close", {"session":room["session"]})</code></pre></details>
@@ -213,7 +213,7 @@ java.util.function.BiFunction&lt;String, java.util.Map&lt;String,Object&gt;, com
   } catch (java.io.IOException e) { throw new RuntimeException(e); }
 };
 rpc.apply("bridge.initialize", java.util.Map.of("protocol",1));
-var node=rpc.apply("node.add", java.util.Map.of("code",accessCode)).get("node").asText();
+var node=rpc.apply("node.add", java.util.Map.of("code",encodedProfile)).get("node").asText();
 var room=rpc.apply("room.join", java.util.Map.of("node",node, "invite",invite, "transport","auto"));
 launchMinecraft(room.get("address").asText());
 rpc.apply("room.close", java.util.Map.of("session",room.get("session").asText()));</code></pre></details>
@@ -228,7 +228,7 @@ async System.Threading.Tasks.Task&lt;System.Text.Json.JsonElement&gt; Rpc(int id
   return root.GetProperty("result").Clone();
 }
 await Rpc(1,"bridge.initialize",new { protocol=1 });
-var node=(await Rpc(2,"node.add",new { code=accessCode })).GetProperty("node").GetString();
+var node=(await Rpc(2,"node.add",new { code=encodedProfile })).GetProperty("node").GetString();
 var room=await Rpc(3,"room.join",new { node, invite, transport="auto" });
 LaunchMinecraft(room.GetProperty("address").GetString());
 await Rpc(4,"room.close",new { session=room.GetProperty("session").GetString() });</code></pre></details>
@@ -245,30 +245,30 @@ await Rpc(4,"room.close",new { session=room.GetProperty("session").GetString() }
           <li><strong>按阶段排查</strong><p>依次核对认证会话、世界 ready/waiting、本机回环监听、游戏流及握手拒绝；网页能打开不等于桥已认证。</p></li>
           <li><strong>合并桥与节点证据</strong><p>查看桥事件/stderr、P2P 回退、SSH 重连、EOF、背压和诊断丢弃/写盘错误。P2P 不经过节点，节点转发量为零可正常；没有上报的 RTT 不能显示成 0 ms。</p></li>
         </ol>
-        <p>模块职责与回归命令见<a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/development.md">节点开发指南</a>；代理和实际 systemd 权限见<a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/deployment.md">部署指南</a>。安装包模板变化不会自动改写既有自定义 unit。</p>
+        <p>模块职责与回归命令见<a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/节点开发指南.md">节点开发指南</a>；代理和实际 systemd 权限见<a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/节点部署指南.md">部署指南</a>。安装包模板变化不会自动改写既有自定义 unit。</p>
       </section>
 
       <section id="security-api" class="docs-section">
         <div class="docs-section-heading"><span>08 / RELEASE CHECK</span><h2>上线前逐项验证</h2><p>请在自己部署的节点上完成端到端测试，并明确告诉用户连接状态和路径。</p></div>
         <ul class="docs-checklist">
           <li>验证 SSH 节点公钥和 HTTPS 证书；身份不匹配时中止连接。</li>
-          <li>接入码放入操作系统安全存储；日志隐藏 token、邀请码和签名私钥。</li>
+          <li>设备密钥和授权凭据放入操作系统安全存储；日志隐藏 token、邀请码和签名私钥。</li>
           <li>本地游戏地址仅监听回环接口；房间退出后释放端口与后台任务。</li>
           <li>测试 P2P 自动连接、P2P 失败回退、仅中继和同房间混合连接。</li>
           <li>测试容量上限、邀请码错误、节点失联、登录过期、匿名用户权限和好友双方确认。</li>
           <li>说明中继不会使房间会话自动迁移；节点恢复或更换后需重新加入。</li>
           <li>测试全部备用失效后的停止原因和重新探测入口；不以无限重试掩盖失败。</li>
         </ul>
-        <div class="docs-note"><strong>握手过滤和官方桥识别的限制</strong><p>房主原生桥在写入本机游戏服务前检查首个 Minecraft Handshake，原生桥的未完成握手期限为 10 秒；合法握手后允许后续游戏数据。这不持续验证全部游戏包，也不能证明官方二进制。持有效凭据且实现相同协议的第三方仍可通信；SHA-256 校验也不是代码签名。边界见<a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/security.md">安全说明</a>。</p></div>
+        <div class="docs-note"><strong>握手过滤和官方桥识别的限制</strong><p>房主原生桥在写入本机游戏服务前检查首个 Minecraft Handshake，原生桥的未完成握手期限为 10 秒；合法握手后允许后续游戏数据。这不持续验证全部游戏包，也不能证明官方二进制。持有效凭据且实现相同协议的第三方仍可通信；SHA-256 校验也不是代码签名。边界见<a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/节点安全边界.md">安全说明</a>。</p></div>
       </section>
       <section id="protocol" class="docs-section">
         <div class="docs-section-heading"><span>09 / PROTOCOL MAP</span><h2>协议按层拆开，各自解决一件事</h2><p>启动器只需接入本机桥。目录、联邦和游戏传输由原生组件处理；需要自行实现节点服务或底层客户端时，再阅读相应协议。</p></div>
         <div class="docs-protocol-lead"><strong>推荐路径</strong><span>JSON-RPC 2.0 → 本机原生桥 → 节点控制与游戏连接</span><a href="#examples">按语言查看示例 ↓</a></div>
         <div class="docs-protocol-stack">
-          <article><span>01 · 启动器接口</span><h3>JSON-RPC 2.0 over stdio</h3><p>一行一个 UTF-8 请求，桥返回一行响应。也可通过 C ABI 调用同样的方法。</p><a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/protocol/launcher-bridge.md">启动器桥接规范 ↗</a></article>
-          <article><span>02 · 节点目录</span><h3>SSH + JSON Lines</h3><p>节点目录、房间查询和权限校验由桥调用；启动器无需直连或拼接内部请求。</p><a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/protocol/directory.md">房间目录规范 ↗</a></article>
-          <article><span>03 · 节点联邦</span><h3>签名公告与存活同步</h3><p>节点用签名公告交换成员和目录状态。签名证明来源，不代表成员内容可信。</p><a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/protocol/federation.md">联邦同步规范 ↗</a></article>
-          <article><span>04 · 游戏数据</span><h3>WebRTC 或 SSH 中继</h3><p>直连使用 DTLS/SCTP；自动模式失败后走 SSH 中继。既有游戏连接不会透明迁移。</p><a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/protocol/transports.md">游戏传输协议 ↗</a></article>
+          <article><span>01 · 启动器接口</span><h3>JSON-RPC 2.0 over stdio</h3><p>一行一个 UTF-8 请求，桥返回一行响应。也可通过 C ABI 调用同样的方法。</p><a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/protocol/启动器桥接协议.md">启动器桥接规范 ↗</a></article>
+          <article><span>02 · 节点目录</span><h3>SSH + JSON Lines</h3><p>节点目录、房间查询和权限校验由桥调用；启动器无需直连或拼接内部请求。</p><a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/protocol/房间目录协议.md">房间目录规范 ↗</a></article>
+          <article><span>03 · 节点联邦</span><h3>签名公告与存活同步</h3><p>节点用签名公告交换成员和目录状态。签名证明来源，不代表成员内容可信。</p><a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/protocol/联邦与存活状态.md">联邦同步规范 ↗</a></article>
+          <article><span>04 · 游戏数据</span><h3>WebRTC 或 SSH 中继</h3><p>直连使用 DTLS/SCTP；自动模式失败后走 SSH 中继。既有游戏连接不会透明迁移。</p><a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/protocol/游戏传输协议.md">游戏传输协议 ↗</a></article>
         </div>
         <div class="docs-protocol-reference">
           <div class="docs-section-heading"><span>JSON-RPC PROFILE V1</span><h3>消息怎么收发</h3><p>协议版本字段为 <code>"2.0"</code>，桥配置协议为 <code>1</code>；不支持 batch。stdout 只承载响应，诊断信息写 stderr。</p></div>
@@ -290,7 +290,7 @@ await Rpc(4,"room.close",new { session=room.GetProperty("session").GetString() }
             <tr><td><code>-32022</code></td><td>没有可接纳新房间的节点容量</td><td>更新路由或稍后重试，不能当成凭据错误。</td></tr>
           </tbody></table></div>
         </div>
-        <div class="docs-protocol-links"><a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/PROTOCOL_STANDARD.md">打开协议总索引 ↗</a><a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/protocol/README.md">浏览分层文档 ↗</a><a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/protocol/examples.md">语言选择与接入约定 ↗</a></div>
+        <div class="docs-protocol-links"><a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/PROTOCOL_STANDARD.md">打开协议总索引 ↗</a><a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/protocol/协议索引.md">浏览分层文档 ↗</a><a href="https://github.com/vdjango/minecraft-tunnel-native/blob/main/docs/protocol/协议调用示例.md">语言选择与接入约定 ↗</a></div>
       </section>
       <footer class="docs-footer"><span>BUGGCRAFT / LAUNCHER GUIDE</span><a href="#guide-title">回到开头 ↑</a></footer>
     </div>

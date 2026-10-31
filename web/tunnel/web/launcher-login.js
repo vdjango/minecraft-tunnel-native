@@ -3,15 +3,43 @@ const launcherRequest = accountLauncherRequest;
 const launcherApproval = $('launcher-approval');
 const accountPanel = $('account-panel');
 if (launcherRequest && launcherApproval) {
-  launcherApproval.hidden = false;
-  document.querySelectorAll('[data-view]').forEach(section => {section.hidden = true;});
-  if (accountPanel && !accountPanel.hidden) accountPanel.hidden = true;
+  let requestReady = false;
+  $('launcher-approve').disabled = true;
+  launcherApproval.style.maxWidth = '640px';
+  launcherApproval.style.margin = '24px auto';
+  const accountLine = document.createElement('p');accountLine.id = 'launcher-account-name';
+  launcherApproval.querySelector('h2').after(accountLine);
+  const switchAccount = document.createElement('button');
+  switchAccount.id = 'launcher-switch-account';switchAccount.type = 'button';
+  switchAccount.className = 'secondary';switchAccount.textContent = '切换账号';
+  launcherApproval.querySelector('.action-buttons').append(switchAccount);
+  switchAccount.onclick = () => $('account-logout').click();
+  function showLauncherAccount(state) {
+    const authenticated = !!state.authenticated;
+    launcherApproval.hidden = !authenticated;
+    if(authenticated) {
+      accountPanel.hidden = true;
+      $('account-login').hidden = true;$('account-register').hidden = true;
+      accountLine.textContent = '当前账号：' + state.username;
+      $('page-title').textContent = '登录启动器';
+      $('page-description').textContent = '核对当前账号和设备后确认，启动器将自动返回大厅。';
+    } else {
+      $('launcher-device-feedback').textContent = '';
+      $('launcher-approve').textContent = '确认登录这台启动器';
+      $('launcher-approve').disabled = !requestReady;
+      $('page-title').textContent = '登录并连接启动器';
+      $('page-description').textContent = '先登录节点账号，再确认要连接的启动器设备。';
+    }
+  }
+  document.addEventListener('launcher-account-state',event => showLauncherAccount(event.detail));
+  showLauncherAccount({authenticated:false});
   api('/api/launcher/info?id=' + encodeURIComponent(launcherRequest)).then(info => {
     $('launcher-device-name').textContent = info.name;
     $('launcher-device-policy').textContent = info.remember
       ? '保持登录：30 天未使用失效，最长 180 天。请核对启动器中显示的设备指纹。'
       : '仅授权 8 小时。请核对启动器中显示的设备指纹。';
     $('launcher-device-fingerprint').textContent = info.fingerprint;
+    requestReady = true;$('launcher-approve').disabled = false;
   }).catch(error => {$('launcher-device-feedback').textContent = error.message;$('launcher-approve').disabled = true;});
 }
 if ($('launcher-approve')) $('launcher-approve').onclick = async () => {
@@ -23,7 +51,7 @@ if ($('launcher-approve')) $('launcher-approve').onclick = async () => {
         grant.r !== launcherRequest || grant.p !== 'buggcraft-launcher-device-v1')
       throw new Error('设备授权请求不匹配，请回到启动器重新登录。');
     await api('/api/launcher/approve', {id: launcherRequest, signature: await signBytes(identityKey, canonicalBytes(grant))});
-    $('launcher-device-feedback').textContent = '已授权，请返回启动器。启动器会自动完成连接，无需复制接入码。';
+    $('launcher-device-feedback').textContent = '已授权，请返回启动器。启动器会自动完成连接并返回大厅。';
     button.textContent = '已授权';
     await loadLauncherDevices();
   } catch (error) {$('launcher-device-feedback').textContent = error.message;}
@@ -49,8 +77,3 @@ async function loadLauncherDevices() {
 }
 loadLauncherDevices();
 setInterval(loadLauncherDevices, 15000);
-if (launcherRequest) {
-  new MutationObserver(() => {
-    if (accountPanel && !accountPanel.hidden) {accountPanel.hidden = true;launcherApproval.hidden = false;}
-  }).observe(accountPanel, {attributes:true, attributeFilter:['hidden']});
-}

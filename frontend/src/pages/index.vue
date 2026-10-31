@@ -30,7 +30,7 @@ defineProps<{seed:Record<string,string>}>();
 
 
 <section class="user-card"><div class="page-title-row"><div><h2>节点网络</h2><p>查看在线节点、地区与连接质量。</p></div><a class="secondary" href="/network">查看全部节点 →</a></div></section>
-    <section class="details"><div><span class="eyebrow muted">NODE IDENTITY</span><h3>核对节点身份</h3><p>通过可信渠道获取接入码。接入码包含节点公钥，启动器会在每次连接时核对；可向管理员核实右侧指纹。</p></div><div class="identity"><span>SSH 公钥指纹</span><code id="fingerprint">—</code><span id="node-id">—</span></div></section>
+    <section class="details"><div><span class="eyebrow muted">NODE IDENTITY</span><h3>核对节点身份</h3><p>在启动器填写本节点地址，通过浏览器确认登录。首次连接会保存节点公钥，之后每次连接都会核对；可向管理员核实右侧指纹。</p></div><div class="identity"><span>SSH 公钥指纹</span><code id="fingerprint">—</code><span id="node-id">—</span></div></section>
     <footer><span>BUGGCRAFT <span class="muted">/ 联机，由你和朋友一起搭建。</span></span><span>独立节点 · 共享连接</span></footer>
   </main>
 </template>

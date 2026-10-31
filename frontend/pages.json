@@ -1,7 +1,7 @@
 {
   "account": [
     "common.js",
-    "access-code.js",
+    "node-address.js",
     "accounts.js",
     "account-page.js",
     "launcher-login.js"
@@ -12,7 +12,7 @@
   ],
   "connect": [
     "common.js",
-    "access-code.js",
+    "node-address.js",
     "connect.js"
   ],
   "diagnostics": [

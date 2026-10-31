@@ -26,7 +26,7 @@ defineProps<{seed:Record<string,string>}>();
 <label>每个房间人数上限<input name="room_capacity" type="number" min="1" max="1000" required value="16"></label></div>
 <label>可用于中转的上传带宽 · MB/s<input name="bandwidth_mb_s" type="number" min="0" max="125000" step="0.001" value="0" required><small>运营商标注的 Mbps ÷ 8 = MB/s；云服务器也请核实单位。填 0 暂不按带宽限流。</small></label>
 <p class="budget" id="budget">填写带宽后，会按保留 35% 空闲、每位中转访客预算 0.128 MB/s 和 15% 协议开销估算准入人数。这是初始预算，不是流畅度保证。</p>
-<label class="check"><input name="public_join" type="checkbox">允许未登录的玩家领取匿名启动器接入码</label>
+<label class="check"><input name="public_join" type="checkbox">允许旧版客户端匿名联机（兼容设置）</label>
 <div class="note">默认关闭玩家注册。启动后可以在后台设置邮件验证码、开放注册，或在“连接网络”中加入已有联邦。独立运行不需要加入联邦。</div>
 <label class="check"><input name="acknowledge" type="checkbox" required>我已确认端口可用，并会妥善保存节点数据。</label></fieldset>
 <p id="error" role="alert" hidden></p><div class="actions"><button type="button" id="back" class="secondary" hidden>上一步</button><span id="progress">1 / 3</span><button type="button" id="next">继续</button><button type="submit" id="save" hidden>保存并启动节点</button></div>

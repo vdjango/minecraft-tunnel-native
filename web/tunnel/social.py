@@ -4,7 +4,6 @@ import json
 import re
 import time
 from .accounts import canonical, verify
-from .room_lobby import manager_account
 
 ACCOUNT = re.compile(r'[0-9a-f]{32}\.[0-9a-f]{32}')
 MAX_EDGES = 4096
@@ -240,6 +239,7 @@ class Social:
         if op in ('request_join', 'accept_join', 'decline_join'):
             room = self.store.federation.relay.rooms.get(action['room'])
             owner = target if op == 'request_join' else actor
+            from .room_lobby import manager_account
             if not room or manager_account(room) != owner or not room.port:
                 raise ValueError('好友的房间暂不可用，请等待房主开放世界。')
             key = (actor, target) if op == 'request_join' else (target, actor)
@@ -260,7 +260,8 @@ class Social:
             if not invitation or invitation['action']['id'] != action['ref'] or invitation['action']['at'] <= time.time() - 300:
                 raise ValueError('邀请已过期，请好友重新邀请。')
             room = self.store.federation.relay.rooms.get(invitation['action']['room'])
-            if not room or manager_account(room) != target or not room.available:
+            from .room_lobby import manager_account
+            if not room or manager_account(room) != target or not room.port:
                 raise ValueError('好友的房间暂不可用。')
             return {'invite': 'bugg1-' + room.secret}
         self.ingest([event])

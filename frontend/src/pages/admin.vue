@@ -69,7 +69,7 @@ defineProps<{seed:Record<string,string>}>();
       </section>
       <section class="console-card" id="settings"><span class="eyebrow muted">NODE SETTINGS</span><h2>节点设置</h2>
         <form id="settings-form"><div class="form-grid"><label>节点名称<input id="setting-name" maxlength="80" required></label><label>节点地区<input id="setting-region" maxlength="80" placeholder="例如：中国 · 上海"></label></div>
-        <label class="check"><input type="checkbox" id="setting-public">允许访客获取匿名启动器接入码</label>
+        <label class="check"><input type="checkbox" id="setting-public">允许旧版客户端匿名联机（兼容设置）</label>
         <label class="check"><input type="checkbox" id="setting-registration">开放用户注册</label>
         <label class="check"><input type="checkbox" id="setting-drain">维护模式：暂停创建新房间</label>
         <div class="divider"></div><h3>房间与带宽容量</h3>
