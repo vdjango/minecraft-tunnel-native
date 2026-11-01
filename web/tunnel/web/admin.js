@@ -132,7 +132,7 @@ async function loadAdmin(fill = true) {
 $('login-form').onsubmit = async event => {
   event.preventDefault(); const button = event.submitter; button.disabled = true;
   const password = $('admin-password').value; $('admin-password').value = '';
-  try { const result = await api('/api/login', {username:$('username').value,password}); csrf = result.csrf; await loadAdmin(); message(''); }
+  try { const result = await api('/api/login', {username:$('username').value,password}); csrf = result.csrf; $('login-form').hidden=true; $('admin-panel').hidden=false; await loadAdmin(); message(''); }
   catch (e) { message(e); } finally { button.disabled = false; }
 };
 function renderRoomOrigin(state){
@@ -147,6 +147,7 @@ $('room-origin-form').onsubmit=async event=>{event.preventDefault();const button
 $('room-origin-disconnect').onclick=async event=>{const button=event.currentTarget;button.disabled=true;
   try{renderRoomOrigin(await api('/api/admin/room-cache',{action:'disconnect'}));message('已断开资源源站，正常联机不受影响。','room-origin-feedback');}
   catch(error){message(error,'room-origin-feedback');}finally{button.disabled=false;}};
+if($('refresh-admin'))$('refresh-admin').onclick=()=>loadAdmin(false).catch(error=>message(error));
 $('settings-form').onsubmit = async event => {
   event.preventDefault(); const button = event.submitter; button.disabled = true;
   try {

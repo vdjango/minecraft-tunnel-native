@@ -12,11 +12,12 @@ export default defineConfig({
     name: 'existing-page-controllers',
     writeBundle(_options,bundle) {
       const shell=readFileSync(resolve(import.meta.dirname,'page-shell.js'),'utf8');
-      writeFileSync(resolve(web,'vue-navigation-shell.js'),shell);
+      const lists=readFileSync(resolve(import.meta.dirname,'list-loading.js'),'utf8');
+      writeFileSync(resolve(web,'vue-navigation-shell.js'),shell+'\n'+lists);
       const themePath=resolve(web,'theme.js');
       if(existsSync(themePath)){
         const theme=readFileSync(themePath,'utf8').split('/* BUGGCRAFT PAGE SHELL */')[0].trimEnd();
-        writeFileSync(themePath,theme+'\n/* BUGGCRAFT PAGE SHELL */\n'+shell);
+        writeFileSync(themePath,theme+'\n/* BUGGCRAFT PAGE SHELL */\n'+shell+'\n'+lists);
       }
 
       for(const name of Object.keys(pages)) {
@@ -30,6 +31,7 @@ export default defineConfig({
         const end=previous.indexOf('"',start);
         let updated=start<0||end<0?previous:previous.slice(0,start+needle.length)+'?v='+revision+previous.slice(end);
         if(name==='download'&&!updated.includes('src="/vue-navigation-shell.js'))updated=updated.replace('</head>','<script src="/vue-navigation-shell.js"></script></head>');
+        updated=updated.replace(/<script(?![^>]*data-cfasync)/g,'<script data-cfasync="false"');
         const dependencies=new Set<string>();
         const visit=(chunk:typeof entry)=>{for(const dependency of chunk.imports){if(dependencies.has(dependency))continue;dependencies.add(dependency);const item=bundle[dependency];if(item?.type==='chunk')visit(item);}};
         visit(entry);

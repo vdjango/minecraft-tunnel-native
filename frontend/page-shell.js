@@ -22,7 +22,7 @@
   @media(max-width:650px){.site-skeleton-layout{grid-template-columns:1fr}.site-skeleton{height:120px}#site-navigation-overlay{inset:64px 0 0}}
   @media(prefers-reduced-motion:reduce){#site-load-bar,.site-skeleton,.site-load-dot,.loading-value,[aria-busy=true]:empty{animation:none!important;transition:none!important}}
   `;
-  document.head.append(style);
+  if(!document.querySelector('[data-shell-styles]'))document.head.append(style);
   let overlay, bar, active, sequence = 0, booted = false, navigationStarted = false, pendingCount = 0;
   const modules = new Map();
   const dependencies = new Set([...document.querySelectorAll('script[src]')].map(node=>node.src));

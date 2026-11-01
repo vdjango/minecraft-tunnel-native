@@ -64,8 +64,8 @@ function accountEntry(view='login') {
   if(accountNext)query.set('next',accountNext);
   if(accountLauncherRequest)query.set('launcher',accountLauncherRequest);
   history.replaceState(null,'',(view==='register'?'/register':'/login')+(query.size?'?'+query:''));
-  document.title=(view==='register'?'注册账号':'账号登录')+' · Buggcraft';
-  $('page-title').textContent=view==='register'?'注册账号':'账号登录';
+  document.title=(view==='register'?'注册账号':'登录')+' · Buggcraft';
+  $('page-title').textContent=view==='register'?'注册账号':'登录';
   $('recovery-import').hidden=view==='register';
   document.dispatchEvent(new CustomEvent('launcher-account-state',{detail:{authenticated:false}}));
 }

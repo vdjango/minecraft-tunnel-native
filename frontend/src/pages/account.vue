@@ -6,7 +6,7 @@ defineProps<{seed:Record<string,string>}>();
 <header class="shell topbar site-header"><a class="brand" href="/"><span class="mark">B<span>·</span></span><span>BUGGCRAFT<small>MINECRAFT COMMUNITY</small></span></a><nav aria-label="网站导航"><a href="/network">节点网络</a><a href="/connect">连接启动器</a><a href="/developers">开发文档</a><a href="/feedback">问题反馈</a><a id="open-account" href="/account">用户中心</a></nav></header>
 
 <main class="shell user-main"><section id="account-dialog" class="account-content">
-<div class="page-heading"><h1 id="page-title">账号登录</h1><p id="page-description">登录后连接启动器、管理好友与个人资料。</p></div>
+<div class="page-heading"><h1 id="page-title">登录</h1><p id="page-description">登录 Buggcraft，和朋友一起游戏。</p></div>
 <p class="feedback account-status" id="account-feedback" role="status" aria-live="polite"></p>
 <form id="account-login"><label>邮箱 / 用户名 / 完整账号 ID<input id="account-id" autocomplete="username" maxlength="254" placeholder="推荐使用注册邮箱；旧账号也可使用账号 ID" required></label>
       <div id="email-login-fields" hidden><div class="email-code-row"><label>邮箱验证码<input id="login-email-code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></label><button id="send-login-email" type="button" class="secondary">发送验证码</button><button id="verify-login-email" type="button" class="secondary">验证邮箱</button></div><p id="login-email-feedback" class="feedback" role="status" aria-live="polite"></p><label id="email-account-picker" hidden>选择要登录并保留的账号<select id="email-account-choice"></select></label><small>同一邮箱的多个账号按 ID 区分。选择后需输入该账号的原密码；资料和好友不会自动合并。已选账号将作为下次邮箱登录的首选。</small></div>
