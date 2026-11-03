@@ -172,6 +172,20 @@ def submit(provider, site, urls):
     raise ValueError('Unknown provider')
 
 
+def import_confirmed_indexnow(state, config, path):
+    """Import a validated one-time retry batch into durable state."""
+    path=Path(path)
+    if not path.is_file(): return
+    result=json.loads(path.read_text())
+    origin=result.get('origin')
+    site=next((s for s in config['sites'] if s['origin']==origin),None)
+    if not site or result.get('status')!='accepted' or result.get('http_status')!=200:
+        return
+    previous=state.setdefault(origin+'|indexnow|'+provider_key(site,'indexnow'),{'acknowledged':{}})
+    previous.update(batch_submitted_at=result['submitted_at'],failures=0,retry_after=0)
+    path.rename(path.with_suffix('.imported.json'))
+
+
 def run(config, state, *, force=False, checkpoint=None):
     report={'started_at':utc(),'sites':[],'meaning':'Accepted by a submission API; search indexing is not confirmed.'}
     for site in config['sites']:
@@ -189,8 +203,8 @@ def run(config, state, *, force=False, checkpoint=None):
             scan=state.setdefault(origin+'|scan',{'cursor':0})
             budget=max(1,min(256,int(site.get('max_pages_per_run',64))))
             cursor=scan['cursor']%len(projects) if projects else 0
-            batch=(projects[cursor:]+projects[:cursor])[:max(0,budget-len(landing))]
-            scan['cursor']=(cursor+len(batch))%len(projects) if projects else 0
+            batch=projects[cursor:cursor+max(0,budget-len(landing))]
+            scan['cursor']=0 if cursor+len(batch)>=len(projects) else cursor+len(batch)
             with ThreadPoolExecutor(max_workers=4) as pool: checked=list(pool.map(page_fingerprint,landing+batch))
             eligible={url:digest for url,digest,error in checked if digest}
             row.update(discovered=len(urls),checked=len(checked),eligible=len(eligible),remaining_in_cycle=max(0,len(projects)-cursor-len(batch)))
@@ -203,6 +217,12 @@ def run(config, state, *, force=False, checkpoint=None):
         for provider in ('indexnow','google','baidu'):
             identity=origin+'|'+provider+'|'+provider_key(site,provider)
             previous=state.setdefault(identity,{'acknowledged':{}})
+            if provider=='indexnow' and previous.get('batch_submitted_at') and not previous.get('batch_scan_complete'):
+                previous['acknowledged'].update(eligible)
+                if scan['cursor']==0:previous['batch_scan_complete']=True
+                row['providers'][provider]={'status':'prior_batch_confirmed','urls_checked':len(eligible)}
+                if checkpoint:checkpoint(report)
+                continue
             changed=[url for url,digest in eligible.items() if force or previous['acknowledged'].get(url)!=digest]
             if not changed:
                 row['providers'][provider]={'status':'unchanged','urls':0}
@@ -245,7 +265,10 @@ def main():
         def checkpoint(report):
             write_json(args.state,state)
             write_json(args.report,report)
-        report=run(json.loads(args.config.read_text()),state,force=args.force,checkpoint=checkpoint)
+        config=json.loads(args.config.read_text())
+        import_confirmed_indexnow(state,config,args.state.parent/'translation-batch-result.json')
+        write_json(args.state,state)
+        report=run(config,state,force=args.force,checkpoint=checkpoint)
         write_json(args.state,state)
         write_json(args.report,report)
         print(json.dumps(report,ensure_ascii=False))
