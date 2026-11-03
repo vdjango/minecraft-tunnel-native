@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import NodeHeader from '../NodeHeader.vue';
+import ProductLinks from '../ProductLinks.vue';
 defineProps<{seed:Record<string,string>}>();
 </script>
 
 <template>
 <div class="ambient" aria-hidden="true"></div>
-  <header class="shell topbar site-header"><a class="brand" href="/"><span class="mark">B<span>·</span></span><span>BUGGCRAFT<small>MINECRAFT COMMUNITY</small></span></a><nav aria-label="网站导航"><a href="/network">节点网络</a><a href="/connect">连接启动器</a><a href="/developers">开发文档</a><a href="/feedback">问题反馈</a><a id="open-account" href="/account">用户中心</a></nav></header>
+  <NodeHeader />
 
   <main class="shell docs-main"><div class="docs-layout">
     <aside class="docs-sidebar" aria-label="文档导航"><div class="docs-side-inner">
@@ -295,4 +297,5 @@ await Rpc(4,"room.close",new { session=room.GetProperty("session").GetString() }
       <footer class="docs-footer"><span>BUGGCRAFT / LAUNCHER GUIDE</span><a href="#guide-title">回到开头 ↑</a></footer>
     </div>
   </div></main>
+<ProductLinks />
 </template>

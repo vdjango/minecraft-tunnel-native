@@ -6,7 +6,7 @@ defineProps<{seed:Record<string,string>}>();
 <header class="site-header">
     <a class="brand" href="#home" aria-label="Buggcraft 首页"><span class="brand-mark">B</span><span class="brand-type"><strong>BUGGCRAFT</strong><small>MINECRAFT JAVA LAUNCHER</small></span></a>
     <nav class="main-nav" aria-label="网站导航"><a class="nav-link active" data-section-nav href="#home" aria-current="location">首页</a><a class="nav-link" data-section-nav href="#features">功能</a><a class="nav-link" data-section-nav href="#nodes">联机节点</a><a class="nav-link" data-section-nav href="#guide">新手指南</a></nav>
-    <div class="header-actions"><details class="platform-menu"><summary class="header-secondary">其他平台 <span aria-hidden="true">⌄</span></summary><div class="platform-menu-panel"><a href="https://translate.bugg.icu/" target="_blank" rel="noopener">共享译文库 <span>↗</span><small>浏览与协作维护 Minecraft 译文</small></a><a href="https://github.com/vdjango/buggcraft" target="_blank" rel="noopener">GitHub 源码 <span>↗</span><small>查看项目代码与开发文档</small></a></div></details><a class="header-download" data-platform-cta href="https://download.bugg.icu/?platform=auto"><span data-platform-label>下载启动器</span> <span>↓</span></a></div>
+    <div class="header-actions"><details class="platform-menu"><summary class="header-secondary">Buggcraft 服务 <span aria-hidden="true">⌄</span></summary><div class="platform-menu-panel"><a href="https://mirror.bugg.icu/">镜像源 <span>↗</span><small>Minecraft 资源下载与启动器接入</small></a><a href="https://node.bugg.icu/">好友联机 <span>↗</span><small>连接方法与联机节点状态</small></a><a href="https://translate.bugg.icu/" target="_blank" rel="noopener">共享译文库 <span>↗</span><small>浏览与协作维护 Minecraft 译文</small></a><a href="https://github.com/vdjango/buggcraft" target="_blank" rel="noopener">GitHub 源码 <span>↗</span><small>查看项目代码与开发文档</small></a></div></details><a class="header-download" data-platform-cta href="https://download.bugg.icu/?platform=auto"><span data-platform-label>下载启动器</span> <span>↓</span></a></div>
   </header>
 
   <main>
@@ -14,8 +14,8 @@ defineProps<{seed:Record<string,string>}>();
       <div class="hero-inner">
         <div class="hero-copy">
           <p class="eyebrow"><span class="status-dot"></span> 为 Minecraft Java 而造</p>
-          <h1 id="hero-title">你的下一段冒险，<br><span>从这里开始。</span></h1>
-          <p class="hero-lead">一个启动器，整理游戏版本、模组、整合包和好友联机。把复杂的准备工作留给 Buggcraft，然后出发。</p>
+          <h1 id="hero-title">Minecraft 版本管理<br><span>与好友联机</span></h1>
+          <p class="hero-lead">安装游戏、管理模组、导入整合包，在一个启动器里完成。想和朋友一起玩，就创建一个房间。</p>
           <div class="hero-actions"><a class="download-button" data-platform-cta href="https://download.bugg.icu/?platform=auto"><span><span data-platform-label>下载启动器</span> <b>↓</b></span><small data-platform-detail>自动匹配 Windows、macOS 或 Linux</small></a><a class="text-link" href="https://translate.bugg.icu/" target="_blank" rel="noopener">共享译文库 <span>↗</span></a></div>
           <div class="hero-facts"><span><i>✓</i> 免费开源</span><span><i>✓</i> Java 版</span><span><i>✓</i> 好友联机</span></div>
         </div>
@@ -44,5 +44,5 @@ defineProps<{seed:Record<string,string>}>();
     <section class="faq-section section-wrap" id="faq" aria-labelledby="faq-title"><div class="faq-heading"><p class="eyebrow">常见问题 / FAQ</p><h2 id="faq-title">开始之前，<br>你可能想知道。</h2><a class="text-link" href="https://node.bugg.icu/feedback?new=1">还有问题？提交反馈 <span>↗</span></a></div><div class="faq-list"><details><summary>Buggcraft 支持什么平台？</summary><p>下载页会识别 Windows、macOS 和 Linux，并显示各平台已经发布的构建；具体可下载情况以当前版本清单为准。</p></details><details><summary>需要 Minecraft 游戏本体吗？</summary><p>Buggcraft 是启动器，不包含 Minecraft 游戏本体。请使用你拥有的游戏账号和合法的游戏文件。</p></details><details><summary>节点会托管我的世界和存档吗？</summary><p>不会。房主在自己的电脑运行 Minecraft 并管理存档；节点负责发现、连接协商和必要的中继。</p></details><details><summary>在哪里查看节点状态？</summary><p>打开节点门户的“节点网络”页面，可查看当前在线节点、地区、延迟和接纳情况。</p></details></div></section>
   </main>
 
-  <footer class="site-footer"><a class="brand footer-brand" href="#home"><span class="brand-mark">B</span><span class="brand-type"><strong>BUGGCRAFT</strong><small>MINECRAFT JAVA LAUNCHER</small></span></a><nav aria-label="页脚导航"><a href="https://download.bugg.icu/">下载</a><a href="https://node.bugg.icu/network">节点网络</a><a href="https://translate.bugg.icu/" target="_blank" rel="noopener">共享译文库 ↗</a><a href="https://github.com/vdjango/buggcraft">GitHub ↗</a><a href="https://node.bugg.icu/feedback?new=1">问题反馈 ↗</a></nav><p>Buggcraft 与 Mojang / Microsoft 无隶属关系。</p></footer>
+  <footer class="site-footer"><a class="brand footer-brand" href="#home"><span class="brand-mark">B</span><span class="brand-type"><strong>BUGGCRAFT</strong><small>MINECRAFT JAVA LAUNCHER</small></span></a><nav aria-label="页脚导航"><a href="https://mirror.bugg.icu/">镜像源</a><a href="https://download.bugg.icu/">下载</a><a href="https://node.bugg.icu/network">节点网络</a><a href="https://translate.bugg.icu/" target="_blank" rel="noopener">共享译文库 ↗</a><a href="https://github.com/vdjango/buggcraft">GitHub ↗</a><a href="https://node.bugg.icu/feedback?new=1">问题反馈 ↗</a></nav><p>Buggcraft 与 Mojang / Microsoft 无隶属关系。</p></footer>
 </template>

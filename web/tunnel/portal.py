@@ -161,6 +161,7 @@ class Portal:
         self.app.cleanup_ctx.append(self.diagnostics.lifecycle)
         self.app.add_routes([
             web.get('/', self.page), web.get('/admin', self.admin_page),
+            web.get('/robots.txt', self.search_file), web.get('/sitemap.xml', self.search_file),
             web.get('/login', self.account_page), web.get('/register', self.account_page),
             web.get('/account', self.account_page),
             web.get('/account/{section:access|profile|security|friends|players}', self.account_page),
@@ -259,6 +260,8 @@ class Portal:
             response = exc
         except (ValueError, KeyError, TypeError, json.JSONDecodeError):
             response = web.json_response({'error': '输入无效，请检查后重试。'}, status=400)
+        if request.path.startswith(('/admin','/account','/login','/register','/launcher-login','/api/','/feedback')):
+            response.headers['X-Robots-Tag'] = 'noindex, nofollow'
         response.headers.update({
             'Cache-Control': 'no-store',
             'X-Content-Type-Options': 'nosniff',
@@ -276,6 +279,9 @@ class Portal:
         if isinstance(response, web.HTTPException):
             raise response
         return response
+
+    async def search_file(self, request):
+        return web.FileResponse(Path(__file__).with_name('web') / request.path.lstrip('/'))
 
     async def page(self, request):
         return web.Response(text=self.page_text('index.html'), content_type='text/html')

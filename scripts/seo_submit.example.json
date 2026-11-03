@@ -1,0 +1,14 @@
+{
+  "sites": [
+    {
+      "origin": "https://bugg.icu",
+      "indexnow_key": "GENERATE-A-RANDOM-PUBLIC-OWNERSHIP-KEY",
+      "indexnow_file": "buggcraft-indexnow-YOUR-KEY.txt",
+      "google": {},
+      "baidu": {}
+    },
+    {"origin":"https://mirror.bugg.icu","indexnow_key":"GENERATE-ANOTHER-PUBLIC-OWNERSHIP-KEY","indexnow_file":"buggcraft-indexnow-YOUR-KEY.txt"},
+    {"origin":"https://node.bugg.icu","indexnow_key":"GENERATE-ANOTHER-PUBLIC-OWNERSHIP-KEY","indexnow_file":"buggcraft-indexnow-YOUR-KEY.txt"},
+    {"origin":"https://translate.bugg.icu","indexnow_key":"GENERATE-ANOTHER-PUBLIC-OWNERSHIP-KEY","indexnow_file":"buggcraft-indexnow-YOUR-KEY.txt"}
+  ]
+}

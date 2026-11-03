@@ -3,7 +3,7 @@ let refreshing=false;
 function timeLabel(seconds){return seconds>=86400?(seconds/86400).toFixed(1)+' 天':seconds>=3600?(seconds/3600).toFixed(1)+' 时':Math.floor(seconds/60)+' 分';}
 async function refresh(){if(refreshing)return;refreshing=true;try{
   const s=await api('/api/status');document.title=s.name+' · Buggcraft';
-  for(const id of ['node-name','node-name-heading'])$(id).textContent=s.name;
+  for(const id of ['node-name'])$(id).textContent=s.name;
   $('health').textContent=s.status==='online'?'节点在线':'维护中';
   for(const key of ['rooms','players'])$(key).textContent=s[key];
   $('player-paths').textContent='全网房主与访客；路径为本节点访客：P2P '+s.p2p_players+' · 中转 '+s.relay_players+' · 待确认 '+s.unconfirmed_players;
