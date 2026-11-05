@@ -9,7 +9,7 @@ const visible = computed(() => guides.filter(item => (item.title + item.summary 
 <template>
   <div class="home">
     <div class="breadcrumb"><a href="/">BUGGCRAFT</a><span>/</span>玩家教程</div>
-    <header class="home-heading"><p class="eyebrow">从准备游戏，到一起开玩</p><h1>{{ route.meta.notFound ? '这篇教程暂时找不到' : '准备好你的世界。' }}</h1><p>下载游戏、导入整合包，或者约上朋友开个房间。<br class="desktop" />从你现在要做的那一步开始。</p></header>
+    <header class="home-heading"><p class="eyebrow">BUGG 启动器（Buggcraft）· 玩家教程</p><h1>{{ route.meta.notFound ? '这篇教程暂时找不到' : '准备好你的世界。' }}</h1><p>下载游戏、导入整合包，或者约上朋友开个房间。<br class="desktop" />从你现在要做的那一步开始。</p></header>
     <div v-if="!search && !route.meta.notFound" class="start-path" aria-label="推荐学习顺序">
       <RouterLink to="/docs/help/download-game"><span>01</span><div><strong>准备游戏</strong><small>版本与加载器</small></div><b>→</b></RouterLink>
       <RouterLink to="/docs/help/import-modpack"><span>02</span><div><strong>准备玩法</strong><small>整合包与模组</small></div><b>→</b></RouterLink>

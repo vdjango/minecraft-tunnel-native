@@ -13,7 +13,7 @@ defineProps<{seed:Record<string,string>}>();
     <section class="hero" id="home" aria-labelledby="hero-title">
       <div class="hero-inner">
         <div class="hero-copy">
-          <p class="eyebrow"><span class="status-dot"></span> 为 Minecraft Java 而造</p>
+          <p class="eyebrow"><span class="status-dot"></span> BUGG 启动器 · Minecraft Java 版</p>
           <h1 id="hero-title">Minecraft 版本管理<br><span>与好友联机</span></h1>
           <p class="hero-lead">安装游戏、管理模组、导入整合包，在一个启动器里完成。想和朋友一起玩，就创建一个房间。</p>
           <div class="hero-actions"><a class="download-button" data-platform-cta href="https://download.bugg.icu/?platform=auto"><span><span data-platform-label>下载启动器</span> <b>↓</b></span><small data-platform-detail>自动匹配 Windows、macOS 或 Linux</small></a><a class="text-link" href="https://translate.bugg.icu/" target="_blank" rel="noopener">共享译文库 <span>↗</span></a></div>

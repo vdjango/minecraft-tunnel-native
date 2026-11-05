@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import re
 import tarfile
+import time
 import uuid
 
 from production_remote import connect
@@ -25,7 +26,7 @@ def main():
     archive=io.BytesIO()
     with tarfile.open(fileobj=archive,mode='w:gz') as tar:
         for name,data in files.items():
-            item=tarfile.TarInfo(name);item.size=len(data);item.mode=0o644;tar.addfile(item,io.BytesIO(data))
+            item=tarfile.TarInfo(name);item.size=len(data);item.mode=0o644;item.mtime=int(time.time());tar.addfile(item,io.BytesIO(data))
     remote='/tmp/bugg-help-'+uuid.uuid4().hex+'.tar.gz'
     with connect('node1') as client:
         with client.open_sftp() as sftp:

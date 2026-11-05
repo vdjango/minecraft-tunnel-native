@@ -3,6 +3,7 @@ import { computed, provide, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRoute } from 'vue-router';
 import { useHead } from '@unhead/vue';
 import { categories, findGuide, guides, guidePath, updated } from './content';
+import brand from '../brand.json';
 
 const route = useRoute();
 const open = ref(false);
@@ -11,21 +12,21 @@ provide('helpSearch', search);
 watch(() => route.fullPath, () => { open.value = false; });
 const guide = computed(() => findGuide(String(route.params.slug || '')));
 const matching = computed(() => guides.filter(item => (item.title + item.summary + item.keywords.join(' ')).toLowerCase().includes(search.value.trim().toLowerCase())));
-const title = computed(() => guide.value ? `${guide.value.title} - BUGG 玩家教程` : 'BUGG 玩家教程 - 下载游戏、整合包与 Minecraft 好友联机');
-const description = computed(() => guide.value?.summary || 'BUGG 启动器使用教程：下载 Minecraft Java 版、导入整合包、安装模组、创建房间、同步客户端和文件下载加速。按步骤准备游戏，和朋友一起玩。');
+const title = computed(() => guide.value ? `${guide.value.title} - BUGG启动器教程` : 'BUGG启动器（Buggcraft）教程 - 下载游戏、整合包与好友联机');
+const description = computed(() => guide.value ? `BUGG启动器（Buggcraft）教程：${guide.value.summary}` : 'BUGG启动器（Buggcraft）使用教程：下载 Minecraft Java 版、导入整合包、安装模组、创建房间、同步客户端和文件下载加速。按步骤准备游戏，和朋友一起玩。');
 const canonical = computed(() => 'https://bugg.icu' + route.path.replace(/\/$/, ''));
 useHead(() => ({
   title: title.value,
   htmlAttrs: { lang: 'zh-CN' },
   meta: [
     { name: 'description', content: description.value },
-    { name: 'keywords', content: ['BUGG', 'Buggcraft', ...(guide.value?.keywords || ['我的世界联机教程', 'Minecraft启动器', '下载游戏', '导入整合包'])].join(',') },
+    { name: 'keywords', content: [brand.name, ...brand.alternateName, ...(guide.value?.keywords || ['我的世界联机教程', 'Minecraft启动器', '下载游戏', '导入整合包'])].join(',') },
     { name: 'robots', content: route.meta.notFound ? 'noindex,follow' : 'index,follow,max-image-preview:large' },
     { property: 'og:type', content: guide.value ? 'article' : 'website' },
     { property: 'og:title', content: title.value },
     { property: 'og:description', content: description.value },
     { property: 'og:url', content: canonical.value },
-    { property: 'og:site_name', content: 'BUGGCRAFT' },
+    { property: 'og:site_name', content: brand.name },
     { property: 'og:image', content: 'https://bugg.icu/help-assets/tutorial-cover.jpg' },
     { name: 'twitter:card', content: 'summary_large_image' },
   ],
@@ -33,8 +34,13 @@ useHead(() => ({
   script: [{ type: 'application/ld+json', innerHTML: JSON.stringify({
     '@context': 'https://schema.org',
     '@graph': [
+      { '@type': 'SoftwareApplication', '@id': brand.productId, name: brand.name, alternateName: brand.alternateName,
+        url: brand.url, applicationCategory: 'GameApplication', operatingSystem: 'Windows, macOS, Linux',
+        sameAs: ['https://github.com/vdjango/buggcraft'], downloadUrl: 'https://download.bugg.icu/' },
+      { '@type': 'WebSite', '@id': brand.websiteId, name: brand.name, alternateName: brand.alternateName, url: brand.url },
       { '@type': guide.value ? 'TechArticle' : 'CollectionPage', headline: title.value, description: description.value,
         url: canonical.value, inLanguage: 'zh-CN', dateModified: updated,
+        about: { '@id': brand.productId }, isPartOf: { '@id': brand.websiteId },
         author: { '@type': 'Organization', name: 'BUGG 项目维护者', url: 'https://bugg.icu/' },
         publisher: { '@type': 'Organization', name: 'BUGGCRAFT', url: 'https://bugg.icu/' },
         image: 'https://bugg.icu/help-assets/tutorial-cover.jpg' },
