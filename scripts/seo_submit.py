@@ -20,7 +20,7 @@ from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
 
 UA = 'BuggcraftSEO/1.0 (+https://bugg.icu/)'
-PUBLIC_PATH = re.compile(r'^/(?:docs|developers|network|connect|projects/(?:modrinth|curseforge)/[A-Za-z0-9_-]+)?$')
+PUBLIC_PATH = re.compile(r'^/(?:docs(?:/help/(?:download-game|import-modpack|resources|minecraft|create-room|join-room|file-acceleration|troubleshooting))?|developers|network|connect|projects/(?:modrinth|curseforge)/[A-Za-z0-9_-]+)?$')
 MAX_URLS = 10000
 
 
@@ -162,7 +162,9 @@ def submit(provider, site, urls):
     if provider=='baidu':
         endpoint=site.get('baidu',{}).get('submit_url','')
         if not endpoint: return {'status':'authorization_required'}
-        if urlparse(endpoint).scheme!='https' or urlparse(endpoint).hostname!='data.zz.baidu.com':
+        # Baidu publishes an HTTP endpoint; its HTTPS host may have no valid certificate.
+        parsed_endpoint=urlparse(endpoint)
+        if parsed_endpoint.scheme not in ('http','https') or parsed_endpoint.netloc!='data.zz.baidu.com':
             raise ValueError('Invalid Baidu endpoint')
         code,_,body=fetch(endpoint,data='\n'.join(urls).encode(),headers={'Content-Type':'text/plain; charset=utf-8'})
         result=json.loads(body)

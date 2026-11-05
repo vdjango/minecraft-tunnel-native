@@ -1,0 +1,11 @@
+{
+  "src/help/client.ts": {
+    "file": "help-eUm4GUX7.js",
+    "name": "client",
+    "src": "src/help/client.ts",
+    "isEntry": true,
+    "css": [
+      "help-CvPFgo5S.css"
+    ]
+  }
+}

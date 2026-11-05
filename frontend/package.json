@@ -4,21 +4,24 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "vue-tsc --noEmit && vite build && vite build --config vite.site.config.ts && node scripts/prerender.mjs",
+    "build": "vue-tsc --noEmit && vite build && vite build --config vite.site.config.ts && node scripts/prerender.mjs && node scripts/build-help.mjs",
     "dev": "vite build --watch",
     "test": "vitest run",
-    "dev:site": "vite build --config vite.site.config.ts --watch"
+    "dev:site": "vite build --config vite.site.config.ts --watch",
+    "build:help": "vue-tsc --noEmit -p tsconfig.help.json && node scripts/build-help.mjs"
   },
   "dependencies": {
-    "vue": "^3.5.0"
+    "@unhead/vue": "^3.4.3",
+    "vue": "^3.5.0",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
-    "vite": "^7.0.0",
     "@vitejs/plugin-vue": "^6.0.0",
+    "jsdom": "^26.0.0",
     "typescript": "~5.9.0",
-    "vue-tsc": "^3.1.0",
+    "vite": "^7.0.0",
     "vitest": "^3.2.0",
-    "jsdom": "^26.0.0"
+    "vue-tsc": "^3.1.0"
   },
   "engines": {
     "node": ">=20.19.0"
