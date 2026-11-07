@@ -3,12 +3,15 @@ import asyncio
 import json
 import os
 from pathlib import Path
+import sys
 import tempfile
 from types import SimpleNamespace as Obj
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
 import asyncssh
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'web'))
 
 from tunnel.content_cache import grant
 from tunnel.content_cache_admin import ContentCacheAdmin

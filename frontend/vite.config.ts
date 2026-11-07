@@ -5,21 +5,22 @@ import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 
 const web = resolve(import.meta.dirname, '../web/tunnel/web');
+const readText = (path: string) => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
 const pages = JSON.parse(readFileSync(new URL('./pages.json', import.meta.url), 'utf8')) as Record<string, string[]>;
 export default defineConfig({
   base: '/',
   plugins: [vue(), {
     name: 'existing-page-controllers',
     writeBundle(_options,bundle) {
-      const shell=readFileSync(resolve(import.meta.dirname,'page-shell.js'),'utf8');
-      const lists=readFileSync(resolve(import.meta.dirname,'list-loading.js'),'utf8');
+      const shell=readText(resolve(import.meta.dirname,'page-shell.js'));
+      const lists=readText(resolve(import.meta.dirname,'list-loading.js'));
       const cssPath=resolve(web,'theme.css');
       const shellCSS=shell.match(/style\.textContent = `([\s\S]*?)`;/)?.[1]||'';
       const listCSS=lists.match(/const styles=`([\s\S]*?)`;/)?.[1]||'';
-      writeFileSync(cssPath,readFileSync(cssPath,'utf8').split('/* BUGGCRAFT LOADING STYLES */')[0].trimEnd()+'\n/* BUGGCRAFT LOADING STYLES */\n'+shellCSS.trim()+'\n'+listCSS.trim()+'\n');
+      writeFileSync(cssPath,readText(cssPath).split('/* BUGGCRAFT LOADING STYLES */')[0].trimEnd()+'\n/* BUGGCRAFT LOADING STYLES */\n'+shellCSS.trim()+'\n'+listCSS.trim()+'\n');
       const themePath=resolve(web,'theme.js');
       if(existsSync(themePath)){
-        const theme=readFileSync(themePath,'utf8').split('/* BUGGCRAFT PAGE SHELL */')[0].trimEnd();
+        const theme=readText(themePath).split('/* BUGGCRAFT PAGE SHELL */')[0].trimEnd();
         writeFileSync(themePath,theme+'\n/* BUGGCRAFT PAGE SHELL */\n'+shell+'\n'+lists);
       }
 
