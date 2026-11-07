@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 if [ "$1" = purge ]; then
+    deb-systemd-helper purge buggcraft-clock-sync.timer >/dev/null
     deb-systemd-helper purge buggcraft-node.service >/dev/null
 fi
 if [ -d /run/systemd/system ]; then

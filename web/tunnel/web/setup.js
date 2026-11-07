@@ -52,7 +52,7 @@ next.addEventListener('click', () => { if (valid(panels[step])) { step++; displa
 back.addEventListener('click', () => { step--; display(); });
 form.elements.host.value = location.hostname.replace(/^\[|\]$/g, '');
 form.elements.bandwidth_mb_s.addEventListener('input', () => {
-  const bandwidth = Number(form.elements.bandwidth_mb_s.value);
+  const bandwidth = Number(form.elements.bandwidth_mb_s.value) / 8;
   document.querySelector('#budget').textContent = bandwidth > 0
     ? `当前预算允许最多 ${Math.floor(bandwidth * .65 / (.128 * 1.15))} 位中转访客。保留 35% 空闲，按每人 0.128 MB/s 加 15% 协议开销估算；首次加载区块可能超过预算，仍需根据实际流量调整。`
     : '暂不按带宽限制准入人数。填写实际可用上传带宽后，可启用人数预算；这不能保证所有世界和视距下都流畅。';
@@ -66,6 +66,7 @@ form.addEventListener('submit', async event => {
     }
   }
   const data = Object.fromEntries(new FormData(form));
+  data.bandwidth_mb_s = Number(data.bandwidth_mb_s) / 8;
   data.public_join = form.elements.public_join.checked;
   save.disabled = true; back.disabled = true; save.textContent = '正在生成密钥并保存…';
   try {

@@ -1,4 +1,4 @@
-"""Deploy only the public homepage and tutorial center to the existing web root."""
+"""Deploy the public homepage, download page, and tutorial center to the existing web root."""
 import hashlib
 import io
 import json
@@ -14,12 +14,19 @@ ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / 'site'
 
 def main():
-    paths = [SITE/'index.html', SITE/'sitemap.xml', SITE/'vue-page-home.js']
+    paths = [SITE/'index.html', SITE/'download/index.html', SITE/'sitemap.xml']
     paths += list((SITE/'docs').rglob('index.html'))
     paths += [p for p in (SITE/'help-assets').iterdir() if p.is_file()]
-    homepage=(SITE/'index.html').read_text(encoding='utf-8')
-    paths += [SITE/name for name in set(re.findall(r'/((?:vue-runtime-)[A-Za-z0-9_-]+\.js)',homepage))]
+    download_html=(SITE/'download/index.html').read_text(encoding='utf-8')
+    pages='\n'.join(path.read_text(encoding='utf-8') for path in (SITE/'index.html', SITE/'download/index.html'))
+    asset_pattern=r'(?:src|href)="/([^"?]+\.(?:js|css))(?:\?[^"]*)?"'
+    assets=set(re.findall(asset_pattern,pages))
+    paths += [SITE/name for name in assets]
     files={str(p.relative_to(SITE)).replace('\\','/'):p.read_bytes() for p in paths}
+    # download.bugg.icu has its own Nginx root at /opt/buggcraft-site/download.
+    # Its absolute /vue-page-download.js and runtime URLs must exist there too.
+    for name in set(re.findall(asset_pattern,download_html)):
+        files['download/'+name]=(SITE/name).read_bytes()
     files['.deploy/help.locations.conf']=(ROOT/'packaging/nginx/buggcraft-help.locations.conf').read_bytes()
     files['.deploy/seo_submit.py']=(ROOT/'scripts/seo_submit.py').read_bytes()
     manifest={name:hashlib.sha256(data).hexdigest() for name,data in files.items()}
@@ -47,7 +54,7 @@ try:
   tar.extractall(stage,filter='data')
  for name,digest in MANIFEST.items():
   if hashlib.sha256((stage/name).read_bytes()).hexdigest()!=digest:raise RuntimeError('Deployment checksum mismatch')
- for name in MANIFEST:
+ for name in sorted(MANIFEST,key=lambda name:name.endswith('.html')):
   if name.startswith('.deploy/'):continue
   target=root/name
   if target.exists():

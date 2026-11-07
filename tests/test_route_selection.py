@@ -165,6 +165,50 @@ class RouteSelectionTests(unittest.IsolatedAsyncioTestCase):
         routes = (await self.call(bridge, 'node.routes', {'node': node}))['routes']
         self.assertEqual(len(routes), 2)
 
+    async def test_latency_startup_manual_switch_and_next_startup_reassignment(self):
+        from tunnel.directory import RoomControlSession
+        other, _ = await self.network()
+        original = RoomControlSession.data_received
+        slow = {self.node}
+        def delayed(session, data, datatype):
+            if session.peer.relay in slow and b'"ping"' in data:
+                asyncio.get_running_loop().call_later(.08, original, session, data, datatype)
+            else:
+                original(session, data, datatype)
+        with patch.object(RoomControlSession, 'data_received', delayed):
+            bridge = await self.process()
+            node = (await self.call(bridge, 'node.add', {'code': self.code(), 'selection': 'latency'}))['node']
+            selected = await self.call(bridge, 'node.selected', {'node': node})
+            self.assertEqual(selected['profile']['server_port'], other.port)
+            routes = (await self.call(bridge, 'node.routes', {'node': node}))['routes']
+            first = next(row for row in routes if row['name'] == 'A')
+            self.assertGreater(first['rtt_ms'], 60)
+            chosen = await self.call(bridge, 'node.select', {'node': node, 'index': first['index']})
+            self.assertEqual(chosen['name'], 'A')
+            self.assertTrue(next(row for row in chosen['routes'] if row['name'] == 'A')['selected'])
+            await self.call(bridge, 'node.routes', {'node': node, 'refresh': True})
+            self.assertEqual((await self.call(bridge, 'node.selected', {'node': node}))['name'], 'A')
+            # A fresh launcher process must measure again and forget the old manual choice.
+            slow.clear()
+            slow.add(other)
+            restarted = await self.process()
+            fresh = (await self.call(restarted, 'node.add', {'code': self.code(), 'selection': 'latency'}))['node']
+            self.assertEqual((await self.call(restarted, 'node.selected', {'node': fresh}))['name'], 'A')
+            # Explicit automatic selection also clears the current manual override.
+            auto = await self.call(bridge, 'node.routes', {'node': node, 'auto': True})
+            self.assertEqual(auto['name'], 'A')
+
+    async def test_manual_route_failure_falls_back_without_losing_the_node_handle(self):
+        other, _ = await self.network()
+        bridge = await self.process()
+        node = (await self.call(bridge, 'node.add', {'code': self.code(), 'selection': 'latency'}))['node']
+        routes = (await self.call(bridge, 'node.routes', {'node': node}))['routes']
+        second = next(row for row in routes if row['name'] == 'B')
+        await self.call(bridge, 'node.select', {'node': node, 'index': second['index']})
+        await other.close()
+        result = await self.call(bridge, 'node.request', {'node': node, 'request': {'op': 'ping'}})
+        self.assertEqual(result['name'], 'A')
+
     async def test_cached_entry_failure_recovers_and_emits_one_tip(self):
         other, _ = await self.network()
         self.node.capacity.configure(dict(bandwidth_mb_s=.001))

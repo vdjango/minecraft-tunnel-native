@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 670" role="img" aria-labelledby="title description">
+  <title id="title">Windows 11 智能应用控制中文操作示意图</title>
+  <desc id="description">开始菜单打开 Windows 安全中心，进入应用和浏览器控制，再进入智能应用控制设置，阅读提示后选择关闭。</desc>
+  <defs><filter id="shadow"><feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#233b65" flood-opacity=".11"/></filter></defs>
+  <rect width="760" height="670" rx="20" fill="#f3f6fd"/>
+  <text x="42" y="51" fill="#47609c" font-size="18" font-weight="700" font-family="Microsoft YaHei,PingFang SC,sans-serif">WINDOWS 11 · 智能应用控制</text>
+  <text x="42" y="96" fill="#192b4a" font-size="29" font-weight="700" font-family="Microsoft YaHei,PingFang SC,sans-serif">如何找到“关闭”选项</text>
+  <rect x="42" y="124" width="676" height="444" rx="15" fill="#fff" filter="url(#shadow)"/>
+  <rect x="42" y="124" width="215" height="444" rx="15" fill="#eaf0fb"/>
+  <rect x="240" y="124" width="17" height="444" fill="#eaf0fb"/>
+  <text x="62" y="163" fill="#1e3457" font-size="21" font-weight="700" font-family="Microsoft YaHei,PingFang SC,sans-serif">Windows 安全中心</text>
+  <text x="66" y="210" fill="#7383a0" font-size="19" font-family="Microsoft YaHei,PingFang SC,sans-serif">主页</text>
+  <text x="66" y="252" fill="#7383a0" font-size="18" font-family="Microsoft YaHei,PingFang SC,sans-serif">病毒和威胁防护</text>
+  <rect x="55" y="278" width="193" height="64" rx="8" fill="#cfe0ff" stroke="#7fa4e7"/>
+  <text x="66" y="318" fill="#1a4b9a" font-size="19" font-weight="700" font-family="Microsoft YaHei,PingFang SC,sans-serif">应用和浏览器控制</text>
+  <text x="66" y="391" fill="#7383a0" font-size="18" font-family="Microsoft YaHei,PingFang SC,sans-serif">设备安全性</text>
+  <text x="66" y="432" fill="#7383a0" font-size="18" font-family="Microsoft YaHei,PingFang SC,sans-serif">保护历史记录</text>
+  <text x="286" y="175" fill="#192b4a" font-size="26" font-weight="700" font-family="Microsoft YaHei,PingFang SC,sans-serif">应用和浏览器控制</text>
+  <text x="286" y="208" fill="#70809e" font-size="18" font-family="Microsoft YaHei,PingFang SC,sans-serif">点击左侧高亮入口</text>
+  <rect x="282" y="231" width="407" height="130" rx="10" fill="#f6f9ff" stroke="#cfddf4"/>
+  <text x="306" y="271" fill="#1c355b" font-size="23" font-weight="700" font-family="Microsoft YaHei,PingFang SC,sans-serif">智能应用控制</text>
+  <text x="306" y="306" fill="#3c63ae" font-size="20" font-weight="700" font-family="Microsoft YaHei,PingFang SC,sans-serif">智能应用控制设置  →</text>
+  <text x="306" y="339" fill="#647797" font-size="17" font-family="Microsoft YaHei,PingFang SC,sans-serif">进入设置页后查看系统说明</text>
+  <path d="M488 376v26m0 0-10-11m10 11 10-11" fill="none" stroke="#7594d1" stroke-width="4" stroke-linecap="round"/>
+  <rect x="282" y="415" width="407" height="115" rx="10" fill="#e9f0ff" stroke="#a9c1ec"/>
+  <text x="306" y="455" fill="#1c355b" font-size="22" font-weight="700" font-family="Microsoft YaHei,PingFang SC,sans-serif">在设置页选择“关闭”</text>
+  <text x="306" y="486" fill="#435f89" font-size="18" font-family="Microsoft YaHei,PingFang SC,sans-serif">先阅读确认提示，再决定是否关闭</text>
+  <text x="42" y="609" fill="#3d557f" font-size="18" font-family="Microsoft YaHei,PingFang SC,sans-serif">路径：开始 → Windows 安全中心 → 应用和浏览器控制</text>
+  <text x="42" y="640" fill="#647394" font-size="16" font-family="Microsoft YaHei,PingFang SC,sans-serif">中文操作示意图；界面会随系统版本变化。关闭后保护会减少。</text>
+</svg>

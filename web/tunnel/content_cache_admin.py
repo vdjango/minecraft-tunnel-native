@@ -10,6 +10,42 @@ from aiohttp import ClientError, ClientSession, ClientTimeout, TCPConnector, web
 from aiohttp.resolver import DefaultResolver
 
 
+def origin_url(url):
+    if not isinstance(url, str) or len(url) > 2048:
+        raise ValueError('Invalid resource origin')
+    parsed = urlsplit(url)
+    if (parsed.scheme != 'https' or not parsed.hostname
+            or parsed.port not in (None, 443) or parsed.username or parsed.password
+            or parsed.path or parsed.query or parsed.fragment
+            or any(c in url for c in ('\\', '\r', '\n', '\x00'))):
+        raise ValueError('Invalid resource origin')
+    try:
+        address = ipaddress.ip_address(parsed.hostname)
+    except ValueError:
+        return url
+    if not address.is_global:
+        raise ValueError('Invalid resource origin')
+    return url
+
+
+def federation_configuration(value):
+    """Validate private administrator settings before changing membership."""
+    if not isinstance(value, dict) or type(value.get('enabled')) is not bool:
+        raise ValueError('联邦邀请中的资源加速配置无效，请对方重新生成邀请。')
+    if not value['enabled']:
+        return dict(enabled=False)
+    try:
+        url = origin_url(value.get('url'))
+        issuer, secret, name = (value.get(key, '') for key in ('issuer', 'secret', 'name'))
+        if (not isinstance(issuer, str) or not re.fullmatch('[A-Za-z0-9_-]{1,64}', issuer)
+                or not isinstance(secret, str) or not 32 <= len(secret) <= 256
+                or not isinstance(name, str) or len(name) > 80):
+            raise ValueError()
+    except (ValueError, TypeError):
+        raise ValueError('联邦邀请中的资源加速配置无效，请对方重新生成邀请。') from None
+    return dict(enabled=True, url=url, issuer=issuer, secret=secret, name=name)
+
+
 def invitation(value):
     if not isinstance(value, str) or len(value) > 4096 or not value.startswith('buggcache1.'):
         raise ValueError('请粘贴源站后台生成的接入邀请。')
@@ -17,19 +53,10 @@ def invitation(value):
         encoded = value.split('.', 1)[1]
         data = json.loads(base64.b64decode(encoded + '=' * (-len(encoded) % 4), altchars=b'-_', validate=True))
         url, ticket = data['url'], data['ticket']
-        parsed = urlsplit(url)
-        if (set(data) != {'url', 'ticket'} or parsed.scheme != 'https' or not parsed.hostname
-                or parsed.port not in (None, 443) or parsed.username or parsed.password
-                or parsed.path or parsed.query or parsed.fragment
-                or not re.fullmatch('[A-Za-z0-9_-]{32,128}', ticket)
-                or any(c in url for c in ('\\', '\r', '\n', '\x00'))):
+        origin_url(url)
+        if (set(data) != {'url', 'ticket'}
+                or not re.fullmatch('[A-Za-z0-9_-]{32,128}', ticket)):
             raise ValueError()
-        try:
-            if not ipaddress.ip_address(parsed.hostname).is_global:
-                raise ValueError('private origin')
-        except ValueError as error:
-            if str(error) == 'private origin':
-                raise
         return url, ticket
     except (ValueError, KeyError, TypeError, AttributeError, UnicodeError):
         raise ValueError('接入邀请无效，请从源站后台重新复制。') from None
@@ -97,7 +124,8 @@ class ContentCacheAdmin:
                     portal.state['room_cache'] = previous
                     raise
                 portal.relay.content_cache_config = value
-        value = portal.state.get('room_cache') or {}
+        from .content_cache import configuration
+        value = configuration(portal.relay)
         return web.json_response(dict(configured=bool(value.get('enabled') and value.get('secret')),
                                       url=value.get('url', ''), name=value.get('name', ''), issuer=value.get('issuer', '')),
                                  headers={'Cache-Control': 'no-store'})

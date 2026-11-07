@@ -23,7 +23,11 @@ export default defineConfig({
       for(const name of Object.keys(pages)) {
         const entry=bundle['vue-page-'+name+'.js'];
         if(!entry || entry.type!=='chunk')continue;
-        const revision=createHash('sha256').update(entry.code).digest('hex').slice(0,12);
+        // The download domain has a separate static root. Salt its URLs after
+        // correcting deployment to that root, so an old immutable CDN entry
+        // cannot serve the previous bundle under the new page's revision.
+        const rootRevision=name==='download'?'-download-root-v2':'';
+        const revision=createHash('sha256').update(entry.code).digest('hex').slice(0,12)+rootRevision;
         const html=resolve(web, name==='home'?'index.html':'download/index.html');
         const previous=readFileSync(html,'utf8');
         const needle='vue-page-'+name+'.js';
@@ -37,7 +41,7 @@ export default defineConfig({
         visit(entry);
         updated=updated.replace(/<link rel="modulepreload"[^>]*>\s*/g,'');
         updated=updated.replace('</head>',[...dependencies].map(file=>`<link rel="modulepreload" href="/${file}">`).join('')+'</head>');
-        updated=updated.replace(/(src|href)="\/([^"/?]+\.(?:js|css))(?:\?v=[^"]*)?"/g,(match,attribute,file)=>{const path=resolve(web,file);return !file.startsWith('vue-runtime-')&&existsSync(path)?`${attribute}="/${file}?v=${createHash('sha256').update(readFileSync(path)).digest('hex').slice(0,12)}"`:match;});
+        updated=updated.replace(/(src|href)="\/([^"/?]+\.(?:js|css))(?:\?v=[^"]*)?"/g,(match,attribute,file)=>{const path=resolve(web,file);return !file.startsWith('vue-runtime-')&&existsSync(path)?`${attribute}="/${file}?v=${createHash('sha256').update(readFileSync(path)).digest('hex').slice(0,12)}${rootRevision}"`:match;});
         if(previous!==updated)writeFileSync(html,updated);
       }
       const sites=new Map<string,{directory:string;urls:string[]}>();

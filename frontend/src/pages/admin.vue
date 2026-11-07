@@ -1,13 +1,20 @@
 <script setup lang="ts">
+import NodeAdminNav from '../NodeAdminNav.vue';
+import NodeHeader from '../NodeHeader.vue';
+import {onBeforeUnmount,onMounted,ref} from 'vue';
 defineProps<{seed:Record<string,string>}>();
+const adminAuthenticated=ref(false);
+const onAuth=(event:Event)=>{adminAuthenticated.value=Boolean((event as CustomEvent<boolean>).detail);};
+onMounted(()=>document.addEventListener('buggcraft:admin-auth',onAuth));
+onBeforeUnmount(()=>document.removeEventListener('buggcraft:admin-auth',onAuth));
 </script>
 
 <template>
 <div class="ambient"></div>
-  <header class="shell topbar site-header"><a class="brand" href="/"><span class="mark">B<span>·</span></span><span>BUGGCRAFT<small>MINECRAFT COMMUNITY</small></span></a><nav aria-label="网站导航"><a href="/network">节点网络</a><a href="/connect">连接启动器</a><a href="/developers">开发文档</a><a href="/feedback">问题反馈</a><a id="open-account" href="/account">用户中心</a></nav></header>
+  <NodeHeader v-show="adminAuthenticated" admin />
 
   <main class="shell console-main">
-    <div class="console-heading"><div class="eyebrow">YOUR NODE, YOUR DECISIONS</div><h1>管理你的节点。</h1><p id="console-subtitle"></p><button id="refresh-admin" class="secondary" type="button">刷新列表</button></div>
+    <div v-show="adminAuthenticated" class="console-heading"><div class="eyebrow">YOUR NODE, YOUR DECISIONS</div><h1>管理你的节点。</h1><p id="console-subtitle"></p><button id="refresh-admin" class="secondary" type="button">刷新列表</button></div>
     <p class="feedback console-feedback" id="admin-feedback" role="status" aria-live="polite"></p>
     <form id="login-form" class="console-card login-card">
       <span class="eyebrow muted">BUGGCRAFT · ADMINISTRATOR</span><h1>登录</h1><p>登录 Buggcraft 节点管理后台</p>
@@ -16,21 +23,7 @@ defineProps<{seed:Record<string,string>}>();
       <button class="primary wide" type="submit">登录</button>
     </form>
     <div id="admin-panel" hidden>
-      <nav class="console-nav" aria-label="管理功能">
-  <span class="sidebar-label">节点管理</span>
-  <a href="/admin/nodes">节点列表</a>
-  <a href="/admin/network">连接网络</a>
-  <a href="/admin/settings">节点设置</a>
-  <span class="sidebar-label">用户与支持</span>
-  <a href="/admin/users">用户列表</a>
-  <a href="/admin/players">在线玩家</a>
-  <a href="/admin/feedback">反馈管理</a>
-  <a href="/admin/diagnostics">连接诊断</a>
-  <span class="sidebar-label">运维</span>
-  <a href="/admin/mail">邮件服务</a>
-  <a href="/admin/history">操作记录</a>
-  <button id="logout" class="quiet" type="button">退出登录</button>
-</nav>
+      <NodeAdminNav />
 
       <div class="bandwidth-panel admin-live" id="admin-bandwidth"><div class="section-heading"><h3>服务器实时带宽</h3><div class="bandwidth-units"><button type="button" data-bandwidth-unit="MB/s">MB/s</button><button type="button" data-bandwidth-unit="Mbps">Mbps</button></div></div><div class="bandwidth-rates"><article><span class="bandwidth-direction">接收</span><div class="bandwidth-reading"><strong id="bandwidth-rx">—</strong><span class="bandwidth-unit">MB/s</span></div></article><article><span class="bandwidth-direction">发送</span><div class="bandwidth-reading"><strong id="bandwidth-tx">—</strong><span class="bandwidth-unit">MB/s</span></div></article></div><small id="bandwidth-status">正在采样…</small></div>
       <section class="console-card" id="mail"><span class="eyebrow muted">EMAIL DELIVERY</span><h2>邮件服务</h2><p>用于注册验证和通知。</p>
@@ -58,7 +51,7 @@ defineProps<{seed:Record<string,string>}>();
         </form>
       </section>
       <section class="console-card" id="network-settings"><span class="eyebrow muted">TRUSTED CONNECTIONS</span><h2>连接其他节点</h2>
-        <p>已有节点的管理员私下发出邀请；新节点管理员核对邀请来源，导入后加入同一网络，随后自动发现成员。</p>
+        <p>已有节点的管理员私下发出邀请；加入方导入后采用邀请方的资源下载加速配置，保存到本机，随后自动发现成员。</p>
 
         <div class="federation-invite-actions"><button id="export-invite" class="secondary">生成联邦邀请</button></div>
         <label>联邦邀请<textarea id="federation-invite" rows="5" placeholder="粘贴可信管理员提供的联邦邀请 JSON" autocomplete="off"></textarea></label>
@@ -76,14 +69,20 @@ defineProps<{seed:Record<string,string>}>();
         <div class="capacity-fields">
           <label>最多同时开放房间<input id="setting-max-rooms" type="number" min="1" max="128" step="1" required></label>
           <label>每房间人数上限<input id="setting-room-capacity" type="number" min="1" max="1000" step="1" required></label>
-          <label>供联机使用的出口带宽 · MB/s<input id="setting-bandwidth" type="number" min="0" max="125000" step="0.001" required></label>
+          <label>服务器上传带宽 · Mbps<input id="setting-bandwidth" type="number" min="0" max="1000000" step="0.001" required><small>直接填写云厂商的带宽，例如 6、20、200；使用上传值。</small></label>
           <label>保留空闲带宽 · %<input id="setting-reserve" type="number" min="20" max="80" step="1" required></label>
-          <label>每位中转访客预算 · MB/s<input id="setting-player-budget" type="number" min="0.001" max="100" step="0.001" required></label>
+          <label>每位中转访客预算 · Mbps<input id="setting-player-budget" type="number" min="0.008" max="800" step="0.001" required></label>
         </div>
-        <label>可信反向代理网段（每行一个 CIDR）<textarea id="setting-proxies" rows="5" spellcheck="false" placeholder="仅在 Web 入口位于 Cloudflare 或自建反向代理后填写"></textarea></label>
-        <small>只有来源地址命中这些网段时才读取 CF-Connecting-IP 和 X-Forwarded-Proto。上方配置额外的手工网段；Cloudflare 官方 IPv4/IPv6 网段每日自动刷新，失败保留上次成功缓存。</small>
-        <p id="cloudflare-proxy-status" role="status" aria-live="polite">正在读取刷新结果…</p>
-        <details><summary>带宽单位与容量说明</summary><p>1 MB/s = 8 Mbps。填 0 关闭带宽预算限制；保留空闲用于区块加载峰值。</p></details>
+        <label class="check"><input id="setting-proxy-enabled" type="checkbox">启用可信反向代理</label>
+        <div id="trusted-proxy-settings" hidden>
+          <label>可信反向代理网段（每行一个 CIDR）<textarea id="setting-proxies" rows="5" spellcheck="false" placeholder="填写自建反向代理的来源网段"></textarea></label>
+          <small>仅信任命中这些网段的来源地址，读取转发的客户端 IP 和 HTTPS 协议。</small>
+          <label class="check"><input id="setting-cloudflare-enabled" type="checkbox">Web 入口使用 Cloudflare</label>
+          <div id="cloudflare-proxy-settings" hidden><small>启用后自动信任 Cloudflare 官方 IPv4/IPv6 网段，每日刷新；失败保留上次成功缓存。</small>
+            <p id="cloudflare-proxy-status" role="status" aria-live="polite">正在读取刷新结果…</p>
+          </div>
+        </div>
+        <details><summary>人数是怎样估算的？</summary><p>上传带宽 ×（1 − 预留比例）÷（每人预算 × 1.15），向下取整。默认每人预算 1.024 Mbps，预留 35%，另留 15% 协议开销。填 0 表示未配置带宽预算。</p><p>这里是节点的中转访客预算，不包含房主，也不是 CPU、内存或实际流畅度的保证。地图、视距、模组和区块加载会影响实际负载；每房间人数仍受单独上限限制。</p></details>
 
 
         <button class="primary wide" type="submit">保存设置</button></form>
@@ -91,7 +90,8 @@ defineProps<{seed:Record<string,string>}>();
         <div class="section-heading"><div><span class="eyebrow muted">RESOURCE ACCELERATION</span><h3>资源下载加速</h3></div><span class="badge" id="room-origin-state">尚未接入</span></div>
         <p>让源站临时补齐下载失败的模组和资源。先提交文件信息，只在确有需要时向房主请求对应文件；无需上传整个整合包。</p>
         <p id="room-origin-address" class="muted"></p>
-        <form id="room-origin-form"><label>源站接入邀请<textarea id="room-origin-invitation" rows="3" maxlength="4096" placeholder="在源站后台 → 临时加速 → 接入联机节点，生成并复制邀请" autocomplete="off" spellcheck="false" required></textarea></label>
+        <p class="muted">加入联邦时会采用邀请方的这项配置。独立接入时，在源站后台 → 系统设置 → 镜像设置 → 客户端加速 → 接入联机节点生成邀请；也可从源站的节点管理进入。</p>
+        <form id="room-origin-form"><label>源站接入邀请<textarea id="room-origin-invitation" rows="3" maxlength="4096" placeholder="粘贴源站生成的一次性接入邀请，密钥将自动配置" autocomplete="off" spellcheck="false" required></textarea></label>
         <div class="action-buttons"><button class="primary" type="submit">接入源站</button><button id="room-origin-disconnect" class="secondary" type="button" hidden>断开接入</button></div></form>
         <p id="room-origin-feedback" class="feedback" role="status">粘贴一次即可接入，配置自动保存并立即生效，无需重启。邀请仅交给节点管理员。</p>
       </section>
@@ -99,6 +99,6 @@ defineProps<{seed:Record<string,string>}>();
       <section class="console-card" id="players"><span class="eyebrow muted">LIVE PLAYERS</span><h2>在线玩家</h2><p id="admin-player-count"></p><div class="user-table-scroll"><table class="user-table"><thead><tr><th>玩家</th><th>角色</th><th>房间</th><th>传输路径</th><th>P2P ping</th><th>节点控制 RTT</th><th>游戏状态 RTT</th></tr></thead><tbody id="admin-players"></tbody></table></div></section>
       <section class="console-card" id="history"><span class="eyebrow muted">LOCAL HISTORY</span><h2>节点操作记录</h2><div id="node-history"></div></section>
     </div>
-    <footer><span>BUGGCRAFT / 节点控制台</span><a href="/developers">开发文档</a></footer>
+    <footer v-show="adminAuthenticated"><span>BUGGCRAFT / 节点控制台</span><a href="/developers">开发文档</a></footer>
   </main>
 </template>

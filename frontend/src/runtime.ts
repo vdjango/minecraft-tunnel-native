@@ -91,7 +91,7 @@ export function mountPage(initialize: (scope:PageScope,views:ReturnType<typeof c
         try{initialize(scope,views);}catch(error){
           scope.state.error=String(error);console.error(error);
           const feedback=document.createElement('p');feedback.setAttribute('role','alert');
-          feedback.textContent='Page initialization failed. Refresh and try again.';
+          feedback.textContent='页面加载遇到问题，请刷新重试。';
           (document.querySelector('main')||document.body).prepend(feedback);
           document.dispatchEvent(new CustomEvent('page-initialization-error',{detail:String(error)}));
         }

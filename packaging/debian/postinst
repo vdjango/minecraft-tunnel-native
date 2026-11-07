@@ -7,6 +7,7 @@ if [ "$1" = configure ]; then
     install -d -o buggcraft-node -g buggcraft-node -m 0700 /var/lib/buggcraft-node
     if [ -d /run/systemd/system ]; then
         systemctl daemon-reload
+        /usr/bin/python3 /usr/lib/buggcraft-node/web/tunnel/clock_sync.py --configure
         deb-systemd-helper enable buggcraft-node.service >/dev/null
         deb-systemd-invoke restart buggcraft-node.service >/dev/null
         echo 'Open the setup link with: sudo buggcraft-node setup'

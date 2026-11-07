@@ -1,136 +1,106 @@
 <div align="center">
 
-# Minecraft Tunnel Native
+# Buggcraft 联机节点
 
-### Minecraft Java 版联机节点与原生网络核心
+### 让不同网络里的朋友，加入同一个 Minecraft 世界
 
-把启动器、联机节点和 Minecraft 世界连接起来，让朋友加入房主开放的世界。
+房主开世界，好友进房间。多个节点互联，房间和好友信息互通。
 
 [![Build](https://github.com/vdjango/minecraft-tunnel-native/actions/workflows/core.yml/badge.svg)](https://github.com/vdjango/minecraft-tunnel-native/actions/workflows/core.yml)
-[![Release](https://img.shields.io/github/v/release/vdjango/minecraft-tunnel-native)](https://github.com/vdjango/minecraft-tunnel-native/releases/latest)
-[![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C.svg)](CMakeLists.txt)
-[![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-6554c0.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/vdjango/minecraft-tunnel-native?label=最新版本)](https://github.com/vdjango/minecraft-tunnel-native/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/vdjango/minecraft-tunnel-native/total?label=下载)](https://github.com/vdjango/minecraft-tunnel-native/releases)
+[![Stars](https://img.shields.io/github/stars/vdjango/minecraft-tunnel-native?style=flat&label=Star)](https://github.com/vdjango/minecraft-tunnel-native/stargazers)
+[![Platforms](https://img.shields.io/badge/启动器支持-Windows%20%7C%20macOS%20%7C%20Linux-6750A4)](https://download.bugg.icu)
+[![C++20](https://img.shields.io/badge/网络核心-C%2B%2B20-00599C)](CMakeLists.txt)
+[![License](https://img.shields.io/badge/许可证-AGPL--3.0--or--later-6554c0)](LICENSE)
 
-[概览](#项目概览) · [快速开始](#快速开始) · [节点部署](#节点部署) · [工作方式](#工作方式) · [开发与测试](#开发与测试)
+[官网](https://bugg.icu) · [下载启动器](https://download.bugg.icu) · [联机入口](https://node.bugg.icu) · [玩家教程](https://bugg.icu/docs) · [反馈问题](https://github.com/vdjango/minecraft-tunnel-native/issues)
 
 </div>
 
 ---
 
-Minecraft Tunnel Native 是 Minecraft Java 版的联机节点。它把玩家的启动器、节点和 Minecraft 世界连接起来，让朋友可以加入房主开放的世界。
+## 我能用它做什么？
 
-房主在自己的电脑上运行 Minecraft 并管理世界与存档。节点负责房间和好友发现、连接协商及必要的数据中继，不托管 Minecraft 世界。网络条件允许时，玩家之间优先尝试 P2P；无法直连时，可以使用节点中继。客户端入口由 [Buggcraft](https://github.com/vdjango/buggcraft) 提供。
+和朋友玩 Minecraft Java 版：创建房间、邀请好友、查找公开房间，并同步联机需要的游戏配置。
 
-## 项目概览
+世界和存档保存在房主电脑上。房主需要运行游戏并开放世界；节点负责发现房间、协商连接，以及在无法直连时转发游戏数据。无需给每个世界另租一台 Minecraft 服务器。
 
-本仓库包含两部分：用于部署联机服务的节点程序，以及供桌面启动器调用的跨平台 C++ 原生核心和桥接库。服务端提供节点管理网页、房间与好友目录、账号和节点联邦功能；原生组件负责连接建立、P2P 路由选择、加密传输与中继数据通道。
+- **好友联机**：通过房间列表或邀请进入好友的世界。
+- **优先直连**：网络允许时使用 P2P；无法直连时由节点中转。
+- **跨节点找房间**：加入同一联邦的节点可以互通房间和好友信息。
+- **网页管理**：设置节点名称、地区、注册权限、人数预算和网络连接。
+- **文件加速接入**：可接入 Buggcraft 源站，帮助补齐联机需要的资源文件。
 
-- **房间目录**：帮助玩家查找节点上开放的房间，并支持邀请码加入。
-- **P2P 优先**：通过 ICE/STUN 探测直连条件；直连不通时，可根据连接策略改走中继。
-- **加密连接**：原生连接使用 DTLS 加密；应用控制通道由 SSH 隧道承载。
-- **节点联邦**：多个受信任的节点可共享房间与好友目录，让玩家跨节点查找房间。
-- **可诊断的会话记录**：按会话保存连接事件、路由、流量和错误信息，帮助定位网络环境相关问题。
-- **启动器桥接**：通过稳定的 C ABI 提供动态库接口，支持 Windows、Linux 和 macOS。
+## 我只是想和朋友玩
 
-P2P 成功率取决于玩家双方的运营商、NAT、路由器和防火墙。部分网络必须通过中继；中继是正常的连接方式，不能保证每一对网络都能直连。
+1. 到[下载站](https://download.bugg.icu)下载 Buggcraft 启动器，解压后运行。
+2. 打开联机大厅，连接可信的节点，按浏览器提示登录并确认设备。
+3. 房主选择游戏实例、创建房间，进入世界并开放到局域网。
+4. 好友从房间列表或邀请进入，按启动器提示补齐游戏版本和模组，再连接游戏。
 
-## 快速开始
+如果节点支持注册，可以按页面指引创建账号；未开放注册时联系节点管理员。**普通玩家不需要安装本仓库的节点程序，也不需要接触联邦管理凭据。**
 
-### 加入已有节点
+操作截图、整合包导入和常见问题见[玩家教程](https://bugg.icu/docs)。找队友或交流问题，可添加微信 **junsi223** 联系入群，或加入 QQ 群 **849362477**。
 
-普通使用者不必单独安装本仓库。使用 [Buggcraft 启动器](https://github.com/vdjango/buggcraft/releases)添加节点提供的启动器接入码，即可浏览房间、添加好友、接受邀请并连接。房主仍需在 Minecraft 中开放自己的世界；加入者需要准备兼容的 Minecraft 版本和模组。
+## 联邦网络是什么？
 
-启动器接入码包含访问凭据，只应从可信的节点管理页面获取和分享。诊断包也可能含有本机路径、网络探测结果及连接信息，公开前请检查并清理私密内容。
+可以把它理解为：**多位管理员各自运行节点，再把这些节点连接成一张共同的联机网络。**
 
-### 部署 Ubuntu 节点
+例如，上海节点和武汉节点加入了同一联邦。房主连接上海创建房间，好友连接武汉，也能找到这个房间并加入，不用为了找房间反复切换节点。
 
-节点安装包适用于 Ubuntu 24.04 amd64。下载最新 [GitHub Release](https://github.com/vdjango/minecraft-tunnel-native/releases/latest) 中的 `.deb` 文件及校验文件，然后在服务器执行：
+| 联邦能做什么 | 对玩家有什么用 |
+| --- | --- |
+| 同步房间目录 | 在一个入口看到其他在线节点的公开房间 |
+| 同步账号和好友相关信息 | 在同一联邦内使用账号、查找好友和接收联机邀请 |
+| 提供房间所属节点的信息 | 启动器找到实际承接房间的节点，再建立连接 |
+| 节点各自独立运行 | 一台节点停机时，其他节点仍能提供各自的服务 |
+
+联邦不会把多台服务器的带宽合并，也不会代替房主运行世界。实际游戏流量优先尝试玩家之间直连；需要中转时，使用承接该房间的节点。房主关掉游戏，世界就会停止；承载连接的节点故障时，相关玩家可能需要重新连接。
+
+**节点可以单独运行，加入联邦是可选项。** 联邦成员共享信任范围，管理员应只接入自己认可的网络。
+
+## 我想提供一个节点
+
+推荐 Ubuntu 24.04 amd64。从[最新发行版](https://github.com/vdjango/minecraft-tunnel-native/releases/latest)下载 `buggcraft-node_…_amd64.deb`，在服务器执行：
 
 ```bash
 sudo apt install ./buggcraft-node_*_amd64.deb
 sudo buggcraft-node setup
 ```
 
-`setup` 提供首次网页配置所需的 HTTPS 地址和证书指纹。完成节点名称、服务器地址和管理员设置后，服务会由 systemd 管理。常用运维命令：
+按照终端给出的地址打开网页，填写节点名称、公网地址和管理员信息，完成配置即可。安装包会配置后台服务、开机启动和自动校时；网络校时在后台进行。
+
+联机默认需要开放 **TCP / UDP 3333**。网页可以通过 **HTTPS 443** 访问，节点内部的 **18443** 可由反向代理转接，不必直接暴露公网；NAT 服务器使用实际映射端口。具体 HTTPS 配置见[节点部署指南](docs/节点部署指南.md)。
+
+### 如何加入已有联邦？
+
+1. 向已有联邦的管理员申请入网邀请。
+2. 登录自己节点的管理后台，打开“连接网络”，导入邀请。
+3. 等待节点心跳和房间目录同步，在“节点网络”查看在线成员。
+
+邀请包含管理凭据，只在管理员之间传递。普通玩家仍使用节点地址和浏览器登录，不用填写联邦邀请。
+
+### 日常管理
 
 ```bash
-sudo buggcraft-node status
-sudo buggcraft-node logs
+sudo buggcraft-node status       # 查看服务状态
+sudo buggcraft-node logs         # 查看最近日志
 sudo systemctl restart buggcraft-node
 ```
 
-通常需要按节点配置开放 TCP/UDP `3333`（控制和联机传输）及 TCP `18443`（管理网页）；如更改端口，以实际配置为准。升级会重启节点并中断该节点上的连接，操作前请安排维护时间并备份 `/var/lib/buggcraft-node`。详细说明见[节点部署指南](docs/deployment.md)。
+升级前备份 `/var/lib/buggcraft-node`，再安装新版 `.deb`。升级会重启本节点，安排在无人联机时操作。安装、升级、证书、端口、自动校时和备份说明见[节点部署指南](docs/节点部署指南.md)。
 
-## 工作方式
+### 怎么填写带宽和人数？
 
-1. 节点管理端为启动器和玩家提供房间、好友与节点目录。
-2. 房主在 Minecraft 中将世界开放到局域网，并在启动器中创建房间。
-3. 好友通过房间列表或邀请加入；启动器和原生核心协商可用的连接路径。
-4. 原生核心优先尝试 P2P。若直连不可用，连接可经房间所属节点中继；玩家可在启动器中选择只使用中继。
+后台直接填写服务器的**上传带宽 Mbps**，例如 6、20、200；不用自己换算 MB/s。节点按每人流量预算和预留带宽估算可接纳访客数，房间人数还受单独上限限制。
 
-Minecraft 世界、存档和游戏规则留在房主电脑上。节点故障会影响由该节点承载的服务或中继会话；已断开的 Minecraft TCP 游戏连接无法在游戏内无缝恢复，通常需要重新连接。
+页面的“预计中转余量”是预算值，不是性能承诺。CPU、内存、玩家视距、模组和区块加载都会影响实际体验，应结合后台实时流量调整。
 
-多个节点加入同一联邦后，可以同步房间与好友目录。联邦用于发现和路由，不会自动聚合服务器带宽；游戏数据的实际路径由房间所属节点、连接策略和双方网络决定。联邦成员应由管理员相互确认，仅连接并信任已知节点。
+## 开发、接入与贡献
 
-## 下载与发布
+想修改节点或把网络核心接入自己的启动器，请从[节点开发指南](docs/节点开发指南.md)开始；[构建指南](docs/构建指南.md)介绍环境和打包，[协议索引](docs/protocol/协议索引.md)与[原生桥接口](docs/原生桥动态库.md)介绍程序接入。完整资料见[文档索引](docs/文档索引.md)。
 
-- [最新发行版](https://github.com/vdjango/minecraft-tunnel-native/releases/latest)：原生运行包、Ubuntu `.deb` 安装包及校验文件。
-- [持续集成](https://github.com/vdjango/minecraft-tunnel-native/actions/workflows/core.yml)：Windows、Linux 和 macOS 的构建、测试及运行包产物。
-- [提交问题](https://github.com/vdjango/minecraft-tunnel-native/issues)：报告节点部署、连接或原生桥接问题。
+欢迎提交问题与改进。反馈时请附系统、版本、操作步骤和相关日志，并移除密码、私钥和个人凭据。
 
-各系统的产物包含原生核心、桥接库和运行所需文件。启动器集成时应保留完整运行目录，不要只复制一个 DLL、`.so` 或 `.dylib`。发行包未包含节点持久化数据或管理员凭据。
-
-## 开发与测试
-
-### 环境
-
-- CMake 3.24 或更新版本及 C++20 编译器。
-- OpenSSL 3.x 开发文件；Windows 构建还需与目标工具链匹配的 vcpkg OpenSSL。
-- Python 3.11 或更新版本，用于依赖准备、节点服务和测试。
-- GitHub Actions 在 Ubuntu 24.04、Windows Server、Intel macOS 与 Apple Silicon macOS 上执行构建验证。
-
-### 构建原生代码
-
-```bash
-python scripts/fetch_deps.py
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
-ctest --test-dir build --output-on-failure
-cmake --install build --prefix "$PWD/runtime"
-```
-
-跨平台工具链、Windows 与 macOS 配置、节点 `.deb` 构建方式见[构建指南](docs/build.md)。需要运行服务端 Web 时，按根目录的 `requirements.txt` 安装 Python 依赖，并参阅[部署指南](docs/deployment.md)。
-
-### 架构入口
-
-- [`docs/development.md`](docs/development.md)：节点开发入口、模块职责、本轮行为变化、诊断顺序与验证方法。
-- [`core/`](core/)：C++ 节点核心、连接状态与传输路径。
-- [`bridge/`](bridge/)：启动器调用的原生桥接实现和 C ABI。
-- [`web/`](web/)：节点管理、账号、房间目录和联邦服务。
-- [`tests/`](tests/)：原生协议、网络桥接、节点服务和联邦测试。
-- [`docs/bridge-library.md`](docs/bridge-library.md)：公共桥接 API 与运行时布局。
-- [`PROTOCOL_STANDARD.md`](PROTOCOL_STANDARD.md)：分层协议索引；细节、语言示例见 [`docs/protocol/`](docs/protocol/README.md)。
-- [`docs/protocol/game-metadata.md`](docs/protocol/game-metadata.md)：Minecraft 版本、加载器、模组摘要、完整清单分页和下载参数。
-- [`docs/launcher-federation-flow.md`](docs/launcher-federation-flow.md)：入口缓存、房间归属、P2P/中继与节点故障流程图。
-- [`docs/security.md`](docs/security.md)：凭据、后台、代理、握手过滤和官方二进制识别的实际边界。
-- [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)：第三方组件与许可证。
-
-性能测试的环境、方法和边界见[性能说明](docs/performance.md)；各平台构建与回归结果见 [GitHub Actions](https://github.com/vdjango/minecraft-tunnel-native/actions/workflows/core.yml)。测量结果不等同于公网容量保证。
-
-### 当前行为与接入注意（2026-10-28）
-
-- 房间内容同步支持必需模组以及可选资源包、光影，新增 `resources_*` 摘要与 `kind:"resources"`；外观内容不影响联机匹配。与启动器 `.buggpack` 的内容规则见[游戏环境与内容同步](docs/protocol/game-metadata.md)。
-
-- 公开房间可同步 Minecraft 版本、协议号、加载器/版本和模组摘要。实例信息由启动器提供，桥扫描 `mods`；预览最多 24 项，完整清单通过独立桥接接口分页取得，不通过网页下载接口。
-- `/api/status.players` 为存活联邦节点的房主/访客桥会话总数，包含私密房间；容量、路径分布与 `game_players` 仍是本节点指标。全网详情可能部分可用，须处理 `partial`，不能把列表长度当实际游戏人数。
-- Cloudflare IPv4/IPv6 代理网段在服务启动后后台获取，之后每 24 小时刷新，失败保留缓存；手工列表只维护额外可信代理。
-- 已建立会话在 SSH 故障后按缓存候选重建，连续失败会停止并报告 `backup-unavailable`。联邦没有一致性选主或 TCP 状态复制，已断开的游戏需重新加入；具体缓存和重试边界见[恢复与兼容](docs/protocol/compatibility.md)。
-- 后台从公共导航移除，管理路由仍须管理员鉴权。握手过滤不能证明官方桥，也不是完整 Minecraft 防火墙；详见[安全说明](docs/security.md)。
-
-节点网页 `/developers` 是独立 HTML 指南，仓库分层文档是字段契约。修改接口时需要同时维护两处；文档日期不代表对应版本已部署。
-
-## 贡献与安全
-
-欢迎提交可复现的问题和代码改进。问题报告请包含操作步骤、系统与构建版本、相关日志，以及连接使用 P2P 还是中继。提交日志前移除管理员密码、节点接入码、房间密钥、私钥和个人凭据。
-
-本项目使用 [GNU Affero General Public License v3.0 或更高版本](LICENSE) 发布。分发和修改时请同时遵守 `THIRD_PARTY_NOTICES.md` 中列出的第三方许可。
+本项目使用 [AGPL-3.0-or-later](LICENSE)，第三方组件许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。Buggcraft 与 Mojang / Microsoft 无隶属关系。

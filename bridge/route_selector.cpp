@@ -29,6 +29,7 @@ void RouteSelector::recovered(const Profile& from,const Profile& to){
 }
 void RouteSelector::refresh(Profile& selected,std::vector<Profile>& alternatives,bool force){
     const auto now=Clock::now();
+    const bool first_probe=refreshed_==Clock::time_point{};
     if(!force&&refreshed_!=Clock::time_point{}&&now-refreshed_<std::chrono::seconds(30))return;
     refreshed_=now;
     // At most six known, pinned endpoints, three probes at a time. No per-peer
@@ -48,6 +49,7 @@ void RouteSelector::refresh(Profile& selected,std::vector<Profile>& alternatives
                     c->sample.remaining=health.contains("remaining_visitors")&&health["remaining_visitors"].is_number_integer()?health["remaining_visitors"].get<int>():-1;
                     c->sample.accepting=health.value("accepting",true);c->sample.reachable=true;
                     c->profile.name=value.value("name",std::string("Node"));c->failures=0;c->retry={};
+                    c->region=health.value("region",std::string{});
                 }catch(...){c->sample.reachable=false;c->failures=std::min(5u,c->failures+1);
                     c->retry=Clock::now()+std::chrono::seconds(1u<<c->failures);}
             }));}
@@ -55,7 +57,8 @@ void RouteSelector::refresh(Profile& selected,std::vector<Profile>& alternatives
     }
     Candidate* current=nullptr;Candidate* best=nullptr;
     for(auto& c:candidates_){if(same(c.profile,selected))current=&c;
-        if(!best||route_score(c.sample)<route_score(best->sample))best=&c;}
+        if(!best||(latency_first_&&std::isfinite(route_score(c.sample))&&std::isfinite(route_score(best->sample))
+            ?c.sample.rtt_ms<best->sample.rtt_ms:route_score(c.sample)<route_score(best->sample)))best=&c;}
     // Directory lookups remain usable when the entire network is full.
     // Admission for hosting is checked separately by the caller.
     if(!best||!std::isfinite(route_score(best->sample))){
@@ -64,7 +67,11 @@ void RouteSelector::refresh(Profile& selected,std::vector<Profile>& alternatives
         if(!best)throw Failure(-32000,"No reachable node");
     }
     const bool cooldown=switched_!=Clock::time_point{}&&now-switched_<std::chrono::seconds(90);
-    if(!current||!current->sample.reachable||route_improves(route_score(current->sample),route_score(best->sample),cooldown)){
+    if(manual_&&std::isfinite(route_score(candidates_[*manual_].sample)))best=&candidates_[*manual_];
+    const bool forced_choice=(manual_&&best==&candidates_[*manual_])||(force&&latency_first_);
+    if(!current||!current->sample.reachable||!std::isfinite(route_score(current->sample))||
+        (latency_first_&&first_probe)||
+        forced_choice||(!manual_&&route_improves(route_score(current->sample),route_score(best->sample),cooldown))){
         const auto old=selected;selected=best->profile;
         const auto reason=!current||!current->sample.reachable?"unavailable":
             !std::isfinite(route_score(current->sample))?"capacity_unavailable":"better_capacity_and_latency";
@@ -74,10 +81,24 @@ void RouteSelector::refresh(Profile& selected,std::vector<Profile>& alternatives
     std::stable_sort(ranked.begin(),ranked.end(),[](auto* a,auto* b){return route_score(a->sample)<route_score(b->sample);});
     alternatives.clear();for(auto* c:ranked){alternatives.push_back(c->profile);if(alternatives.size()==3)break;}
 }
-Json RouteSelector::status()const{auto rows=Json::array();for(const auto& c:candidates_)rows.push_back({{"name",c.profile.name},
-    {"reachable",c.sample.reachable},{"rtt_ms",c.sample.rtt_ms},{"utilization",c.sample.utilization},
+void RouteSelector::automatic(Profile& selected,std::vector<Profile>& alternatives,bool force){
+    manual_.reset();latency_first_=true;
+    // A new launcher/login run must use fresh samples, including formerly failed routes.
+    if(force)for(auto& c:candidates_){c.retry={};c.sample.reachable=false;}
+    refresh(selected,alternatives,force);
+}
+void RouteSelector::select(Profile& selected,std::vector<Profile>& alternatives,size_t index){
+    if(index>=candidates_.size())throw Failure(-32602,"Unknown route index");
+    auto& target=candidates_[index];
+    if(!std::isfinite(route_score(target.sample)))throw Failure(-32022,"Selected node is unavailable or full");
+    const auto old=selected;selected=target.profile;manual_=index;announce(old,selected,"manual");
+    alternatives.clear();for(const auto& c:candidates_)if(!same(c.profile,selected)&&c.sample.reachable){
+        alternatives.push_back(c.profile);if(alternatives.size()==3)break;}
+}
+Json RouteSelector::status(const Profile& selected)const{auto rows=Json::array();for(size_t index=0;index<candidates_.size();++index){const auto& c=candidates_[index];rows.push_back({{"index",index},{"name",c.profile.name},
+    {"region",c.region},{"selected",same(c.profile,selected)},{"reachable",c.sample.reachable},{"rtt_ms",c.sample.reachable?Json(c.sample.rtt_ms):Json(nullptr)},{"utilization",c.sample.utilization},
     {"remaining_visitors",c.sample.remaining},{"accepting",c.sample.accepting},
-    {"score",std::isfinite(route_score(c.sample))?Json(route_score(c.sample)):Json(nullptr)}});return rows;}
+    {"score",std::isfinite(route_score(c.sample))?Json(route_score(c.sample)):Json(nullptr)}});}return rows;}
 Json RouteSelector::events(){auto value=std::move(events_);events_=Json::array();return value;}
 bool RouteSelector::admissible(const Profile& profile)const{
     for(const auto& c:candidates_)if(same(c.profile,profile))return std::isfinite(route_score(c.sample));

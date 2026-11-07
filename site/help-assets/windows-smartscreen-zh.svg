@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 570" role="img" aria-labelledby="title description">
+  <title id="title">Windows SmartScreen 中文操作示意图</title>
+  <desc id="description">先确认来自官网下载站，再点更多信息，最后在确认文件可信时点仍要运行。</desc>
+  <defs><linearGradient id="blue" x2="1" y2="1"><stop stop-color="#2259ba"/><stop offset="1" stop-color="#173675"/></linearGradient><filter id="shadow"><feDropShadow dx="0" dy="7" stdDeviation="12" flood-color="#182a55" flood-opacity=".12"/></filter></defs>
+  <rect width="760" height="570" rx="20" fill="#f3f6fd"/>
+  <text x="42" y="50" fill="#4862a0" font-size="18" font-weight="700" font-family="Microsoft YaHei,PingFang SC,sans-serif">WINDOWS 10 / 11 · SMARTSCREEN</text>
+  <text x="42" y="93" fill="#182744" font-size="30" font-weight="700" font-family="Microsoft YaHei,PingFang SC,sans-serif">看到“Windows 已保护你的电脑”怎么办？</text>
+  <rect x="42" y="119" width="676" height="208" rx="14" fill="url(#blue)" filter="url(#shadow)"/>
+  <circle cx="85" cy="166" r="20" fill="#e9f4ff"/><text x="78" y="174" fill="#2259ba" font-size="25" font-weight="700" font-family="Microsoft YaHei,sans-serif">!</text>
+  <text x="119" y="174" fill="#fff" font-size="27" font-weight="700" font-family="Microsoft YaHei,PingFang SC,sans-serif">Windows 已保护你的电脑</text>
+  <text x="78" y="218" fill="#e3edff" font-size="20" font-family="Microsoft YaHei,PingFang SC,sans-serif">核对下载来源和文件后，再决定是否继续。</text>
+  <rect x="78" y="250" width="159" height="48" rx="8" fill="#e8f1ff"/><text x="108" y="282" fill="#194388" font-size="21" font-weight="700" font-family="Microsoft YaHei,PingFang SC,sans-serif">更多信息</text>
+  <text x="270" y="280" fill="#fff" font-size="19" font-family="Microsoft YaHei,PingFang SC,sans-serif">点击后会展开应用信息</text>
+  <rect x="42" y="350" width="317" height="151" rx="12" fill="#fff" stroke="#d8e1f1"/>
+  <circle cx="75" cy="391" r="17" fill="#e5edff"/><text x="69" y="398" fill="#3156aa" font-size="20" font-weight="700" font-family="Arial,sans-serif">1</text>
+  <text x="103" y="399" fill="#192b4a" font-size="23" font-weight="700" font-family="Microsoft YaHei,PingFang SC,sans-serif">先核对来源</text>
+  <text x="69" y="441" fill="#405678" font-size="18" font-family="Microsoft YaHei,PingFang SC,sans-serif">官网：download.bugg.icu</text>
+  <text x="69" y="472" fill="#405678" font-size="18" font-family="Microsoft YaHei,PingFang SC,sans-serif">文件：Buggcraft.exe</text>
+  <text x="367" y="437" fill="#6e80aa" font-size="28" font-family="Arial,sans-serif">→</text>
+  <rect x="400" y="350" width="318" height="151" rx="12" fill="#fff" stroke="#d8e1f1"/>
+  <circle cx="433" cy="391" r="17" fill="#e5edff"/><text x="427" y="398" fill="#3156aa" font-size="20" font-weight="700" font-family="Arial,sans-serif">2</text>
+  <text x="460" y="399" fill="#192b4a" font-size="23" font-weight="700" font-family="Microsoft YaHei,PingFang SC,sans-serif">确认后运行</text>
+  <rect x="427" y="422" width="159" height="49" rx="8" fill="#2856b8"/><text x="456" y="455" fill="#fff" font-size="21" font-weight="700" font-family="Microsoft YaHei,PingFang SC,sans-serif">仍要运行</text>
+  <text x="42" y="545" fill="#647394" font-size="16" font-family="Microsoft YaHei,PingFang SC,sans-serif">中文操作示意图；实际窗口会随 Windows 版本而变化。来源不明时请勿继续。</text>
+</svg>

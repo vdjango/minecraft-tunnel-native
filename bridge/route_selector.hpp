@@ -3,19 +3,24 @@
 #include "ssh.hpp"
 #include "route_score.hpp"
 #include <vector>
+#include <optional>
 namespace bridge {
 class RouteSelector {
-    struct Candidate {Profile profile;RouteSample sample;Clock::time_point retry{};unsigned failures=0;};
+    struct Candidate {Profile profile;RouteSample sample;Clock::time_point retry{};unsigned failures=0;std::string region;};
     std::vector<Candidate> candidates_;
     Clock::time_point refreshed_{},switched_{};
     Json events_=Json::array();
+    std::optional<size_t> manual_;
+    bool latency_first_=false;
     void announce(const Profile&,const Profile&,const char* reason);
 public:
     RouteSelector(const Profile&,const std::vector<Profile>&);
     void refresh(Profile&,std::vector<Profile>&,bool force=false);
     void failed(const Profile&);
     void recovered(const Profile&,const Profile&);
-    Json status()const;
+    void automatic(Profile&,std::vector<Profile>&,bool force=true);
+    void select(Profile&,std::vector<Profile>&,size_t);
+    Json status(const Profile&)const;
     bool admissible(const Profile&)const;
     Json events();
 };

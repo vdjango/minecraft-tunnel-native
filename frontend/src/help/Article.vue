@@ -18,7 +18,8 @@ const next = computed(() => guides[index.value + 1]);
         <h2><span>{{ String(number + 1).padStart(2, '0') }}</span>{{ section.title }}</h2>
         <p v-for="paragraph in section.paragraphs" :key="paragraph">{{ paragraph }}</p>
         <ol v-if="section.steps" class="steps"><li v-for="step in section.steps" :key="step">{{ step }}</li></ol>
-        <figure v-if="section.image"><img :src="'/help-assets/' + section.image" :alt="section.caption || section.title" :width="['game-versions.webp','game-install.webp','modpack-import.webp','resources.webp'].includes(section.image) ? 926 : 721" height="505" loading="lazy" decoding="async" /><figcaption>{{ section.caption }}</figcaption></figure>
+        <figure v-if="section.image"><a :href="'/help-assets/' + section.image" target="_blank" rel="noopener noreferrer" aria-label="打开原图查看"><img :src="'/help-assets/' + section.image" :alt="section.caption || section.title" :width="section.imageWidth || (['game-versions.webp','game-install.webp','modpack-import.webp','resources.webp'].includes(section.image) ? 926 : 721)" :height="section.imageHeight || 505" loading="lazy" decoding="async" /></a><figcaption>{{ section.caption }}</figcaption></figure>
+        <div v-if="section.links" class="article-sources"><a v-for="link in section.links" :key="link.href" :href="link.href" target="_blank" rel="noopener noreferrer">{{ link.label }} ↗</a></div>
         <aside v-if="section.note" class="note"><strong>记住这一点</strong><p>{{ section.note }}</p></aside>
       </section>
       <nav class="article-pagination" aria-label="继续阅读"><RouterLink v-if="previous" :to="guidePath(previous.slug)"><small>← 上一篇</small><strong>{{ previous.title }}</strong></RouterLink><RouterLink v-if="next" :to="guidePath(next.slug)"><small>下一篇 →</small><strong>{{ next.title }}</strong></RouterLink></nav>

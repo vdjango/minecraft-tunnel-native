@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import NodeHeader from '../NodeHeader.vue';
 defineProps<{seed:Record<string,string>}>();
 </script>
 
 <template>
-<header class="shell topbar site-header"><a class="brand" href="/"><span class="mark">B<span>·</span></span><span>BUGGCRAFT<small>MINECRAFT COMMUNITY</small></span></a><nav aria-label="网站导航"><a href="/network">节点网络</a><a href="/connect">连接启动器</a><a href="/developers">开发文档</a><a href="/feedback">问题反馈</a><a id="open-account" href="/account">用户中心</a></nav></header>
+<NodeHeader />
 
 <main class="shell user-main"><section id="account-dialog" class="account-content">
 <div class="page-heading"><h1 id="page-title">登录</h1><p id="page-description">登录 Buggcraft，和朋友一起游戏。</p></div>

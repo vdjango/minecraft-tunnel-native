@@ -28,7 +28,7 @@ function renderPlayers(players=[],total=players.length,partial=false){
   }));
 }
 $('admin-user-filter').oninput=renderUsers;
-const capacityFields = [['max-rooms','max_rooms'],['room-capacity','room_capacity'],['bandwidth','bandwidth_mb_s'],['reserve','reserve_percent'],['player-budget','per_player_mb_s']];
+const capacityFields = [['max-rooms','max_rooms',1],['room-capacity','room_capacity',1],['bandwidth','bandwidth_mb_s',8],['reserve','reserve_percent',1],['player-budget','per_player_mb_s',8]];
 async function api(path, data) {
   try {
   const response = await fetch(path, {signal:AbortSignal.timeout(8000),method:data === undefined ? 'GET' : 'POST',
@@ -92,6 +92,7 @@ async function loadAdmin(fill = true) {
     const state = await api('/api/admin?section='+encodeURIComponent(section)); csrf = state.csrf;
     renderAdminBandwidth(state.bandwidth);
     $('login-form').hidden = true; $('admin-panel').hidden = false;
+    document.dispatchEvent(new CustomEvent('buggcraft:admin-auth',{detail:true}));
     renderNodes(state);
     renderPlayers(state.players,state.total,state.partial);
     const proxyCount=Array.isArray(state.cloudflare_proxy_cidrs)?state.cloudflare_proxy_cidrs.length:0;
@@ -113,7 +114,6 @@ async function loadAdmin(fill = true) {
     }
     accountRows=state.accounts;renderUsers();
     if (fill) {
-      if (!$('settings').hidden) void api('/api/admin/room-cache').then(renderRoomOrigin).catch(error=>message(error,'room-origin-feedback'));
       if (!$('mail').hidden) {
         void api('/api/admin/mail').then(mail=>{
           for (const key of ['host','port','username','from_name']) $('mail-' + key.replace('_','-')).value = mail[key];
@@ -122,10 +122,14 @@ async function loadAdmin(fill = true) {
       }
       $('setting-name').value = state.name; $('setting-public').checked = state.public_join;
       $('setting-proxies').value=state.trusted_proxy_cidrs||'';
+      $('setting-proxy-enabled').checked=!!state.trusted_proxy_enabled;
+      $('setting-cloudflare-enabled').checked=!!state.cloudflare_proxy_enabled;
+      renderProxySettings();
       $('setting-region').value=state.region||'';
       $('setting-drain').checked = state.draining; $('setting-registration').checked = state.registration_open;
-      for (const [id, key] of capacityFields) $('setting-' + id).value = state.capacity[key];
+      for (const [id, key, scale] of capacityFields) $('setting-' + id).value = Number((state.capacity[key] * scale).toFixed(6));
     }
+    if (!$('settings').hidden) void api('/api/admin/room-cache').then(renderRoomOrigin).catch(error=>message(error,'room-origin-feedback'));
     if(fill)message('管理数据已更新。');
   } finally { loading = false;$('admin-panel').setAttribute('aria-busy','false'); }
 }
@@ -140,6 +144,15 @@ function renderRoomOrigin(state){
   $('room-origin-address').textContent=state.configured?state.url+' · '+state.name:'';
   $('room-origin-disconnect').hidden=!state.configured;
 }
+function renderProxySettings(){
+  const enabled=$('setting-proxy-enabled').checked;
+  $('trusted-proxy-settings').hidden=!enabled;
+  $('setting-proxies').disabled=!enabled;
+  $('setting-cloudflare-enabled').disabled=!enabled;
+  $('cloudflare-proxy-settings').hidden=!enabled||!$('setting-cloudflare-enabled').checked;
+}
+$('setting-proxy-enabled').onchange=renderProxySettings;
+$('setting-cloudflare-enabled').onchange=renderProxySettings;
 $('room-origin-form').onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;
   try{renderRoomOrigin(await api('/api/admin/room-cache',{action:'connect',invitation:$('room-origin-invitation').value.trim()}));
     $('room-origin-invitation').value='';message('已接入源站，房间文件加速立即生效。','room-origin-feedback');
@@ -151,10 +164,11 @@ if($('refresh-admin'))$('refresh-admin').onclick=()=>loadAdmin(false).catch(erro
 $('settings-form').onsubmit = async event => {
   event.preventDefault(); const button = event.submitter; button.disabled = true;
   try {
-    const capacity = Object.fromEntries(capacityFields.map(([id,key]) => [key,Number($('setting-' + id).value)]));
+    const capacity = Object.fromEntries(capacityFields.map(([id,key,scale]) => [key,Number($('setting-' + id).value)/scale]));
     await api('/api/settings', {name:$('setting-name').value,region:$('setting-region').value,public_join:$('setting-public').checked,
       draining:$('setting-drain').checked,registration_open:$('setting-registration').checked,capacity,
-      trusted_proxy_cidrs:$('setting-proxies').value});
+      trusted_proxy_cidrs:$('setting-proxies').value,trusted_proxy_enabled:$('setting-proxy-enabled').checked,
+      cloudflare_proxy_enabled:$('setting-cloudflare-enabled').checked});
     message('设置已保存。'); await loadAdmin(false);
   } catch (e) { message(e); } finally { button.disabled = false; }
 };
@@ -170,12 +184,12 @@ $('node-action-form').onsubmit = async event => {
   } catch (e) { message(e,'action-feedback'); } finally { button.disabled = false; }
 };
 $('export-invite').onclick = async () => {
-  try { $('federation-invite').value = JSON.stringify(await api('/api/federation/invite'), null, 2); message('邀请包含入网密钥，请私下交给可信管理员。'); }
+  try { $('federation-invite').value = JSON.stringify(await api('/api/federation/invite'), null, 2); message('邀请包含入网密钥和资源加速配置，请私下交给可信管理员；加入方将采用本节点的资源加速配置。'); }
   catch (e) { message(e); }
 };
 $('join-network').onclick = async event => {
   const button = event.currentTarget; button.disabled = true;
-  try { await api('/api/federation/join', JSON.parse($('federation-invite').value)); $('federation-invite').value = ''; await loadAdmin(false); message('已保存连接，节点将在数秒内同步。'); }
+  try { await api('/api/federation/join', JSON.parse($('federation-invite').value)); $('federation-invite').value = ''; await loadAdmin(false); message('已加入联邦，邀请方的资源下载加速配置已保存到本机并立即生效。'); }
   catch (e) { message(e); } finally { button.disabled = false; }
 };
 $('leave-network').onclick = () => { $('leave-form').hidden = false; };
@@ -189,6 +203,7 @@ $('logout').onclick = async () => {
   try {
     await api('/api/logout', {}); csrf = ''; clearAction(); $('admin-panel').hidden = true;
     $('login-form').hidden = false; $('federation-invite').value = ''; $('leave-form').hidden = true; message('');
+    document.dispatchEvent(new CustomEvent('buggcraft:admin-auth',{detail:false}));
   } catch (e) { message(e); }
 };
 if (!$('admin-panel').hidden) loadAdmin().catch(error=>message(error));

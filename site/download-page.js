@@ -112,7 +112,7 @@
         const {release,file}=result;
         title.textContent=`${release.tag_name || release.name || '发行版'} · ${file.name}`;
         meta.textContent=`${release.prerelease?'预发布版本':'正式版本'} · ${dateText(release.published_at || release.created_at)}`;
-        const label=selectedPlatform==='mac' ? `下载 ${selectedArch==='arm64'?'Apple Silicon':'Intel'} 版` : `下载 ${config.title}${selectedPlatform==='linux'?' '+selectedArch:''} 版`;
+        const label=selectedPlatform==='mac' ? `下载 ${selectedArch==='arm64'?'Apple Silicon':'Intel'} 版 ZIP` : `下载 ${config.title}${selectedPlatform==='linux'?' '+selectedArch:''} 版 ZIP`;
         setLink(button,file.browser_download_url,label+' ↓','暂无可下载版本');
         const checksumName=config.checksums?config.checksums[selectedArch]:config.checksum;
         const sum=release.assets.find(item=>item.name===checksumName);

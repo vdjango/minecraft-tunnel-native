@@ -5,7 +5,7 @@ Credentials and state belong outside the repository. Python standard library onl
 """
 import argparse
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 from html.parser import HTMLParser
 import json
@@ -20,7 +20,7 @@ from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
 
 UA = 'BuggcraftSEO/1.0 (+https://bugg.icu/)'
-PUBLIC_PATH = re.compile(r'^/(?:docs(?:/help/(?:download-game|import-modpack|resources|minecraft|create-room|join-room|file-acceleration|troubleshooting))?|developers|network|connect|projects/(?:modrinth|curseforge)/[A-Za-z0-9_-]+)?$')
+PUBLIC_PATH = re.compile(r'^/(?:docs(?:/help/(?:download-game|import-modpack|resources|minecraft|create-room|join-room|file-acceleration|troubleshooting|launcher-windows|launcher-macos))?|developers|network|connect|projects/(?:modrinth|curseforge)/[A-Za-z0-9_-]+)?$')
 MAX_URLS = 10000
 
 
@@ -166,9 +166,16 @@ def submit(provider, site, urls):
         parsed_endpoint=urlparse(endpoint)
         if parsed_endpoint.scheme not in ('http','https') or parsed_endpoint.netloc!='data.zz.baidu.com':
             raise ValueError('Invalid Baidu endpoint')
-        code,_,body=fetch(endpoint,data='\n'.join(urls).encode(),headers={'Content-Type':'text/plain; charset=utf-8'})
+        try:
+            code,_,body=fetch(endpoint,data='\n'.join(urls).encode(),headers={'Content-Type':'text/plain; charset=utf-8'})
+        except HTTPError as error:
+            if error.code!=400: raise
+            code,body=error.code,error.read(65536)
         result=json.loads(body)
-        if result.get('error'): raise ValueError('Baidu rejected request')
+        if result.get('error'):
+            if result.get('message','').strip().lower()=='over quota':
+                return {'status':'quota_exhausted','http_status':code,'urls':0,'remaining':0}
+            raise ValueError('Baidu rejected request')
         accepted=int(result.get('success',0))
         return {'status':'accepted' if accepted==len(urls) else 'partial','http_status':code,'urls':accepted,'remaining':result.get('remain')}
     raise ValueError('Unknown provider')
@@ -241,6 +248,9 @@ def run(config, state, *, force=False, checkpoint=None):
                     previous['acknowledged'].update(eligible)
                     previous['acknowledged']={url:digest for url,digest in previous['acknowledged'].items() if url in urls}
                     previous.update(failures=0,retry_after=0,submitted_at=utc())
+                elif result['status']=='quota_exhausted':
+                    tomorrow=datetime.now(timezone(timedelta(hours=8))).replace(hour=0,minute=5,second=0,microsecond=0)+timedelta(days=1)
+                    previous.update(failures=0,retry_after=tomorrow.timestamp())
                 elif result['status']=='partial': raise ValueError('Partial submission; retry later')
             except Exception as error:
                 count=previous.get('failures',0)+1

@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <meta name="baidu-site-verification" content="codeva-aZU8dsua8c" />
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <meta name="description" content="下载适用于 Windows、macOS 和 Linux 的 Buggcraft Minecraft Java 启动器，查看发行版本与历史版本。">
@@ -46,8 +47,9 @@
     .support-details{display:grid;max-width:780px;gap:10px;margin:32px auto 56px}.info-details{border:1px solid var(--line);border-radius:8px;background:var(--panel)}.info-details summary{padding:14px 17px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer}.info-details>p,.info-details>.text-link{margin:0 17px 16px;color:var(--muted);font-size:12px;line-height:1.8}.info-details>.text-link{display:inline-flex;color:var(--soft)}.info-details .fine-print{margin:0 17px 16px;padding:10px 12px;font-size:11px}
     @media(max-width:760px){.page-intro{margin:29px auto 20px}.download-main{padding:25px}.platform-tabs{gap:7px;margin-bottom:22px}.platform-tab{min-height:49px}.release-box{margin-top:21px;padding:18px}.history-section{margin-top:48px}.history-heading h2{font-size:20px}}
     @media(max-width:460px){.page-intro{margin-top:23px}.download-main{padding:19px}.platform-tabs{gap:5px}.platform-tab{font-size:12px}.selected-platform h2{font-size:22px}.release-box{padding:15px}.history-section{margin-top:41px}.history-entry summary{min-height:55px;padding:11px}.history-date{font-size:10px}.history-tag{font-size:13px}.release-kind{font-size:9px}.info-details summary{padding:12px 14px}.info-details>p,.info-details>.text-link{margin-right:14px;margin-left:14px}}
+    .download-community{display:flex;justify-content:space-between;align-items:center;gap:24px;max-width:780px;margin:32px auto 0;padding:19px 23px;border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));border-radius:10px;background:color-mix(in srgb,var(--panel) 85%,var(--accent) 15%)}.download-community strong{font-size:15px}.download-community p{max-width:540px;margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.8}.download-community b{color:var(--text)}.download-community-links{display:grid;gap:9px;flex:none}.download-community-links a{color:var(--soft);font-size:12px;font-weight:700}.download-community-links a:hover{color:var(--text)}@media(max-width:760px){.download-community{display:block;padding:17px}.download-community-links{margin-top:12px}}
   </style>
-<script data-cfasync="false" src="/vue-navigation-shell.js?v=4b47e7f98a82"></script><link rel="modulepreload" href="/vue-runtime-DzrfuheQ.js"></head>
+<script data-cfasync="false" src="/vue-navigation-shell.js?v=b4304d240314-download-root-v2"></script><link rel="modulepreload" href="/vue-runtime-oPZMReNs.js"></head>
 <body>
   <header class="site-header"><nav class="wrap nav" aria-label="网站导航">
     <a class="brand" href="https://bugg.icu/"><span class="brand-mark">B</span><span class="brand-name"><strong>BUGGCRAFT</strong><small>MINECRAFT JAVA LAUNCHER</small></span></a>
@@ -80,12 +82,13 @@
 
     <section class="history-section" aria-labelledby="history-title"><div class="history-heading"><div><h2 id="history-title">历史版本</h2><p>新版本由发布后台管理，发布后立即出现在这里。</p></div></div><div class="history-list" id="release-history" aria-live="polite"><div class="history-empty">正在读取版本记录…</div></div><button class="history-more" id="history-more" type="button" hidden>显示更多版本</button></section>
 
+    <section class="download-community" aria-label="玩家交流群"><div><strong>下载遇到问题？</strong><p>下载的是 ZIP 压缩包；解压后，Windows 版运行其中的 Buggcraft.exe。添加微信 <b>junsi223</b> 优先联系入群，也可加入 QQ 群 <b>849362477</b>。</p></div><div class="download-community-links"><a href="https://bugg.icu/docs/help/launcher-windows">Windows 无法运行教程 ↗</a><a href="https://bugg.icu/docs/help/launcher-macos">macOS 无法打开教程 ↗</a></div></section>
     <div class="support-details">
       <details class="info-details"><summary>第一次使用？</summary><ol class="steps"><li><span class="step-no">01</span><span>下载当前系统的启动器。</span></li><li><span class="step-no">02</span><span>解压下载的 ZIP：Windows 运行 Buggcraft.exe，macOS 打开 Buggcraft.app，Linux 运行启动程序。</span></li><li><span class="step-no">03</span><span>使用你自己的 Minecraft Java 版账号和游戏文件。</span></li></ol><p class="fine-print">Buggcraft 是 Minecraft Java 版启动器，不包含 Minecraft 游戏本体。Windows 版本可能显示 SmartScreen 提示；请确认下载来源为本官网提供的安装文件。macOS 芯片类型可在上方手动切换。</p></details>
       <details class="info-details"><summary>发布新版本</summary><p>GitHub Actions 构建完成后，平台自动同步四个平台的安装包并缓存、校验，无需手动上传。后台选择需要审核时，版本先进入待审核；选择无需审核时，校验通过后直接发布。修改设置只影响后续入库版本。</p><a class="text-link" href="https://download.bugg.icu/admin/">打开版本管理后台 ↗</a></details>
     </div>
   </main>
   <footer class="site-footer wrap"><span>Buggcraft · Minecraft Java 启动器</span><nav aria-label="更多信息"><a href="https://github.com/vdjango/buggcraft">开源代码 ↗</a><a href="https://node.bugg.icu/network">联机节点</a><a href="https://node.bugg.icu/feedback?new=1">问题反馈</a></nav></footer>
-<script data-cfasync="false" type="module" src="/vue-page-download.js?v=61551ddcc905"></script>
+<script data-cfasync="false" type="module" src="/vue-page-download.js?v=4f1bf0f1704d-download-root-v2"></script>
 </body>
 </html>

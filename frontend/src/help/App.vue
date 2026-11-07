@@ -67,7 +67,7 @@ useHead(() => ({
   <div class="layout">
     <aside class="sidebar" :class="{ open }" aria-label="教程导航">
       <label class="search"><span aria-hidden="true">⌕</span><input v-model="search" type="search" placeholder="搜索教程" aria-label="搜索教程" /></label>
-      <RouterLink to="/docs" class="sidebar-home" :class="{ selected: route.path === '/docs' }">全部教程 <span>08</span></RouterLink>
+      <RouterLink to="/docs" class="sidebar-home" :class="{ selected: route.path === '/docs' }">全部教程 <span>{{ String(guides.length).padStart(2, '0') }}</span></RouterLink>
       <div v-for="category in categories" :key="category" class="nav-group">
         <p>{{ category }}</p>
         <RouterLink v-for="item in matching.filter(item => item.category === category)" :key="item.slug" :to="guidePath(item.slug)" :class="{ selected: guide?.slug === item.slug }">{{ item.title }}</RouterLink>
@@ -78,5 +78,5 @@ useHead(() => ({
     <button v-if="open" class="scrim" aria-label="关闭教程目录" @click="open = false"></button>
     <main id="main-content" class="main"><RouterView /></main>
   </div>
-  <footer class="footer"><span>BUGGCRAFT · 玩家教程</span><span>QQ群 849362477</span><a href="https://node.bugg.icu/feedback?new=1">反馈问题 ↗</a><small>与 Mojang / Microsoft 无隶属关系。</small></footer>
+  <footer class="footer"><span>BUGGCRAFT · 玩家教程</span><span>微信 junsi223（优先入群）</span><span>QQ 群 849362477</span><a href="https://node.bugg.icu/feedback?new=1">反馈问题 ↗</a><small>与 Mojang / Microsoft 无隶属关系。</small></footer>
 </template>

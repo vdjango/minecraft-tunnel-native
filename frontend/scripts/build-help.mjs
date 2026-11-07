@@ -24,6 +24,6 @@ for (const path of paths) {
 const sitemapPath = resolve(site, 'sitemap.xml');
 let sitemap = await readFile(sitemapPath, 'utf8');
 sitemap = sitemap.replace(/<url>\s*<loc>https:\/\/bugg\.icu\/docs(?:\/[^<]*)?<\/loc>[\s\S]*?<\/url>/g, '');
-sitemap = sitemap.replace('</urlset>', paths.map(path => `<url><loc>https://bugg.icu${path}</loc><lastmod>2026-11-05</lastmod></url>`).join('') + '</urlset>');
+sitemap = sitemap.replace('</urlset>', paths.map(path => `<url><loc>https://bugg.icu${path}</loc><lastmod>2026-11-06</lastmod></url>`).join('') + '</urlset>');
 await writeFile(sitemapPath, sitemap);
 console.log(`Pre-rendered ${paths.length} tutorial pages with canonical metadata and sitemap entries.`);

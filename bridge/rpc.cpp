@@ -23,7 +23,7 @@ public:
         if(method=="feedback.submit"){auto& n=node(p);return submit_feedback(n.profile,p);}
         if(method=="bridge.initialize"){if(p.value("protocol",Json(1))!=1)throw Failure(-32602,"Unsupported bridge protocol version");
             return {{"protocol",1},{"name","buggcraft-bridge"},{"jsonrpc","2.0"},{"build",{{"protocol",1},{"implementation","cpp"},{"version",BUGGCRAFT_VERSION},{"signed",false}}},{"transports",{"auto","relay"}},{"mixed_rooms",true},
-                {"methods",{"bridge.diagnostics","node.add","node.remove","node.request","social.operate","node.routes","node.selected","node.failed","bridge.events","game.status","game.discover","game.announce","room.list","room.resolve","room.host","room.join","room.close","room.request","room.retarget","room.configure","mods.manifest","mods.fetch","mods.status","mods.cancel","mods.configure","feedback.submit","chat.poll","chat.send","session.events","session.list"}},{"limits",{{"request_bytes",8192},{"nodes",16},{"sessions",8}}}};}
+                {"methods",{"bridge.diagnostics","node.add","node.remove","node.request","social.operate","node.routes","node.select","node.selected","node.failed","bridge.events","game.status","game.discover","game.announce","room.list","room.resolve","room.host","room.join","room.close","room.request","room.retarget","room.configure","mods.manifest","mods.fetch","mods.status","mods.cancel","mods.configure","feedback.submit","chat.poll","chat.send","session.events","session.list"}},{"limits",{{"request_bytes",8192},{"nodes",16},{"sessions",8}}}};}
         if(method=="node.add"){if(nodes_.size()>=16)throw Failure(-32010,"Node limit reached");if(!p.contains("code")||!p["code"].is_string())throw Failure(-32602,"code must be a string");Node value;value.profile=Profile::decode(p["code"].get<std::string>());
             auto imported=p.value("alternatives",Json::array());if(!imported.is_array()||imported.size()>5)throw Failure(-32602,"Invalid fallback profiles");
             for(const auto& item:imported)value.alternatives.push_back(Profile::from_json(item));
@@ -44,10 +44,16 @@ public:
             if(value.identity.token.starts_with("acct1."))
                 for(auto& alternative:value.alternatives)alternative.token=value.identity.token;
             value.routes=std::make_unique<RouteSelector>(value.profile,value.alternatives);
-            try{value.routes->refresh(value.profile,value.alternatives);}catch(...){if(!verified)throw;log("route_probe_deferred");}
+            try{if(p.value("selection",std::string{})=="latency")value.routes->automatic(value.profile,value.alternatives,false);
+                else value.routes->refresh(value.profile,value.alternatives);}catch(...){if(!verified)throw;log("route_probe_deferred");}
             auto handle=random_id(12);Json result{{"node",handle},{"name",value.profile.name},{"identity",value.identity.token.starts_with("acct1.")?"account":"anonymous"}};nodes_.emplace(handle,std::move(value));return result;}
-        if(method=="node.routes"){auto& n=node(p);try{n.routes->refresh(n.profile,n.alternatives,p.value("refresh",false));}catch(...){}
-            return {{"name",n.profile.name},{"routes",n.routes->status()},{"backups",n.alternatives.size()}};}
+        if(method=="node.routes"||method=="node.select"){auto& n=node(p);
+            if(method=="node.select"){
+                auto index=p.value("index",Json(nullptr));if(!index.is_number_integer()||index.get<int64_t>()<0)throw Failure(-32602,"Invalid route index");
+                n.routes->select(n.profile,n.alternatives,index.get<size_t>());
+            }else if(p.value("auto",false))n.routes->automatic(n.profile,n.alternatives,p.value("refresh",true));
+            else try{n.routes->refresh(n.profile,n.alternatives,p.value("refresh",false));}catch(...){}
+            return {{"name",n.profile.name},{"routes",n.routes->status(n.profile)},{"backups",n.alternatives.size()}};}
         if(method=="node.selected"){auto& n=node(p);try{n.routes->refresh(n.profile,n.alternatives);}catch(...){}
             auto profile_json=[](const Profile& profile){return Json{{"server_host",profile.host},{"server_port",profile.port},{"server_public_key",profile.key},{"token",profile.token}};};
             auto backups=Json::array();for(const auto& backup:n.alternatives)backups.push_back(profile_json(backup));
@@ -77,6 +83,7 @@ public:
             if(method=="room.list"){
                 result["connect_ms"]=std::chrono::duration<double,std::milli>(Clock::now()-started).count();
                 result["node_name"]=n.profile.name;
+                for(const auto& route:n.routes->status(n.profile))if(route.value("selected",false))result["node_region"]=route.value("region",std::string{});
             }
             if(before.key!=n.profile.key||before.host!=n.profile.host||before.port!=n.profile.port){n.routes->failed(before);n.routes->recovered(before,n.profile);try{n.routes->refresh(n.profile,n.alternatives);}catch(...){}}
             return result;}

@@ -80,7 +80,9 @@ def _manual_proxy_ranges(state):
 
 def _trusted_proxy_ranges(state):
     ranges = _manual_proxy_ranges(state)
-    cloudflare = state.get('cloudflare_proxy_cidrs', [])
+    if not state.get('trusted_proxy_enabled', bool(ranges)):
+        return []
+    cloudflare = state.get('cloudflare_proxy_cidrs', []) if state.get('cloudflare_proxy_enabled', False) else []
     if isinstance(cloudflare, list):
         ranges.extend(cloudflare)
     return _normalize_proxy_ranges(ranges)
@@ -133,6 +135,8 @@ class Portal:
         self.path = Path(state_path)
         self.state = json.loads(self.path.read_text(encoding='utf-8'))
         self.state['trusted_proxy_cidrs'] = _manual_proxy_ranges(self.state)
+        self.state.setdefault('trusted_proxy_enabled', bool(self.state['trusted_proxy_cidrs']))
+        self.state.setdefault('cloudflare_proxy_enabled', False)
         self.state.setdefault('issued_profiles', {})
         self.federation.region = self.state.get('region','')
         self.started = time.monotonic()
@@ -148,6 +152,7 @@ class Portal:
         self.node_action_lock = asyncio.Lock()
         self.runner = None
         self.proxy_refresh_task = None
+        self.proxy_refresh_event = asyncio.Event()
         self.federation.on_change = self.save
         self.relay.draining = self.state.get('draining', False)
         self.relay.capacity.configure(self.state.get('capacity', self.relay.capacity.policy))
@@ -440,7 +445,8 @@ class Portal:
                 'network_mode': 'federated' if self.federation.seeds else 'standalone',
                 'heartbeat_interval': INTERVAL, 'heartbeat_timeout': TTL, 'heartbeat_fanout': FANOUT,
                 'fingerprint': self.federation.key.get_fingerprint(),
-                'nodes': self.federation.health()}
+                'nodes': [node for node in self.federation.health()
+                          if node['status'] in ('online', 'indirect')]}
 
     def trusted_proxy(self, request):
         try:
@@ -563,6 +569,8 @@ class Portal:
                                   'accounts': users,
                                   **presence,
                                   'trusted_proxy_cidrs': '\n'.join(self.state.get('trusted_proxy_cidrs', [])),
+                                  'trusted_proxy_enabled': self.state.get('trusted_proxy_enabled', bool(_manual_proxy_ranges(self.state))),
+                                  'cloudflare_proxy_enabled': self.state.get('cloudflare_proxy_enabled', False),
                                   'cloudflare_proxy_cidrs': self.state.get('cloudflare_proxy_cidrs', []),
                                   'cloudflare_proxy_updated': self.state.get('cloudflare_proxy_updated'),
                                   'cloudflare_proxy_last_attempt': self.state.get('cloudflare_proxy_last_attempt'),
@@ -590,6 +598,10 @@ class Portal:
         next_capacity = policy(data.get('capacity', self.relay.capacity.policy))
         region=data.get('region',self.state.get('region',''))
         if not isinstance(region,str) or len(region.strip())>80:raise ValueError('Invalid region')
+        proxy_enabled = data.get('trusted_proxy_enabled', self.state.get('trusted_proxy_enabled', bool(_manual_proxy_ranges(self.state))))
+        cloudflare_enabled = data.get('cloudflare_proxy_enabled', self.state.get('cloudflare_proxy_enabled', False))
+        if type(proxy_enabled) is not bool or type(cloudflare_enabled) is not bool:
+            raise ValueError('Invalid trusted proxy settings')
         if 'trusted_proxy_cidrs' in data:
             proxies=data['trusted_proxy_cidrs']
         else:
@@ -613,18 +625,42 @@ class Portal:
         self.state['capacity'] = next_capacity
         self.state.update(public_join=public_join, draining=draining, registration_open=registration)
         self.state['trusted_proxy_cidrs']=[str(network) for network in proxy_ranges]
+        proxy_changed = (proxy_enabled != self.state.get('trusted_proxy_enabled', bool(_manual_proxy_ranges(self.state)))
+                         or cloudflare_enabled != self.state.get('cloudflare_proxy_enabled', False))
+        self.state.update(trusted_proxy_enabled=proxy_enabled, cloudflare_proxy_enabled=cloudflare_enabled)
         self.relay.draining = draining
         self.save()
+        if proxy_changed and getattr(self, 'proxy_refresh_event', None):
+            self.proxy_refresh_event.set()
         return web.json_response({'ok': True})
 
     async def invite(self, request):
         self.session(request)
-        return web.json_response(self.federation.invitation())
+        from .content_cache import configuration
+        from .content_cache_admin import federation_configuration
+        value = self.federation.invitation()
+        value['room_cache'] = federation_configuration(configuration(self.relay))
+        return web.json_response(value, headers={'Cache-Control': 'no-store'})
 
     async def join(self, request):
         self.session(request, True)
-        self.federation.join(await request.json())
-        return web.json_response({'ok': True})
+        from .content_cache_admin import federation_configuration
+        data = await request.json()
+        if not isinstance(data, dict) or 'room_cache' not in data:
+            raise ValueError('联邦邀请缺少资源加速配置，请对方升级节点后重新生成邀请。')
+        value = federation_configuration(data['room_cache'])
+        async with self.content_cache_admin.lock:
+            previous = dict(self.state)
+            self.state['room_cache'] = value
+            try:
+                # Federation.join persists membership and the adopted settings together.
+                self.federation.join(data)
+            except Exception:
+                self.state.clear()
+                self.state.update(previous)
+                raise
+            self.relay.content_cache_config = value
+        return web.json_response({'ok': True, 'resource_settings_synced': True})
 
     async def block(self, request):
         self.session(request, True)
@@ -758,6 +794,9 @@ class Portal:
             await self.runner.cleanup()
 
     async def refresh_cloudflare_proxies(self):
+        if not (self.state.get('trusted_proxy_enabled', bool(_manual_proxy_ranges(self.state)))
+                and self.state.get('cloudflare_proxy_enabled', False)):
+            return False
         self.state['cloudflare_proxy_last_attempt'] = time.time()
         self.state['cloudflare_proxy_last_result'] = 'running'
         self.state.pop('cloudflare_proxy_last_error', None)
@@ -791,5 +830,10 @@ class Portal:
 
     async def proxy_refresh_loop(self):
         while True:
+            self.proxy_refresh_event.clear()
             await self.refresh_cloudflare_proxies()
-            await asyncio.sleep(24 * 60 * 60)
+            enabled = self.state.get('trusted_proxy_enabled') and self.state.get('cloudflare_proxy_enabled')
+            try:
+                await asyncio.wait_for(self.proxy_refresh_event.wait(), timeout=24 * 60 * 60 if enabled else None)
+            except asyncio.TimeoutError:
+                pass

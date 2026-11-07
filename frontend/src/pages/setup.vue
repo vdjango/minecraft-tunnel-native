@@ -24,7 +24,7 @@ defineProps<{seed:Record<string,string>}>();
 <fieldset hidden><h2>决定节点怎么开放</h2><p class="intro">容量是准入上限；实际可用人数还取决于世界、视距和玩家活动。</p>
 <div class="columns"><label>最多房间数<input name="max_rooms" type="number" min="1" max="128" required value="32"></label>
 <label>每个房间人数上限<input name="room_capacity" type="number" min="1" max="1000" required value="16"></label></div>
-<label>可用于中转的上传带宽 · MB/s<input name="bandwidth_mb_s" type="number" min="0" max="125000" step="0.001" value="0" required><small>运营商标注的 Mbps ÷ 8 = MB/s；云服务器也请核实单位。填 0 暂不按带宽限流。</small></label>
+<label>服务器上传带宽 · Mbps<input name="bandwidth_mb_s" type="number" min="0" max="1000000" step="0.001" value="0" required><small>直接填写云厂商标注的上传带宽，例如 6、20、200。填 0 暂不按带宽限流。</small></label>
 <p class="budget" id="budget">填写带宽后，会按保留 35% 空闲、每位中转访客预算 0.128 MB/s 和 15% 协议开销估算准入人数。这是初始预算，不是流畅度保证。</p>
 <label class="check"><input name="public_join" type="checkbox">允许旧版客户端匿名联机（兼容设置）</label>
 <div class="note">默认关闭玩家注册。启动后可以在后台设置邮件验证码、开放注册，或在“连接网络”中加入已有联邦。独立运行不需要加入联邦。</div>

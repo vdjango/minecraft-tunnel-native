@@ -1,0 +1,11 @@
+[Unit]
+Description=Keep Buggcraft node clock synchronized
+
+[Timer]
+OnBootSec=30
+OnUnitActiveSec=5min
+RandomizedDelaySec=15
+Unit=buggcraft-clock-sync.service
+
+[Install]
+WantedBy=timers.target

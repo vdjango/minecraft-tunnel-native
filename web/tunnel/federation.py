@@ -398,12 +398,21 @@ class Federation:
         if key != self.network_key:
             if len(self.seeds) or (self.relay and self.relay.rooms):
                 raise ValueError('已有联邦或活动房间，不能直接更换网络；请先停服并重新配置。')
-            self.network_key = key
-            self.records.clear()
-            self.seen.clear()
-        self.seeds[node_id] = profile
-        self.publish()
-        self.on_change()
+        previous = (self.network_key, dict(self.records), dict(self.seen), dict(self.seeds))
+        try:
+            if key != self.network_key:
+                self.network_key = key
+                self.records.clear()
+                self.seen.clear()
+            self.seeds[node_id] = profile
+            self.publish()
+            self.on_change()
+        except Exception:
+            self.network_key, records, seen, seeds = previous
+            for target, value in ((self.records, records), (self.seen, seen), (self.seeds, seeds)):
+                target.clear()
+                target.update(value)
+            raise
 
     async def introduce(self, profile, public):
         # Bootstrap uses the seed's player credential ONLY to introduce our

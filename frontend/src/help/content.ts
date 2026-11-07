@@ -1,13 +1,14 @@
 export type Section = {
   id: string; title: string; paragraphs?: string[]; steps?: string[];
-  note?: string; image?: string; caption?: string;
+  note?: string; image?: string; caption?: string; imageWidth?: number; imageHeight?: number;
+  links?: { label: string; href: string }[];
 };
 export type Guide = {
   slug: string; title: string; summary: string; category: string; minutes: number;
   keywords: string[]; sections: Section[];
 };
-export const updated = '2026-11-05';
-export const categories = ['开始游玩', '好友联机', '加速与排查'];
+export const updated = '2026-11-06';
+export const categories = ['开始游玩', '好友联机', '加速与排查', '启动器打不开'];
 export const guides: Guide[] = [
   {
     slug: 'download-game', title: '下载游戏与安装加载器', category: '开始游玩', minutes: 3,
@@ -104,6 +105,28 @@ export const guides: Guide[] = [
       { id: 'world', title: '进了房间却进不了世界', paragraphs: ['确认房主已进入正确存档，并执行对局域网开放。只创建准备房间，并不代表游戏世界已经运行。', '确认房间关联的是当前世界。游戏多人列表没有显示时，使用启动器提供的地址直接连接。'] },
       { id: 'performance', title: '先分清画面卡、世界卡还是连接卡', paragraphs: ['只有自己掉帧，先查帧率、光影、渲染距离和本机内存。多人同时遇到方块回弹、实体停顿，结合房主日志、CPU、内存和网络状态检查。', '人物瞬移、连接超时或反复掉线，查看双方网络和当前 P2P / 中继状态，必要时尝试节点中继。这些表现只帮助缩小范围，不能单凭一项认定原因。', '模组包的内存按作者建议设置，并给系统留出余量。内存太少和系统内存被挤满，都可能影响游玩。'] },
       { id: 'report', title: '反馈时带哪些信息', steps: ['启动器版本、系统、Minecraft 与加载器版本。', '你是房主还是访客，问题发生的大致时间和复现步骤。', '当前 P2P / 中继状态、完整报错文字，以及对应安装或游戏日志。'], note: '公开发日志前，移除密码、访问令牌、房间邀请码和其他私密信息。可以在 GitHub Issues 或节点反馈入口提交。' },
+    ],
+  },
+  {
+    slug: 'launcher-windows', title: 'Windows 10 / 11 阻止启动器运行怎么办', category: '启动器打不开', minutes: 5,
+    summary: '区分 ZIP 下载、SmartScreen 和 Windows 11 智能应用控制，按提示逐步处理启动器打不开的问题。',
+    keywords: ['Windows 10', 'Windows 11', 'SmartScreen', '智能应用控制', 'Smart App Control', '无法运行', 'exe', 'ZIP'],
+    sections: [
+      { id: 'zip', title: '先确认下载与解压', steps: ['从 Buggcraft 下载站选择 Windows。下载文件名应以 .zip 结尾，例如 Buggcraft-windows-x64.zip。', '在“下载”文件夹中右键 ZIP，选择“全部解压缩”，再打开解压后的文件夹运行 Buggcraft.exe；不要直接在压缩包预览窗口中运行。', '若浏览器只显示 Buggcraft.exe，请先打开资源管理器“查看”中的“文件扩展名”，确认它是压缩包内的文件，还是浏览器实际下载的文件。'], note: '下载站提供 ZIP；ZIP 内包含 Windows 启动程序 Buggcraft.exe。它们是两个不同的文件。' },
+      { id: 'smartscreen', title: '提示“Windows 已保护你的电脑”', paragraphs: ['这是 Microsoft Defender SmartScreen 的提示。先确认文件确实来自 download.bugg.icu，并核对下载页提供的 SHA-256；来源不明时不要继续。'], steps: ['在拦截窗口中点击“更多信息”。', '核对应用名称和发布者信息；确认确为自己从官网下载的文件后，点击“仍要运行”。', '若没有“仍要运行”，检查是否由学校、公司或家长的安全策略管理，不要尝试绕过受管理设备的限制。'], image: 'windows-smartscreen-zh.svg', imageWidth: 760, imageHeight: 570, caption: 'SmartScreen 中文操作示意图，点击可放大。实际窗口会随 Windows 版本变化。', links: [{ label: '微软：Windows 安全中心的应用和浏览器控制', href: 'https://support.microsoft.com/zh-cn/windows/security/windows-security/app-browser-control-in-the-windows-security-app' }] },
+      { id: 'smart-app-control', title: 'Windows 11 显示“智能应用控制已阻止此应用”', paragraphs: ['智能应用控制与 SmartScreen 不同；它可能直接阻止未获认可的应用，也没有针对单个应用的允许列表。先从官网下载最新 ZIP 重新解压尝试。若确需运行，可在自己的设备上选择关闭此功能，但这会降低这一层保护。'], steps: ['打开“开始”→“Windows 安全中心”。', '进入“应用和浏览器控制”→“智能应用控制设置”。', '将“智能应用控制”切换为“关闭”，确认系统提示；然后重新运行已核对来源的 Buggcraft.exe。', '如果开关不可用，先检查 Windows 更新及设备管理策略；受管理设备请联系管理员。'], image: 'windows-smart-app-control-zh.svg', imageWidth: 760, imageHeight: 670, caption: '智能应用控制中文操作示意图，点击可放大。设置位置会随系统版本变化。', note: '不同 Windows 11 版本对重新开启智能应用控制的条件不同。关闭前阅读系统确认提示，不能保证随时一键重新开启；不要仅为解决下载问题而关闭安全防护。', links: [{ label: '微软：智能应用控制常见问题', href: 'https://support.microsoft.com/zh-cn/windows/security/threat-malware-protection/smart-app-control-frequently-asked-questions' }, { label: '微软：图示所依据的设置说明', href: 'https://support.microsoft.com/zh-cn/windows/security/windows-security/app-browser-control-in-the-windows-security-app' }] },
+      { id: 'other', title: '双击没反应、缺文件或解压报错', steps: ['重新下载 ZIP，核对 SHA-256 后再解压；如果解压报错，不要继续使用损坏的文件。', '确认解压目录仍保留启动器附带的文件，不要只把 EXE 单独移到别处。', '如果安全软件隔离了文件，先检查隔离记录和文件来源；不要全局关闭杀毒软件。', '将系统版本、弹窗原文、启动器版本和错误时间提交反馈，也可以添加微信 junsi223（优先）或加入 QQ 群 849362477 求助。'], links: [{ label: '返回下载站', href: 'https://download.bugg.icu/' }, { label: '提交问题反馈', href: 'https://node.bugg.icu/feedback?new=1' }] },
+    ],
+  },
+  {
+    slug: 'launcher-macos', title: 'MacBook 提示无法打开启动器怎么办', category: '启动器打不开', minutes: 4,
+    summary: '选对 Apple 芯片或 Intel 版本，解压后通过 macOS“隐私与安全性”处理未验证开发者提示。',
+    keywords: ['MacBook', 'macOS', 'Apple Silicon', 'Intel', '无法验证开发者', '仍要打开', '应用已损坏'],
+    sections: [
+      { id: 'architecture', title: '先选对芯片与文件', steps: ['点屏幕左上角苹果菜单→“关于本机”，确认是 Apple 芯片（M 系列）还是 Intel。', '从下载站下载对应版本的 ZIP，完整解压，再把 Buggcraft.app 放到“应用程序”文件夹。', '优先从“应用程序”中打开，不要直接在 ZIP 预览里打开。'], note: 'Apple 芯片与 Intel 的版本不同；选错版本可能无法运行。' },
+      { id: 'unverified', title: '提示“无法验证开发者”或阻止打开', paragraphs: ['只对自己从官网下载、并确认可信的 Buggcraft.app 操作。苹果提供了针对单个应用的“仍要打开”入口，无需关闭整个系统的安全检查。'], steps: ['先尝试打开 Buggcraft.app，让系统显示阻止提示。', '打开苹果菜单→“系统设置”→“隐私与安全性”，向下滚动到“安全性”。', '找到刚刚被阻止的 Buggcraft，点击“仍要打开”，按提示输入 Mac 登录密码或使用触控 ID，然后在确认框里打开。'], image: 'mac-unverified-developer.png', imageWidth: 520, imageHeight: 436, caption: 'Apple 官方示例：无法验证开发者时的提示。图片中的应用名称仅为示例。', links: [{ label: 'Apple：安全地打开 Mac 上的 App（图片来源）', href: 'https://support.apple.com/zh-cn/102445' }] },
+      { id: 'open-anyway', title: '在“隐私与安全性”中找到“仍要打开”', paragraphs: ['“仍要打开”通常要在刚刚尝试打开被阻止应用后才出现。它只允许这一个应用，不需要全局关闭 Gatekeeper。'], image: 'mac-open-anyway.png', imageWidth: 1430, imageHeight: 1196, caption: 'Apple 官方示例：“系统设置”→“隐私与安全性”中的“仍要打开”按钮。图片中的应用名称仅为示例。', links: [{ label: 'Apple：查看图示与最新操作步骤', href: 'https://support.apple.com/zh-cn/102445' }] },
+      { id: 'damaged', title: '提示“已损坏”、含恶意软件或仍然打不开', paragraphs: ['“已损坏”可能表示下载或解压不完整，先删除这份副本并从官网下载匹配芯片的新 ZIP，核对校验值后重试。若系统明确提示含恶意软件、证书被撤销或会损坏电脑，不要绕过警告。'], steps: ['确认下载文件是 ZIP，重新解压，检查 Buggcraft.app 没有被拆散。', '确认 macOS 版本与下载页要求相符；设备受公司管理时咨询管理员。', '依然失败时，记录弹窗的完整文字、macOS 版本、芯片类型和下载文件名，提交反馈；微信 junsi223 优先，QQ 群 849362477 也可联系。'], links: [{ label: 'Apple：了解 Mac 打开应用的安全提示', href: 'https://support.apple.com/zh-cn/102445' }, { label: '提交问题反馈', href: 'https://node.bugg.icu/feedback?new=1' }] },
     ],
   },
 ];

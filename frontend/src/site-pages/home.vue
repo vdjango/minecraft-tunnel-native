@@ -1,11 +1,40 @@
 <script setup lang="ts">
+import {ref} from 'vue';
+
 defineProps<{seed:Record<string,string>}>();
+const copiedContact=ref('');
+const copyStatus=ref('');
+
+async function copyContact(label:string,value:string){
+  try{
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(value);
+    }else{
+      const field=document.createElement('textarea');
+      const focused=document.activeElement;
+      field.value=value;
+      field.style.cssText='position:fixed;opacity:0;pointer-events:none';
+      field.readOnly=true;
+      document.body.append(field);
+      field.select();
+      let copied=false;
+      try{copied=document.execCommand('copy');}
+      finally{field.remove();if(focused instanceof HTMLElement)focused.focus({preventScroll:true});}
+      if(!copied)throw new Error('Copy unavailable');
+    }
+    copiedContact.value=value;
+    copyStatus.value=`已复制${label}：${value}`;
+  }catch{
+    copiedContact.value='';
+    copyStatus.value=`暂时无法自动复制，请选中${label} ${value} 手动复制。`;
+  }
+}
 </script>
 
 <template>
 <header class="site-header">
     <a class="brand" href="#home" aria-label="Buggcraft 首页"><span class="brand-mark">B</span><span class="brand-type"><strong>BUGGCRAFT</strong><small>MINECRAFT JAVA LAUNCHER</small></span></a>
-    <nav class="main-nav" aria-label="网站导航"><a class="nav-link active" data-section-nav href="#home" aria-current="location">首页</a><a class="nav-link" data-section-nav href="#features">功能</a><a class="nav-link" data-section-nav href="#nodes">联机节点</a><a class="nav-link" data-section-nav data-native-navigation href="/docs">玩家教程</a></nav>
+    <nav class="main-nav" aria-label="网站导航"><a class="nav-link active" data-section-nav href="#home" aria-current="location">首页</a><a class="nav-link" data-section-nav href="#features">功能</a><a class="nav-link" data-section-nav href="#nodes">联机节点</a><a class="nav-link" data-section-nav href="#community">玩家社区</a><a class="nav-link" data-section-nav data-native-navigation href="/docs">玩家教程</a></nav>
     <div class="header-actions"><details class="platform-menu"><summary class="header-secondary">Buggcraft 服务 <span aria-hidden="true">⌄</span></summary><div class="platform-menu-panel"><a href="https://mirror.bugg.icu/">镜像源 <span>↗</span><small>Minecraft 资源下载与启动器接入</small></a><a href="https://node.bugg.icu/">好友联机 <span>↗</span><small>连接方法与联机节点状态</small></a><a href="https://translate.bugg.icu/" target="_blank" rel="noopener">共享译文库 <span>↗</span><small>浏览与协作维护 Minecraft 译文</small></a><a href="https://github.com/vdjango/buggcraft" target="_blank" rel="noopener">GitHub 源码 <span>↗</span><small>查看项目代码与开发文档</small></a></div></details><a class="header-download" data-platform-cta href="https://download.bugg.icu/?platform=auto"><span data-platform-label>下载启动器</span> <span>↓</span></a></div>
   </header>
 
@@ -18,11 +47,23 @@ defineProps<{seed:Record<string,string>}>();
           <p class="hero-lead">安装游戏、管理模组、导入整合包，在一个启动器里完成。想和朋友一起玩，就创建一个房间。</p>
           <div class="hero-actions"><a class="download-button" data-platform-cta href="https://download.bugg.icu/?platform=auto"><span><span data-platform-label>下载启动器</span> <b>↓</b></span><small data-platform-detail>自动匹配 Windows、macOS 或 Linux</small></a><a class="text-link" href="https://translate.bugg.icu/" target="_blank" rel="noopener">共享译文库 <span>↗</span></a></div>
           <div class="hero-facts"><span><i>✓</i> 免费开源</span><span><i>✓</i> Java 版</span><span><i>✓</i> 好友联机</span></div>
+          <a class="hero-community-link" href="#community"><span class="status-dot" aria-hidden="true"></span>每日联机来微信 <strong>junsi223</strong><span aria-hidden="true">↗</span></a>
         </div>
         <figure class="launcher-preview"><div class="preview-window"><picture><source type="image/webp" srcset="/launcher-preview-480-d1a783088222.webp 480w, /launcher-preview-926-b6ae62178aa8.webp 926w" sizes="(max-width: 600px) calc(100vw - 48px), (max-width: 900px) min(630px, calc(100vw - 82px)), 560px"><img fetchpriority="high" decoding="async" src="/launcher-preview.png" width="926" height="505" alt="Buggcraft 启动器主页，展示游戏登录、版本选择与联机大厅"></picture></div><figcaption><span><i class="caption-dot"></i> BUGGCRAFT LAUNCHER</span><span>游戏 · 下载 · 设置</span></figcaption></figure>
         <span class="hero-spark spark-one" aria-hidden="true">✳</span><span class="hero-spark spark-two" aria-hidden="true">✧</span>
       </div>
       <a class="scroll-hint" href="#features"><span>认识一下启动器</span><span class="scroll-line"></span><span>↓</span></a>
+    </section>
+
+    <section class="community-section section-wrap" id="community" aria-labelledby="community-title">
+      <div class="community-heading"><div><p class="eyebrow">玩家社区 / 一起开玩</p><h2 id="community-title">每日联机，来微信一起玩。</h2><p class="community-intro">找队友、约联机、交流整合包，遇到问题也可以来聊聊。<br>优先添加微信 <strong>junsi223</strong> 联系入群。</p></div><span class="community-badge">建房 · 同步配置 · 一起开玩</span></div>
+      <div class="community-contacts">
+        <div class="community-contact community-contact-primary"><div class="community-contact-label"><span>微信 · 联系入群</span><span class="community-priority">优先推荐</span></div><div class="community-contact-value"><strong>junsi223</strong><button type="button" aria-label="复制微信号 junsi223" @click="copyContact('微信号','junsi223')">{{copiedContact==='junsi223'?'已复制 ✓':'复制微信号'}}</button></div><p>每日联机来微信，添加后联系入群。</p></div>
+        <div class="community-contact"><div class="community-contact-label"><span>QQ 群</span></div><div class="community-contact-value"><strong>849362477</strong><button type="button" aria-label="复制 QQ 群号 849362477" @click="copyContact('QQ 群号','849362477')">{{copiedContact==='849362477'?'已复制 ✓':'复制群号'}}</button></div><p>在 QQ 搜索群号，和大家保持联系。</p></div>
+        <div class="community-contact"><div class="community-contact-label"><span>频道号</span></div><div class="community-contact-value"><strong>pd40037206</strong><button type="button" aria-label="复制频道号 pd40037206" @click="copyContact('频道号','pd40037206')">{{copiedContact==='pd40037206'?'已复制 ✓':'复制频道号'}}</button></div><p>搜索频道号，找到我们的玩家社区。</p></div>
+      </div>
+      <p class="community-copy-status" role="status" aria-live="polite">{{copyStatus}}</p>
+      <div class="community-help"><span>遇到问题？</span><a data-native-navigation href="/docs/help/launcher-windows">Windows 打不开 ↗</a><a data-native-navigation href="/docs/help/launcher-macos">macOS 打不开 ↗</a><a data-native-navigation href="/docs">查看玩家教程 ↗</a><a href="https://node.bugg.icu/feedback?new=1">提交反馈 ↗</a></div>
     </section>
 
     <section class="feature-section section-wrap" id="features" aria-labelledby="features-title">

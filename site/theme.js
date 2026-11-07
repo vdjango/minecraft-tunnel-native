@@ -126,7 +126,7 @@
   const downloadPath = url => /\.(exe|zip|jar|mrpack|deb|tar|gz|png|svg|webp|json|txt|pdf)(?:$|\/)/i.test(url.pathname)||/^\/(?:api|v1|assets|maven|java|mods|_mirror_node|mc\/game)\//.test(url.pathname);
   const syncHead = doc => {
     document.title=doc.title;
-    const selector='meta[name="description"],meta[name="robots"],meta[property^="og:"],meta[name^="twitter:"],link[rel="canonical"],script[type="application/ld+json"]';
+    const selector='meta[name="description"],meta[name="keywords"],meta[name="robots"],meta[property^="og:"],meta[name^="twitter:"],link[rel="canonical"],script[type="application/ld+json"]';
     document.head.querySelectorAll(selector).forEach(node=>node.remove());
     doc.head.querySelectorAll(selector).forEach(node=>document.head.append(document.importNode(node,true)));
     // Page styles may overlap. Remove only styles previously installed for navigation.
