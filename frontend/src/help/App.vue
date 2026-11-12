@@ -78,9 +78,5 @@ useHead(() => ({
     <button v-if="open" class="scrim" aria-label="关闭教程目录" @click="open = false"></button>
     <main id="main-content" class="main"><RouterView /></main>
   </div>
-<<<<<<< HEAD
   <footer class="footer"><span>BUGGCRAFT · 玩家教程</span><span>微信 junsi223（优先入群）</span><span>QQ 群 849362477</span><a href="https://bugg.icu/#community">反馈问题 ↗</a><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">京ICP备2021040327号</a><small>与 Mojang / Microsoft 无隶属关系。</small></footer>
-=======
-  <footer class="footer"><span>BUGGCRAFT · 玩家教程</span><span>微信 junsi223（优先入群）</span><span>QQ 群 849362477</span><a href="https://node.bugg.icu/feedback?new=1">反馈问题 ↗</a><small>与 Mojang / Microsoft 无隶属关系。</small></footer>
->>>>>>> origin/main
 </template>

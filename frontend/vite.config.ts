@@ -6,28 +6,13 @@ import { resolve } from 'node:path';
 import {updatePageAssets,prunePageAssets} from './build/page-assets';
 
 const web = resolve(import.meta.dirname, '../web/tunnel/web');
-const readText = (path: string) => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
 const pages = JSON.parse(readFileSync(new URL('./pages.json', import.meta.url), 'utf8')) as Record<string, string[]>;
 export default defineConfig({
   base: '/',
   plugins: [vue(), {
     name: 'existing-page-controllers',
     writeBundle(_options,bundle) {
-<<<<<<< HEAD
       prunePageAssets(web,bundle);
-=======
-      const shell=readText(resolve(import.meta.dirname,'page-shell.js'));
-      const lists=readText(resolve(import.meta.dirname,'list-loading.js'));
-      const cssPath=resolve(web,'theme.css');
-      const shellCSS=shell.match(/style\.textContent = `([\s\S]*?)`;/)?.[1]||'';
-      const listCSS=lists.match(/const styles=`([\s\S]*?)`;/)?.[1]||'';
-      writeFileSync(cssPath,readText(cssPath).split('/* BUGGCRAFT LOADING STYLES */')[0].trimEnd()+'\n/* BUGGCRAFT LOADING STYLES */\n'+shellCSS.trim()+'\n'+listCSS.trim()+'\n');
-      const themePath=resolve(web,'theme.js');
-      if(existsSync(themePath)){
-        const theme=readText(themePath).split('/* BUGGCRAFT PAGE SHELL */')[0].trimEnd();
-        writeFileSync(themePath,theme+'\n/* BUGGCRAFT PAGE SHELL */\n'+shell+'\n'+lists);
-      }
->>>>>>> origin/main
 
       for(const name of Object.keys(pages)) {
         const html=resolve(web, name+'.html');

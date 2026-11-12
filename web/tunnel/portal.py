@@ -45,17 +45,6 @@ def verify_password(password, encoded):
 
 
 
-<<<<<<< HEAD
-=======
-def _trusted_proxy_ranges(state):
-    ranges = _manual_proxy_ranges(state)
-    if not state.get('trusted_proxy_enabled', bool(ranges)):
-        return []
-    cloudflare = state.get('cloudflare_proxy_cidrs', []) if state.get('cloudflare_proxy_enabled', False) else []
-    if isinstance(cloudflare, list):
-        ranges.extend(cloudflare)
-    return _normalize_proxy_ranges(ranges)
->>>>>>> origin/main
 
 
 
@@ -388,11 +377,8 @@ class Portal(HttpSurface):
 
     async def invite(self, request):
         self.session(request)
-<<<<<<< HEAD
         if getattr(self, 'control', None) and self.control.mode != 'mesh':
             raise ValueError('受管节点请使用短期控制中心入网凭证。')
-=======
->>>>>>> origin/main
         from .content_cache import configuration
         from .content_cache_admin import federation_configuration
         value = self.federation.invitation()
@@ -401,11 +387,8 @@ class Portal(HttpSurface):
 
     async def join(self, request):
         self.session(request, True)
-<<<<<<< HEAD
         if getattr(self, 'control', None) and self.control.mode != 'mesh':
             raise ValueError('受管节点请通过 control 配置加入，不能直接更换联邦。')
-=======
->>>>>>> origin/main
         from .content_cache_admin import federation_configuration
         data = await request.json()
         if not isinstance(data, dict) or 'room_cache' not in data:

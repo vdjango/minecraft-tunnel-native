@@ -1,21 +1,12 @@
 <script setup lang="ts">
 import NodeHeader from '../NodeHeader.vue';
-<<<<<<< HEAD
 import '../styles/account.css';
-=======
->>>>>>> origin/main
 defineProps<{seed:Record<string,string>}>();
 </script>
 <template>
 <NodeHeader />
-<<<<<<< HEAD
 <main class="shell user-main"><aside class="account-intro"><span class="intro-label">BUGG · 联机账号</span><h2>世界很大。<br>总有人，等你上线。</h2><p>一个账号连接启动器。<br>房间、好友与邀请，回到 Bugg 就能找到。</p><div class="intro-world"><span>相伴的日子</span><strong>从第一次碰面，<br>到下一次冒险。</strong></div><a href="https://bugg.icu/">认识新版 Bugg <span>↗</span></a></aside><section id="account-dialog" class="account-content">
 <div class="page-heading"><span class="account-symbol" aria-hidden="true">B</span><h1 id="page-title">登录</h1><p id="page-description">登录联机账号，连接你的启动器。</p></div>
-=======
-
-<main class="shell user-main"><section id="account-dialog" class="account-content">
-<div class="page-heading"><h1 id="page-title">登录</h1><p id="page-description">登录 Buggcraft，和朋友一起游戏。</p></div>
->>>>>>> origin/main
 <p class="feedback account-status" id="account-feedback" role="status" aria-live="polite"></p>
 <form id="account-login"><label>邮箱 / 用户名 / 完整账号 ID<input id="account-id" autocomplete="username" maxlength="254" placeholder="邮箱、用户名或账号 ID" required></label>
       <div id="email-login-fields" hidden><div class="email-code-row"><label>邮箱验证码<input id="login-email-code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></label><button id="send-login-email" type="button" class="secondary">发送验证码</button><button id="verify-login-email" type="button" class="secondary">验证邮箱</button></div><p id="login-email-feedback" class="feedback" role="status" aria-live="polite"></p><label id="email-account-picker" hidden>选择账号<select id="email-account-choice"></select></label><small>同一邮箱的多个账号可按用户名选择。选择后需输入该账号的原密码；账号不会自动合并。已选账号将作为下次邮箱登录的首选。</small></div>

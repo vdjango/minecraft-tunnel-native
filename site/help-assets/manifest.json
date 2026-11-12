@@ -1,19 +1,11 @@
 {
   "src/help/client.ts": {
-<<<<<<< HEAD
     "file": "help-CP7Cer1y.js",
-=======
-    "file": "help-OGvw_ZmR.js",
->>>>>>> origin/main
     "name": "client",
     "src": "src/help/client.ts",
     "isEntry": true,
     "css": [
-<<<<<<< HEAD
       "help-3GYUglBt.css"
-=======
-      "help-DMYzARgD.css"
->>>>>>> origin/main
     ]
   }
 }

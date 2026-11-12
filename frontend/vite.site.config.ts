@@ -15,33 +15,16 @@ export default defineConfig({
       prunePageAssets(web,bundle);
 
       for(const name of Object.keys(pages)) {
-<<<<<<< HEAD
-=======
-        const entry=bundle['vue-page-'+name+'.js'];
-        if(!entry || entry.type!=='chunk')continue;
->>>>>>> origin/main
         // The download domain has a separate static root. Salt its URLs after
         // correcting deployment to that root, so an old immutable CDN entry
         // cannot serve the previous bundle under the new page's revision.
         const rootRevision=name==='download'?'-download-root-v2':'';
-<<<<<<< HEAD
-=======
-        const revision=createHash('sha256').update(entry.code).digest('hex').slice(0,12)+rootRevision;
->>>>>>> origin/main
         const html=resolve(web, name==='home'?'index.html':'download/index.html');
         updatePageAssets(html,name,bundle);
         const previous=readFileSync(html,'utf8');
         let updated=previous;
         updated=updated.replace(/<script[^>]*src="\/vue-navigation-shell\.js[^\"]*"[^>]*><\/script>/g,'');
         updated=updated.replace(/<script(?![^>]*data-cfasync)/g,'<script data-cfasync="false"');
-<<<<<<< HEAD
-=======
-        const dependencies=new Set<string>();
-        const visit=(chunk:typeof entry)=>{for(const dependency of chunk.imports){if(dependencies.has(dependency))continue;dependencies.add(dependency);const item=bundle[dependency];if(item?.type==='chunk')visit(item);}};
-        visit(entry);
-        updated=updated.replace(/<link rel="modulepreload"[^>]*>\s*/g,'');
-        updated=updated.replace('</head>',[...dependencies].map(file=>`<link rel="modulepreload" href="/${file}">`).join('')+'</head>');
->>>>>>> origin/main
         updated=updated.replace(/(src|href)="\/([^"/?]+\.(?:js|css))(?:\?v=[^"]*)?"/g,(match,attribute,file)=>{const path=resolve(web,file);return !file.startsWith('vue-runtime-')&&existsSync(path)?`${attribute}="/${file}?v=${createHash('sha256').update(readFileSync(path)).digest('hex').slice(0,12)}${rootRevision}"`:match;});
         if(previous!==updated)writeFileSync(html,updated);
       }

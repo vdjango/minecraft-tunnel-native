@@ -27,5 +27,3 @@ compatibility/src/
 
 frontend/node_modules/
 frontend/coverage/
-docs/验证记录-*.md
-docs/生产部署记录-*.md

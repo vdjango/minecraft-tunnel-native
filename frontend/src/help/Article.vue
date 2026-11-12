@@ -19,11 +19,7 @@ const next = computed(() => guides[index.value + 1]);
         <p v-for="paragraph in section.paragraphs" :key="paragraph">{{ paragraph }}</p>
         <pre v-if="section.code" class="code-example"><code>{{ section.code }}</code></pre>
         <ol v-if="section.steps" class="steps"><li v-for="step in section.steps" :key="step">{{ step }}</li></ol>
-<<<<<<< HEAD
         <figure v-if="section.image"><a :href="'/help-assets/' + section.image" target="_blank" rel="noopener noreferrer" aria-label="打开原图查看"><img :src="'/help-assets/' + section.image" :alt="section.caption || section.title" :width="section.imageWidth || 960" :height="section.imageHeight || 600" loading="lazy" decoding="async" /></a><figcaption>{{ section.caption }}</figcaption></figure>
-=======
-        <figure v-if="section.image"><a :href="'/help-assets/' + section.image" target="_blank" rel="noopener noreferrer" aria-label="打开原图查看"><img :src="'/help-assets/' + section.image" :alt="section.caption || section.title" :width="section.imageWidth || (['game-versions.webp','game-install.webp','modpack-import.webp','resources.webp'].includes(section.image) ? 926 : 721)" :height="section.imageHeight || 505" loading="lazy" decoding="async" /></a><figcaption>{{ section.caption }}</figcaption></figure>
->>>>>>> origin/main
         <div v-if="section.links" class="article-sources"><a v-for="link in section.links" :key="link.href" :href="link.href" target="_blank" rel="noopener noreferrer">{{ link.label }} ↗</a></div>
         <aside v-if="section.note" class="note"><strong>记住这一点</strong><p>{{ section.note }}</p></aside>
       </section>

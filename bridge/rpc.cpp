@@ -39,7 +39,6 @@ class Rpc {
         if(method=="bridge.initialize"){if(p.value("protocol",Json(1))!=1)throw Failure(-32602,"Unsupported bridge protocol version");
             return {{"protocol",1},{"name","buggcraft-bridge"},{"jsonrpc","2.0"},{"build",{{"protocol",1},{"implementation","cpp"},{"version",BUGGCRAFT_VERSION},{"signed",false}}},{"transports",{"auto","relay"}},{"mixed_rooms",true},
                 {"methods",{"bridge.diagnostics","node.add","node.remove","node.request","social.operate","node.routes","node.select","node.selected","node.failed","bridge.events","game.status","game.discover","game.announce","room.list","room.resolve","room.host","room.join","room.close","room.request","room.retarget","room.configure","mods.manifest","mods.fetch","mods.status","mods.cancel","mods.configure","feedback.submit","chat.poll","chat.send","session.events","session.list"}},{"limits",{{"request_bytes",8192},{"nodes",16},{"sessions",8}}}};}
-<<<<<<< HEAD
         if(method=="node.add"){if(nodes_.size()>=16)throw Failure(-32010,"Node limit reached");Node value;
             if(p.contains("profile"))value.profile=Profile::from_json(p.at("profile"));
             else {if(!p.contains("code")||!p["code"].is_string())throw Failure(-32602,"code must be a string");value.profile=Profile::decode(p["code"].get<std::string>());}
@@ -49,9 +48,6 @@ class Rpc {
                 auto handle=random_id(12);Json result{{"node",handle},{"name",value.profile.name},{"identity","account"},{"managed",true}};
                 nodes_.emplace(handle,std::move(value));return result;
             }
-=======
-        if(method=="node.add"){if(nodes_.size()>=16)throw Failure(-32010,"Node limit reached");if(!p.contains("code")||!p["code"].is_string())throw Failure(-32602,"code must be a string");Node value;value.profile=Profile::decode(p["code"].get<std::string>());
->>>>>>> origin/main
             auto imported=p.value("alternatives",Json::array());if(!imported.is_array()||imported.size()>5)throw Failure(-32602,"Invalid fallback profiles");
             for(const auto& item:imported)value.alternatives.push_back(Profile::from_json(item));
             bool verified=false;
@@ -75,25 +71,18 @@ class Rpc {
                 else value.routes->refresh(value.profile,value.alternatives);}catch(...){if(!verified)throw;log("route_probe_deferred");}
             auto handle=random_id(12);Json result{{"node",handle},{"name",value.profile.name},{"identity",value.identity.token.starts_with("acct1.")?"account":"anonymous"}};nodes_.emplace(handle,std::move(value));return result;}
         if(method=="node.routes"||method=="node.select"){auto& n=node(p);
-<<<<<<< HEAD
             if(n.control){
                 if(method=="node.select")return n.control->select_route(p.at("index").get<int>());
                 if(p.value("auto",false))return n.control->select_route(-1);
                 return n.control->routes(p.value("refresh",false));
             }
-=======
->>>>>>> origin/main
             if(method=="node.select"){
                 auto index=p.value("index",Json(nullptr));if(!index.is_number_integer()||index.get<int64_t>()<0)throw Failure(-32602,"Invalid route index");
                 n.routes->select(n.profile,n.alternatives,index.get<size_t>());
             }else if(p.value("auto",false))n.routes->automatic(n.profile,n.alternatives,p.value("refresh",true));
             else try{n.routes->refresh(n.profile,n.alternatives,p.value("refresh",false));}catch(...){}
             return {{"name",n.profile.name},{"routes",n.routes->status(n.profile)},{"backups",n.alternatives.size()}};}
-<<<<<<< HEAD
         if(method=="node.selected"){auto& n=node(p);if(!n.control)try{n.routes->refresh(n.profile,n.alternatives);}catch(...){}
-=======
-        if(method=="node.selected"){auto& n=node(p);try{n.routes->refresh(n.profile,n.alternatives);}catch(...){}
->>>>>>> origin/main
             auto profile_json=[](const Profile& profile){return Json{{"server_host",profile.host},{"server_port",profile.port},{"server_public_key",profile.key},{"token",profile.token}};};
             auto backups=Json::array();for(const auto& backup:n.alternatives)backups.push_back(profile_json(backup));
             return {{"profile",profile_json(n.profile)},{"name",n.profile.name},{"backups",backups},{"accepting",n.control?true:n.routes->admissible(n.profile)}};}
