@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "feedback.hpp"
 #include "../core/net.hpp"
+#include "../core/digest.hpp"
 #include <openssl/evp.h>
 #include <filesystem>
 #include <fstream>
@@ -86,21 +87,17 @@ Json submit_feedback(const Profile& profile, const Json& params) {
         const auto issue = ready.value("issue", std::string{});
         if (issue.empty()) throw Failure(-32000, "Feedback node returned no issue id");
         std::ifstream input(path, std::ios::binary); if (!input) throw Failure(-32000, "Feedback archive cannot be opened");
-        std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> digest(EVP_MD_CTX_new(), EVP_MD_CTX_free);
-        if (!digest || EVP_DigestInit_ex(digest.get(), EVP_sha256(), nullptr) != 1) throw Failure(-32000, "SHA256 unavailable");
+        native::Digest digest(EVP_sha256());
         std::array<char, 65536> block{}; std::uintmax_t sent = 0;
         while (input && sent < size) {
             const auto want = static_cast<std::streamsize>(std::min<std::uintmax_t>(block.size(), size - sent));
             input.read(block.data(), want); const auto count = input.gcount(); if (count <= 0) break;
-            EVP_DigestUpdate(digest.get(), block.data(), static_cast<size_t>(count));
+            digest.update(std::string_view(block.data(), static_cast<size_t>(count)));
             write_all(connection, channel, block.data(), static_cast<size_t>(count), deadline);
             sent += static_cast<std::uintmax_t>(count);
         }
         if (sent != size) throw Failure(-32000, "Feedback archive changed while reading");
-        unsigned char digest_bytes[EVP_MAX_MD_SIZE]{}; unsigned int digest_size = 0;
-        EVP_DigestFinal_ex(digest.get(), digest_bytes, &digest_size);
-        constexpr char hex[] = "0123456789abcdef"; std::string checksum; checksum.reserve(digest_size * 2);
-        for (unsigned int i = 0; i < digest_size; ++i) { checksum.push_back(hex[digest_bytes[i] >> 4]); checksum.push_back(hex[digest_bytes[i] & 15]); }
+        const auto checksum = digest.final_hex();
         if (connection.retry([&] { return ssh_channel_send_eof(channel); }, 2) != SSH_OK) throw Failure(-32000, "Feedback finalization failed");
         const auto result = response_line(connection, channel, deadline);
         if (result.value("issue", issue) != issue || result.value("size", 0u) != size || result.value("sha256", std::string{}) != checksum)

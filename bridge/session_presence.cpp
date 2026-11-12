@@ -51,15 +51,20 @@ void Session::advance_presence(){
     }else queue({{"op","describe"}},true);
     if(lobby_supported_){
         Json latency=role=="host"?Json(nullptr):control_rtt_ms_;
+        Json host_latency=nullptr;
+        std::string host_method=role=="host"?"local":"unknown";
         std::string kind=role=="host"?"local":"node";
         for(const auto& watch:probes_)if(role=="client"&&direct_&&watch->heartbeat.replies()>0){
-            latency=watch->heartbeat.rtt_ms();kind="game";break;
+            latency=watch->heartbeat.rtt_ms();kind="game";
+            host_latency=latency;host_method="p2p-heartbeat";break;
         }
         if(role=="client"&&game_status_.is_object()&&game_status_.value("latency_ms",Json(nullptr)).is_number()){
             latency=game_status_["latency_ms"];kind="game";
+            host_latency=latency;host_method="minecraft-status-ping";
         }
         queue({{"op","members"},{"path",role=="host"?"local":direct_?"p2p":"relay"},
-            {"rtt_ms",latency},{"rtt_kind",kind}},false,true);
+            {"rtt_ms",latency},{"rtt_kind",kind},{"node_rtt_ms",control_rtt_ms_},
+            {"host_rtt_ms",host_latency},{"host_rtt_method",host_method}},false,true);
     }
     bool diagnostics=false;
     {std::lock_guard guard(mutex_);diagnostics=room_info_.value("diagnostics",false);}

@@ -21,6 +21,24 @@ int Engine::run() {
         key_status = ssh_bind_options_set(binding, SSH_BIND_OPTIONS_HOSTKEY,
                                          config.at("host_key").get_ref<const std::string&>().c_str());
     }
+    // libssh's default IPv6 socket inherits the OS IPV6_V6ONLY default, which
+    // differs across Windows/Linux/macOS. Supply one explicit dual-stack socket
+    // for the wildcard; libssh still owns all SSH acceptance and authentication.
+    if (host == "::") {
+        auto fd = socket(AF_INET6, SOCK_STREAM, 0);
+        sockaddr_in6 dual{};
+        dual.sin6_family = AF_INET6;
+        dual.sin6_port = htons(static_cast<uint16_t>(port));
+        int only_v6 = 0, reuse = 1;
+        if (fd == invalid_socket ||
+            setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, reinterpret_cast<const char*>(&only_v6), sizeof(only_v6)) ||
+            setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&reuse), sizeof(reuse)) ||
+            bind(fd, reinterpret_cast<sockaddr*>(&dual), sizeof(dual)) || listen(fd, 10)) {
+            close_socket(fd);
+            throw std::runtime_error("Dual-stack SSH listener unavailable");
+        }
+        ssh_bind_set_fd(binding, fd);
+    }
     if (ssh_bind_options_set(binding, SSH_BIND_OPTIONS_BINDADDR, host.c_str()) != SSH_OK ||
         ssh_bind_options_set(binding, SSH_BIND_OPTIONS_BINDPORT, &port) != SSH_OK ||
         key_status != SSH_OK || ssh_bind_listen(binding) != SSH_OK)
@@ -30,12 +48,26 @@ int Engine::run() {
     nonblocking(listener);
     sockaddr_storage address{};
     SockLen length = sizeof(address);
-    getsockname(listener, reinterpret_cast<sockaddr*>(&address), &length);
+    if (getsockname(listener, reinterpret_cast<sockaddr*>(&address), &length))
+        throw std::runtime_error("SSH listener address unavailable");
     port = ntohs(address.ss_family == AF_INET ? reinterpret_cast<sockaddr_in*>(&address)->sin_port :
                  reinterpret_cast<sockaddr_in6*>(&address)->sin6_port);
     udp = socket(address.ss_family, SOCK_DGRAM, 0);
+    if (udp != invalid_socket && address.ss_family == AF_INET6) {
+        int only_v6 = 0;
+        if (setsockopt(udp, IPPROTO_IPV6, IPV6_V6ONLY, reinterpret_cast<const char*>(&only_v6), sizeof(only_v6)))
+            std::cerr << "stun_dual_stack_unavailable ipv6_available=true\n";
+    }
     if (udp != invalid_socket && !bind(udp, reinterpret_cast<sockaddr*>(&address), length)) nonblocking(udp);
-    else { close_socket(udp); udp = invalid_socket; std::cerr << "stun_unavailable relay_available=true\n"; }
+    else {
+#ifdef _WIN32
+        auto error = WSAGetLastError();
+#else
+        auto error = errno;
+#endif
+        close_socket(udp); udp = invalid_socket;
+        std::cerr << "stun_unavailable relay_available=true socket_error=" << error << '\n';
+    }
     for (int i = 0; i < count; ++i) workers.push_back(std::make_unique<Worker>(*this, static_cast<size_t>(i)));
     writer = std::thread([this] {
         while (true) {

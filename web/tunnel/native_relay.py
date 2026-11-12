@@ -22,6 +22,7 @@ from .diagnostics import player_identity
 LOG = logging.getLogger(__name__)
 ROOT = Path(__file__).resolve().parents[2]
 MAX_IPC = 2 * 1024 * 1024
+DEFAULT_COMPRESSION = 'off'
 
 
 class NativeConnection:
@@ -153,7 +154,7 @@ class NativeStream:
 
 
 class RelayServer(PythonRelay):
-    def __init__(self, *args, native_binary=None, workers=None, buffer_kib=512, compression='auto', **kwargs):
+    def __init__(self, *args, native_binary=None, workers=None, buffer_kib=512, compression=DEFAULT_COMPRESSION, **kwargs):
         super().__init__(*args, **kwargs)
         self.native_binary = native_binary or os.environ.get('BUGGCRAFT_NATIVE_CORE')
         if not self.native_binary:

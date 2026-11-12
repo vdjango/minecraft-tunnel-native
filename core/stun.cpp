@@ -20,9 +20,15 @@ void Engine::stun() {
         if (ip[0] >= 224 || (ip[0] == 0 && ip[1] == 0 && ip[2] == 0 && ip[3] == 0)) return;
     } else if (source.ss_family == AF_INET6) {
         auto* address = reinterpret_cast<sockaddr_in6*>(&source);
-        std::memcpy(ip.data(), &address->sin6_addr, 16);
         port = ntohs(address->sin6_port);
-        if (ip[0] == 0xff || std::all_of(ip.begin(), ip.end(), [](auto b) { return b == 0; })) return;
+        if (IN6_IS_ADDR_V4MAPPED(&address->sin6_addr)) {
+            v4 = true;
+            std::memcpy(ip.data(), reinterpret_cast<const unsigned char*>(&address->sin6_addr) + 12, 4);
+            if (ip[0] >= 224 || (ip[0] == 0 && ip[1] == 0 && ip[2] == 0 && ip[3] == 0)) return;
+        } else {
+            std::memcpy(ip.data(), &address->sin6_addr, 16);
+            if (ip[0] == 0xff || std::all_of(ip.begin(), ip.end(), [](auto b) { return b == 0; })) return;
+        }
     } else return;
     auto second = std::chrono::duration_cast<std::chrono::seconds>(Clock::now().time_since_epoch()).count();
     if (stun_second != second) { stun_second = second; stun_count = 0; }

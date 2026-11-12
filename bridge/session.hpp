@@ -41,6 +41,8 @@ struct Stream {
 };
 class Session:public std::enable_shared_from_this<Session> {
     Profile profile_;
+    std::function<Profile()> reconnect_profile_;
+    bool managed_connected_=false;
     std::string policy_, compression_, ice_family_;
     int game_port_;
     Json settings_;
@@ -56,6 +58,7 @@ class Session:public std::enable_shared_from_this<Session> {
     size_t route_index_=0;
     std::condition_variable changed_;
     Json room_info_=Json::object();
+    std::string node_name_; // Published under mutex_; survives describe snapshots.
     int requested_listen_port_=0;
     bool announce_=true;
     std::shared_ptr<ModTransfers> mods_;
@@ -166,6 +169,8 @@ public:
             std::vector<Profile> alternatives={},int listen_port=0,bool announce=true,std::string game_directory={},std::string chat_name={},bool game_chat_enabled=false,std::string game_chat_name={},std::string ice_family="auto");
     ~Session();
     Json start();
+    /// Rpc sets this before start; Session invokes it only while recovering SSH.
+    void set_reconnector(std::function<Profile()> callback){reconnect_profile_=std::move(callback);}
     void stop();
     bool post(std::function<void()>);
     Json status() const;

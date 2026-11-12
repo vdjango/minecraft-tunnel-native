@@ -1,29 +1,24 @@
 ﻿'use strict';
 // Passwords and decrypted identity keys remain in page memory, never localStorage.
-let identityKey = null, vault = null, accountRecord = null, importedRecord = null, unlockedPassword = '', launcherKey = null, mailEnrollment = null, emailRequired = false;
-let loginGrant = null, loginProof = null;
+let identityKey = null, vault = null, accountRecord = null, mailEnrollment = null, emailRequired = false;
 let emailLogin = null, emailSelection = null, bindEmailTicket = null;
 const emailRetry = new Map();
 let returnView = null;
+let authenticatedAccount = '';
 const requestedLauncher=new URLSearchParams(location.search).get('launcher')||'';
 const accountLauncherRequest=/^[0-9a-f]{32}$/.test(requestedLauncher)?requestedLauncher:'';
 const requestedAccountNext=new URLSearchParams(location.search).get('next')||'';
-const accountNext=/^\/account\/(access|friends|profile|security)$/.test(requestedAccountNext)||['/feedback','/feedback?new=1'].includes(requestedAccountNext)?requestedAccountNext:'';
+const accountNext=/^\/account\/(access|devices|email)$/.test(requestedAccountNext)?requestedAccountNext:'';
 const utf8 = new TextEncoder(), textDecoder = new TextDecoder();
 let pendingUnlock = null, unlockBusy = false;
-function renderIdentityFields() {
-  $('account-nickname').readOnly=!identityKey;$('account-notes').readOnly=!identityKey;
-  $('account-nickname').title=$('account-notes').title=identityKey?'':'编辑前请输入密码解锁';
-  if(vault) {$('account-nickname').value=vault.nickname || '';$('account-notes').value=vault.notes || '';}
-}
 function requireIdentity(reason) {
-  if(identityKey && launcherKey && loginGrant && accountRecord) return Promise.resolve(true);
+  if(identityKey && accountRecord) return Promise.resolve(true);
   if(pendingUnlock) return pendingUnlock.promise;
   const dialog=$('account-unlock-dialog');
   $('account-unlock-reason').textContent=reason+'。为保护账号，请输入密码继续。';
   $('account-unlock-password').value='';$('account-unlock-feedback').textContent='';
   let resolve;const promise=new Promise(done=>{resolve=done;});
-  pendingUnlock={promise,resolve,account:$('account-current').textContent};
+  pendingUnlock={promise,resolve,account:authenticatedAccount};
   dialog.showModal();$('account-unlock-password').focus();return promise;
 }
 $('account-unlock-dialog').addEventListener('cancel',event=>{if(unlockBusy)event.preventDefault();});
@@ -41,36 +36,30 @@ $('account-unlock-form').onsubmit=async event=>{
   }catch(e){feedback('account-unlock-feedback',e);$('account-unlock-password').value='';$('account-unlock-password').focus();}
   finally{unlockBusy=false;button.disabled=false;button.textContent='验证并继续';$('account-unlock-cancel').disabled=false;}
 };
-for(const id of ['account-nickname','account-notes']) {
-  const edit=async()=>{if(!identityKey)await requireIdentity('编辑个人资料需要解锁加密资料');};
-  $(id).addEventListener('click',edit);
-  $(id).addEventListener('keydown',event=>{if(!identityKey && ['Enter',' '].includes(event.key)){event.preventDefault();edit();}});
-}
 function bytes64(bytes) { return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
 function from64(text) { return Uint8Array.from(atob(text.replace(/-/g,'+').replace(/_/g,'/')), c=>c.charCodeAt(0)); }
 function ordered(value) { if(Array.isArray(value)) return value.map(ordered); if(value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(k=>[k,ordered(value[k])])); return value; }
 function canonicalBytes(value) { return utf8.encode(JSON.stringify(ordered(value)).replace(/[\u007f-\uffff]/g,c=>'\\u'+c.charCodeAt(0).toString(16).padStart(4,'0'))); }
-async function routingState(state, copies, key) {
-  const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',canonicalBytes(state))), b=>b.toString(16).padStart(2,'0')).join('');
-  const routing={account:state.account,revision:state.revision,copies,digest};
-  return {routing,routing_signature:await signBytes(key,canonicalBytes(routing))};
-}
 function accountEntry(view='login') {
+  document.body.dataset.accountState='entry';
   clearEmailLogin();bindEmailTicket=null;
   $('email-login-fields').hidden=!$('account-id').value.includes('@');
   if(location.pathname.startsWith('/account/'))returnView=location.pathname.split('/').pop();
-  $('account-panel').hidden=true;$('account-login').hidden=view!=='login';$('account-register').hidden=view!=='register';$('account-feedback').textContent='';
+  $('account-panel').hidden=true;$('account-login').hidden=view!=='login';$('account-register').hidden=view!=='register';$('account-recovery').hidden=view!=='recovery';$('account-feedback').textContent='';
   const query=new URLSearchParams();
   if(accountNext)query.set('next',accountNext);
   if(accountLauncherRequest)query.set('launcher',accountLauncherRequest);
-  history.replaceState(null,'',(view==='register'?'/register':'/login')+(query.size?'?'+query:''));
+  history.replaceState(null,'',(view==='register'?'/register':view==='recovery'?'/forgot-password':'/login')+(query.size?'?'+query:''));
   document.title=(view==='register'?'注册账号':'登录')+' · Buggcraft';
-  $('page-title').textContent=view==='register'?'注册账号':'登录';
-  $('recovery-import').hidden=view==='register';
+  $('page-title').textContent=view==='register'?'注册账号':view==='recovery'?'找回密码':'登录';
+  $('page-description').textContent=view==='register'?'创建联机账号，和朋友在同一个世界碰面。':'登录联机账号，连接你的启动器。';
+  if(view==='recovery')$('page-description').textContent='验证绑定邮箱，重新设置密码。账号与好友保持不变。';
   document.dispatchEvent(new CustomEvent('launcher-account-state',{detail:{authenticated:false}}));
 }
 $('show-register').onclick=()=>accountEntry('register');
 $('back-to-login').onclick=()=>accountEntry();
+$('show-recovery').onclick=()=>accountEntry('recovery');
+$('recovery-back').onclick=()=>accountEntry();
 function clearEmailLogin() {
   emailLogin=null;emailSelection=null;$('login-email-code').value='';
   $('email-account-choice').replaceChildren();$('email-account-picker').hidden=true;
@@ -106,9 +95,9 @@ $('verify-login-email').onclick=async()=>{
     emailSelection={...result,email:emailLogin.email};
     const select=$('email-account-choice');select.replaceChildren();
     if(result.accounts.length>1 && !result.accounts.some(a=>a.preferred)) select.add(new Option('请选择要保留的账号',''));
-    for(const item of result.accounts) select.add(new Option(item.username+' · '+item.account+(item.preferred?'（已保留）':''),item.account));
+    result.accounts.forEach((item,index)=>select.add(new Option(item.username+(result.accounts.filter(v=>v.username===item.username).length>1?'（账号 '+(index+1)+'）':'')+(item.preferred?'（首选）':''),item.account)));
     $('email-account-picker').hidden=!result.accounts.length;
-    $('login-email-feedback').textContent=result.accounts.length ? '邮箱已验证。请选择账号并输入该账号的原密码。' : '当前节点未找到该邮箱的已验证账号。旧账号请先用账号 ID 登录后绑定邮箱；其他节点新注册的账号请等待同步。';
+    $('login-email-feedback').textContent=result.accounts.length ? '邮箱已验证。请选择账号并输入该账号的原密码。' : '此服务未找到该邮箱的账号。已有账号可用账号 ID 登录后绑定邮箱。';
   }catch(e){emailSelection=null;feedback('login-email-feedback',e);}finally{button.disabled=false;}
 };
 $('send-bind-email').onclick=async()=>{
@@ -172,13 +161,29 @@ async function boxKey(password,salt) {
 async function sealVault(password,account,revision,value) {
   const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
   const payload=utf8.encode(JSON.stringify(value));
-  if(payload.length>4000) throw new Error('个人设置过长，请缩短昵称或备忘。');
+  if(payload.length>4000) throw new Error('账号资料过长。');
   const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:utf8.encode(account+'|'+revision)},await boxKey(password,salt),payload);
   return {salt:bytes64(salt),iv:bytes64(iv),ciphertext:bytes64(ciphertext),iterations:600000};
 }
+async function passwordCheck(password,username){
+  const policy=await api('/api/account/policy');
+  const normalized=password.toLowerCase(),length=Array.from(password).length;
+  if(length<policy.minimum_length||length>policy.maximum_length)throw new Error('密码需要 6–256 个字符。');
+  if(policy.blocked_passwords.includes(normalized)||normalized===username.toLowerCase()||/^(.)\1+$/.test(normalized))throw new Error('这个密码太常见，请换一个至少 6 位的密码。');
+  const digest=await crypto.subtle.digest('SHA-256',utf8.encode(normalized));
+  return {password_length:length,password_digest:Array.from(new Uint8Array(digest),v=>v.toString(16).padStart(2,'0')).join('')};
+}
+async function encryptedIdentity(password,account,revision,nickname,email){
+  const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
+  const exported=await crypto.subtle.exportKey('jwk',pair.privateKey),pub=await crypto.subtle.exportKey('jwk',pair.publicKey);
+  const public_key={kty:pub.kty,crv:pub.crv,x:pub.x,y:pub.y};
+  const value={key:exported,nickname,notes:'',email};
+  const state={account,revision,box:await sealVault(password,account,revision,value)};
+  return {public_key,state,signature:await signBytes(pair.privateKey,canonicalBytes(state)),privateKey:pair.privateKey};
+}
 async function unlock(record,password) {
   const state=record.state,box=state.box;
-  if(box.iterations!==600000 || from64(box.salt).length!==16 || from64(box.iv).length!==12 || from64(box.ciphertext).length>4096) throw new Error('账号恢复数据无效。');
+  if(box.iterations!==600000 || from64(box.salt).length!==16 || from64(box.iv).length!==12 || from64(box.ciphertext).length>4096) throw new Error('账号加密数据无效。');
   let value;
   try {
     const raw=await crypto.subtle.decrypt({name:'AES-GCM',iv:from64(box.iv),additionalData:utf8.encode(state.account+'|'+state.revision)},await boxKey(password,from64(box.salt)),from64(box.ciphertext));
@@ -191,42 +196,16 @@ async function unlock(record,password) {
   if(!await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},pub,from64(record.signature),canonicalBytes(state))) throw new Error('账号设置签名无效。');
   return {key,value};
 }
-function exportRecovery(record) {
-  const blob=new Blob([JSON.stringify({format:'buggcraft-account-v1',record},null,2)],{type:'application/json'});
-  const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='buggcraft-account-'+record.state.account.slice(0,12)+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-}
-function renderBackupStatus(b) {
-  $('account-backup-status').textContent=b.copies==='legacy' ? '旧版账号：请选择备份策略后加密保存，确认同步范围。' : b.copies===0 ? '仅注册节点保存身份，请保管恢复文件。' : '最新密文在线副本 '+b.available+' / '+b.target+' 份（含注册节点）；'+(b.available<b.target ? '等待可用节点补足。' : '备份已就绪。');
-}
 async function showAccount() {
-  const next=accountNext;
   const me=await api('/api/account/me');accountCSRF=me.csrf;
-  $('account-current').textContent=me.account;$('account-id').value=me.account;
+  authenticatedAccount=me.account;
   $('welcome-name').textContent=me.username;
-  const code=me.friendCode||await shortFriendCode(me.account);
-  $('account-code-identity').textContent=me.username+' · '+code+' · 支持好友';
-  $('my-friend-code').textContent=code;
-  $('recovery-import').hidden=true;
-  $('account-home').textContent='注册节点身份 '+me.home.slice(0,12)+' · 加密设置版本 '+me.revision;
-  const b=me.backup;
-  $('account-copies').value=typeof b.copies==='number' ? b.copies : '0';
-  renderBackupStatus(b);
-  $('account-panel').hidden=false;$('account-login').hidden=true;$('account-register').hidden=true;
-  $('account-nickname').value=vault?.nickname || me.username;$('account-notes').value=vault?.notes || '';
   if(vault?.email && !$('bind-email').value) $('bind-email').value=vault.email;
-  renderIdentityFields();$('account-save').disabled=false;$('account-export').disabled=false;
-  accountView(accountLauncherRequest?'access':returnView || (next.startsWith('/account/')?next.split('/').pop():location.pathname.startsWith('/account/')?location.pathname.split('/').pop():'overview'));
+  $('account-panel').hidden=false;$('account-login').hidden=true;$('account-register').hidden=true;$('account-recovery').hidden=true;
+  accountView(accountLauncherRequest?'access':returnView || (accountNext?accountNext.split('/').pop():location.pathname.split('/').pop()));
   document.dispatchEvent(new CustomEvent('launcher-account-state',{detail:{authenticated:true,username:me.username}}));
-  returnView=null;
-  if(accountLauncherRequest)return;
-  if(next==='/feedback'||next==='/feedback?new=1'){location.assign(next);return;}
-  try{await refreshFriends();}catch(e){feedback('friend-feedback',e);}
+  returnView=null;await loadLauncherDevices();
 }
-$('open-account').onclick=async event=>{
-  event.preventDefault();
-  if(!crypto.subtle) { feedback('account-feedback','浏览器需要 HTTPS 和 WebCrypto 支持。'); return; }
-  try { await showAccount(); } catch { accountEntry();await refresh(); }
-};
 $('account-register').onsubmit=async event=>{
   event.preventDefault();const button=event.submitter;button.disabled=true;
   const originalLabel=button.textContent;button.textContent='正在创建账号…';button.setAttribute('aria-busy','true');
@@ -235,24 +214,57 @@ $('account-register').onsubmit=async event=>{
     if(mailBusy) throw new Error('验证码正在发送，请稍候再注册。');
     const password=$('register-password').value;
     if(password!==$('register-confirm').value) throw new Error('两次密码不一致。');
+    const passwordPolicy=await passwordCheck(password,$('register-name').value);
     if(emailRequired && (!mailEnrollment || mailEnrollment.email!==$('register-email').value.trim() || mailEnrollment.username!==$('register-name').value)) throw new Error('请先发送并填写邮箱验证码。');
     const enrollment=emailRequired ? mailEnrollment : await api('/api/account/enroll',{});
-    const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
-    const exported=await crypto.subtle.exportKey('jwk',pair.privateKey);
-    const pub=await crypto.subtle.exportKey('jwk',pair.publicKey);
-    const publicKey={kty:pub.kty,crv:pub.crv,x:pub.x,y:pub.y};
-    const value={key:exported,nickname:$('register-name').value,notes:'',email:$('register-email').value.trim()};
-    const state={account:enrollment.account,revision:1,box:await sealVault(password,enrollment.account,1,value)};
-    const signature=await signBytes(pair.privateKey,canonicalBytes(state));
-    const copies=Number($('register-copies').value),routing=await routingState(state,copies,pair.privateKey);
-    await api('/api/account/register',{nonce:enrollment.nonce,username:$('register-name').value,email_ticket:enrollment.ticket,email_code:$('register-email-code').value,public_key:publicKey,state,signature,copies,...routing,proof:await signBytes(pair.privateKey,utf8.encode(enrollment.message))});
+    const {privateKey,...encrypted}=await encryptedIdentity(password,enrollment.account,1,$('register-name').value,$('register-email').value.trim());
+    await api('/api/account/register',{nonce:enrollment.nonce,username:$('register-name').value,email_ticket:enrollment.ticket,email_code:$('register-email-code').value,...encrypted,...passwordPolicy,proof:await signBytes(privateKey,utf8.encode(enrollment.message))});
     mailEnrollment=null;
-    const record=await api('/api/account/record/'+enrollment.account);
-    exportRecovery(record);$('account-id').value=enrollment.account;$('account-password').value=password;
+    $('account-id').value=$('register-name').value;$('account-password').value=password;
     $('register-password').value='';$('register-confirm').value='';
-    await loginAccount();
-    $('account-feedback').textContent='注册成功。可用已验证邮箱或完整账号 ID 登录；请妥善保管密码和已下载的恢复文件。';
+    await loginAccount({identifier:enrollment.account});
+    $('account-feedback').textContent='注册成功。可用用户名、已验证邮箱或完整账号 ID 登录；请妥善保管密码。';
   } catch(e) { feedback('account-feedback',e); } finally {button.disabled=false;button.textContent=originalLabel;button.setAttribute('aria-busy','false');}
+};
+let recoveryTicket=null,recoverySelection=null;
+$('recovery-email').addEventListener('input',()=>{recoveryTicket=null;recoverySelection=null;$('recovery-reset-fields').hidden=true;});
+$('recovery-send').onclick=async()=>{
+  const button=$('recovery-send');button.disabled=true;recoverySelection=null;$('recovery-reset-fields').hidden=true;
+  try{
+    if(!$('recovery-email').reportValidity())return;
+    const email=$('recovery-email').value.trim();
+    recoveryTicket={...await api('/api/account/email-code',{purpose:'recovery',email},40000),email};
+    $('recovery-feedback').textContent='验证码已发送，10 分钟内有效。';
+  }catch(e){feedback('recovery-feedback',e);}finally{button.disabled=false;}
+};
+$('recovery-verify').onclick=async()=>{
+  const button=$('recovery-verify');button.disabled=true;
+  try{
+    if(!recoveryTicket||recoveryTicket.email!==$('recovery-email').value.trim())throw new Error('请先发送验证码。');
+    const ticket=recoveryTicket;recoveryTicket=null;
+    recoverySelection=await api('/api/account/recovery-verify',{ticket:ticket.ticket,nonce:ticket.nonce,code:$('recovery-code').value});
+    if(!recoverySelection.accounts.length)throw new Error('此邮箱没有绑定可恢复的账号。请确认使用注册或绑定时的邮箱。');
+    $('recovery-choice').replaceChildren(...recoverySelection.accounts.map((account,index)=>{
+      const option=document.createElement('option');option.value=account.account;option.textContent=account.username+(recoverySelection.accounts.filter(v=>v.username===account.username).length>1?' · 账号 '+(index+1):'');return option;
+    }));
+    $('recovery-reset-fields').hidden=false;$('recovery-feedback').textContent='邮箱已验证，请选择账号并设置新密码。';
+  }catch(e){feedback('recovery-feedback',e);}finally{button.disabled=false;}
+};
+$('account-recovery').onsubmit=async event=>{
+  event.preventDefault();const button=event.submitter;button.disabled=true;
+  try{
+    const selected=recoverySelection?.accounts.find(v=>v.account===$('recovery-choice').value);
+    if(!selected)throw new Error('请先验证绑定邮箱。');
+    const password=$('recovery-password').value;
+    if(password!==$('recovery-confirm').value)throw new Error('两次密码不一致。');
+    const policy=await passwordCheck(password,selected.username);
+    const {privateKey,...encrypted}=await encryptedIdentity(password,selected.account,selected.revision+1,selected.username,$('recovery-email').value.trim());
+    void privateKey;
+    const grant=recoverySelection.grant;recoverySelection=null;
+    await api('/api/account/recovery-reset',{grant,account:selected.account,...encrypted,...policy});
+    clearIdentity();$('account-recovery').reset();accountEntry();$('account-id').value=selected.username;
+    $('account-feedback').textContent='密码已重设。账号与好友保留，旧设备已退出，请使用新密码登录。';
+  }catch(e){feedback('recovery-feedback',e);}finally{button.disabled=false;}
 };
 async function loginAccount(options={}) {
   const password=options.password ?? $('account-password').value;
@@ -261,53 +273,25 @@ async function loginAccount(options={}) {
     if(!emailSelection || emailSelection.email!==identifier || !$('email-account-choice').value) throw new Error('请先验证邮箱，再选择要保留的账号。');
     identifier=$('email-account-choice').value;emailGrant=emailSelection.grant;
   }
-  const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
-  const pub=await crypto.subtle.exportKey('jwk',pair.publicKey), delegation={kty:pub.kty,crv:pub.crv,x:pub.x,y:pub.y};
-  const challenge=importedRecord && importedRecord.state.account===identifier ? await api('/api/account/recover',{record:importedRecord,delegation}) : await api('/api/account/challenge',{account:identifier,delegation});
+  const challenge=await api('/api/account/challenge',{account:identifier});
   const grant=JSON.parse(challenge.message);
-  if(grant.p!=='buggcraft-account-login-v2'||grant.o!==location.origin||grant.r!==challenge.nonce||grant.a!==challenge.record.state.account||JSON.stringify(ordered(grant.d))!==JSON.stringify(ordered(delegation))) throw new Error('登录挑战与当前网页或账号不匹配。');
+  if(grant.p!=='buggcraft-account-login-v2'||grant.o!==location.origin||grant.r!==challenge.nonce||grant.a!==challenge.record.state.account) throw new Error('登录挑战与当前网页或账号不匹配。');
   if(options.unlockOnly && challenge.record.state.account!==identifier) throw new Error('账号已变更，请重新登录。');
   let record=challenge.record;
-  if(importedRecord && importedRecord.state.account===record.state.account && importedRecord.state.revision>=record.state.revision) record=importedRecord;
   const unlocked=await unlock(record,password);
   const proof=await signBytes(unlocked.key,utf8.encode(challenge.message));
   const result=await api('/api/account/login',{nonce:challenge.nonce,signature:proof,...(emailGrant?{email_grant:emailGrant}:{})});
   if(!options.unlockOnly){clearEmailLogin();bindEmailTicket=null;}
-  loginGrant=grant;loginProof=proof;
-  identityKey=unlocked.key;vault=unlocked.value;accountRecord=record;unlockedPassword=password;accountCSRF=result.csrf;launcherKey=await crypto.subtle.exportKey('jwk',pair.privateKey);
-  if(options.unlockOnly){renderIdentityFields();return;}
-  $('account-password').value='';importedRecord=null;await showAccount();$('account-feedback').textContent='已登录。个人资料只在当前网页解密。';
+  identityKey=unlocked.key;vault=unlocked.value;accountRecord=record;accountCSRF=result.csrf;
+  if(options.unlockOnly){return;}
+  $('account-password').value='';await showAccount();$('account-feedback').textContent='已登录。请选择要管理的功能。';
 }
 $('account-login').onsubmit=async event=>{event.preventDefault();const button=event.submitter,label=button.textContent;button.disabled=true;button.textContent='正在登录…';button.setAttribute('aria-busy','true');$('account-feedback').textContent='正在验证账号，请稍候…';try{await loginAccount();}catch(e){feedback('account-feedback',e);}finally{button.disabled=false;button.textContent=label;button.setAttribute('aria-busy','false');}};
-$('account-save').onclick=async()=>{
-  const button=$('account-save');button.disabled=true;
-  try {
-    if(!await requireIdentity('保存设置需要解锁加密资料'))return;
-    const revision=accountRecord.state.revision+1;
-    const next={...vault,nickname:$('account-nickname').value,notes:$('account-notes').value};
-    const state={account:accountRecord.state.account,revision,box:await sealVault(unlockedPassword,accountRecord.state.account,revision,next)};
-    const signature=await signBytes(identityKey,canonicalBytes(state));
-    const routing=await routingState(state,Number($('account-copies').value),identityKey);
-    await api('/api/account/backup',{state,signature,...routing});vault=next;accountRecord={...accountRecord,state,signature,...routing};
-    await showAccount();$('account-feedback').textContent='已按所选策略加密保存；副本状态以实际在线确认数量为准。';
-  }catch(e){feedback('account-feedback',e);}finally{button.disabled=false;}
-};
-$('account-export').onclick=async()=>{const button=$('account-export');button.disabled=true;try{if(await requireIdentity('下载恢复文件需要确认账号身份'))exportRecovery(accountRecord);}catch(e){feedback('account-feedback',e);}finally{button.disabled=false;}};
-$('account-import').onchange=async event=>{
-  try { const file=event.target.files[0];if(!file) return;if(file.size>20000) throw new Error('恢复文件过大。');
-    const value=JSON.parse(await file.text());if(value.format!=='buggcraft-account-v1'||!value.record?.state?.account) throw new Error('恢复文件格式无效。');
-    importedRecord=value.record;accountEntry();$('account-id').value=value.record.state.account;$('account-feedback').textContent='恢复文件已载入。输入原密码后可解锁；源节点已丢失时，登录后选择至少 1 个备份节点并保存，建立新的持久副本。';
-  }catch(e){feedback('account-feedback',e);}finally{event.target.value='';}
-};
+function clearIdentity() {
+  identityKey=null;vault=null;accountRecord=null;accountCSRF='';authenticatedAccount='';
+  $('bind-email').value='';$('account-password').value='';
+}
 $('account-logout').onclick=async()=>{
-  try{await api('/api/account/logout',{});identityKey=null;vault=null;accountRecord=null;importedRecord=null;unlockedPassword='';accountCSRF='';launcherKey=null;loginGrant=null;loginProof=null;accountEntry();$('account-password').value='';$('account-notes').value='';$('account-nickname').value='';$('account-feedback').textContent='已退出网页账号。启动器登录可在「安全与备份」中单独撤销。';await refresh();}catch(e){feedback('account-feedback',e);}
+  try{await api('/api/account/logout',{});clearIdentity();accountEntry();$('account-feedback').textContent='已退出网页账号。启动器设备可在登录设备中单独撤销。';await refresh();}
+  catch(e){feedback('account-feedback',e);}
 };
-// Refresh acknowledgements without overwriting settings the user is editing.
-let backupRefreshing=false;
-setInterval(async()=>{
-  if(backupRefreshing || document.hidden || $('account-panel').hidden) return;
-  backupRefreshing=true;
-  try { renderBackupStatus((await api('/api/account/me')).backup);await refreshFriends(); }
-  catch(e){if(e.status===401){identityKey=null;vault=null;accountRecord=null;unlockedPassword='';launcherKey=null;loginGrant=null;loginProof=null;accountEntry();$('account-feedback').textContent='登录已过期，请重新登录。';}else feedback('account-feedback',e);}
-  finally { backupRefreshing=false; }
-},5000);

@@ -16,6 +16,8 @@ struct Failure : std::runtime_error {
 };
 struct Profile {
     std::string host, token, key, name;
+    Json control = Json::object();
+    std::string allocation_ticket;
     int port = 0;
     static Profile decode(const std::string& code);
     static Profile from_json(const Json& value);
@@ -30,7 +32,7 @@ class Ssh {
     Heartbeat heartbeat_;
     Json exchange(ssh_channel channel, const Json& value, int timeout_seconds);
 public:
-    explicit Ssh(const Profile&, const std::string& user, const std::string& secret = {},int timeout_seconds=4,const std::string& member_token={});
+    explicit Ssh(const Profile&, const std::string& user, const std::string& secret = {},int timeout_seconds=4,const std::string& member_token={},bool probe_only=false);
     ~Ssh();
     Ssh(const Ssh&) = delete;
     ssh_session get() const { return session_; }

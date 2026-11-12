@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "social.hpp"
+#include "../core/encoding.hpp"
 #include <algorithm>
 #include <chrono>
 #include <mutex>
@@ -21,12 +22,12 @@ double social_timestamp() {
 }
 std::string decode(std::string value){
     if(value.empty()||value.size()>8192||value.size()%4==1)throw Failure(-32602,"Invalid personal credential");
-    for(auto& ch:value){if(ch=='-')ch='+';else if(ch=='_')ch='/';else if(!std::isalnum(static_cast<unsigned char>(ch))&&ch!='='&&ch!='+'&&ch!='/')throw Failure(-32602,"Invalid personal credential");}
-    while(value.size()%4)value+='=';std::string bytes(value.size()/4*3,'\0');auto count=EVP_DecodeBlock(reinterpret_cast<unsigned char*>(bytes.data()),reinterpret_cast<const unsigned char*>(value.data()),static_cast<int>(value.size()));if(count<0)throw Failure(-32602,"Invalid personal credential");if(value.back()=='=')--count;if(value.size()>1&&value[value.size()-2]=='=')--count;bytes.resize(static_cast<size_t>(count));return bytes;
+    try { return native::encoding::base64_decode(value, {native::encoding::Alphabet::mixed_url, true, true, false}); }
+    catch(const std::invalid_argument&) { throw Failure(-32602,"Invalid personal credential"); }
 }
-std::string encode(const std::string& bytes){std::string value(4*((bytes.size()+2)/3),'\0');EVP_EncodeBlock(reinterpret_cast<unsigned char*>(value.data()),reinterpret_cast<const unsigned char*>(bytes.data()),static_cast<int>(bytes.size()));for(auto& ch:value){if(ch=='+')ch='-';else if(ch=='/')ch='_';}while(!value.empty()&&value.back()=='=')value.pop_back();return value;}
+std::string encode(const std::string& bytes){return native::encoding::base64_encode(bytes, true);}
 }
-Json social_event(const Profile& profile,const Json& params){
+std::string sign_delegated_message(const Profile& profile,const std::string& bytes){
     auto split=profile.token.find('~');if(!profile.token.starts_with("acct1.")||split==std::string::npos)throw Failure(-32602,"A personal launcher credential is required");
     auto claims=Json::parse(decode(profile.token.substr(6,profile.token.find('.',6)-6)));
     auto now=std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -45,13 +46,17 @@ Json social_event(const Profile& profile,const Json& params){
     auto key_context=std::unique_ptr<EVP_PKEY_CTX,decltype(&EVP_PKEY_CTX_free)>(EVP_PKEY_CTX_new_from_name(nullptr,"EC",nullptr),EVP_PKEY_CTX_free);EVP_PKEY* raw_key=nullptr;
     if(!key_context||EVP_PKEY_fromdata_init(key_context.get())!=1||EVP_PKEY_fromdata(key_context.get(),&raw_key,EVP_PKEY_KEYPAIR,key_params.get())!=1)throw Failure(-32602,"Delegated key unavailable");
     auto key=std::unique_ptr<EVP_PKEY,decltype(&EVP_PKEY_free)>(raw_key,EVP_PKEY_free);
-    Json action=params.value("fields",Json::object());if(!action.is_object())throw Failure(-32602,"Invalid social fields");
-    action["op"]=params.at("operation");action["target"]=params.value("target",Json(nullptr));if(action["target"].is_null())action["target"]=claims.at("a");action["at"]=social_timestamp();action["id"]=room_id(random_id());
-    auto bytes=action.dump(-1,' ',true);auto context=std::unique_ptr<EVP_MD_CTX,decltype(&EVP_MD_CTX_free)>(EVP_MD_CTX_new(),EVP_MD_CTX_free);size_t size=0;
+    auto context=std::unique_ptr<EVP_MD_CTX,decltype(&EVP_MD_CTX_free)>(EVP_MD_CTX_new(),EVP_MD_CTX_free);size_t size=0;
     if(!context||EVP_DigestSignInit(context.get(),nullptr,EVP_sha256(),nullptr,key.get())!=1||EVP_DigestSign(context.get(),nullptr,&size,reinterpret_cast<const unsigned char*>(bytes.data()),bytes.size())!=1)throw Failure(-32602,"Social signature unavailable");
     std::string signature(size,'\0');if(EVP_DigestSign(context.get(),reinterpret_cast<unsigned char*>(signature.data()),&size,reinterpret_cast<const unsigned char*>(bytes.data()),bytes.size())!=1)throw Failure(-32602,"Social signature failed");
     const auto* input=reinterpret_cast<const unsigned char*>(signature.data());auto value=std::unique_ptr<ECDSA_SIG,decltype(&ECDSA_SIG_free)>(d2i_ECDSA_SIG(nullptr,&input,static_cast<long>(size)),ECDSA_SIG_free);if(!value)throw Failure(-32602,"Social signature failed");
     const BIGNUM *r,*s;ECDSA_SIG_get0(value.get(),&r,&s);std::string compact(64,'\0');if(BN_bn2binpad(r,reinterpret_cast<unsigned char*>(compact.data()),32)!=32||BN_bn2binpad(s,reinterpret_cast<unsigned char*>(compact.data()+32),32)!=32)throw Failure(-32602,"Social signature failed");
-    return {{"grant",claims.at("g")},{"proof",claims.at("s")},{"action",action},{"signature",encode(compact)}};
+    return encode(compact);
+}
+Json social_event(const Profile& profile,const Json& params){
+    auto claims=Json::parse(decode(profile.token.substr(6,profile.token.find('.',6)-6)));
+    Json action=params.value("fields",Json::object());if(!action.is_object())throw Failure(-32602,"Invalid social fields");
+    action["op"]=params.at("operation");action["target"]=params.value("target",Json(nullptr));if(action["target"].is_null())action["target"]=claims.at("a");action["at"]=social_timestamp();action["id"]=room_id(random_id());
+    return {{"grant",claims.at("g")},{"proof",claims.at("s")},{"action",action},{"signature",sign_delegated_message(profile,action.dump(-1,' ',true))}};
 }
 }

@@ -1,0 +1,9 @@
+/* Shared web palette, derived from the current scenic Bugg launcher. */
+:root {
+  color-scheme:light;
+  --canvas:#f3f6f9; --text:#203448; --muted:#53697c; --accent:#235f87;
+  --accent-hover:#194b6d; --wash:#e2eff8; --line:#d7e2eb; --panel:#fff;
+  --scene-base:#102338; --scene-text:#f7faff; --scene-action:#cee9ff; --scene-ink:#1b3c55;
+  --border:var(--line); --ink:var(--text);
+  font-family:"Segoe UI","Microsoft YaHei UI",sans-serif;font-synthesis:none;
+}

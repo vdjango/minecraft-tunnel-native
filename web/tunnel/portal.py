@@ -23,6 +23,7 @@ from aiohttp import web
 from .federation import identity, TTL
 from .federation_schedule import INTERVAL, FANOUT
 from .bandwidth import Bandwidth
+from .storage import atomic_json
 
 
 def password_hash(password, salt=None):
@@ -40,66 +41,12 @@ def verify_password(password, encoded):
         return False
 
 
-def atomic_json(path, value):
-    path = Path(path)
-    fd, temporary = tempfile.mkstemp(prefix='.node-', dir=path.parent)
-    try:
-        with os.fdopen(fd, 'w', encoding='utf-8') as target:
-            json.dump(value, target, ensure_ascii=False, indent=2)
-            target.flush()
-            os.fsync(target.fileno())
-        os.replace(temporary, path)
-        # State files can contain administrator hashes, SMTP credentials, or
-        # encrypted account material. Keep them private on Unix hosts.
-        try:
-            os.chmod(path, 0o600)
-        except OSError:
-            pass
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
 
 
-def _manual_proxy_ranges(state):
-    ranges = state.get('trusted_proxy_cidrs')
-    if ranges is None:
-        ranges = []
-        legacy = state.get('trusted_proxy_ips', [])
-        for value in legacy if isinstance(legacy, list) else []:
-            if not isinstance(value, str):
-                continue
-            try:
-                address = ipaddress.ip_address(value)
-                ranges.append(f'{address}/{address.max_prefixlen}')
-            except ValueError:
-                continue
-    if not isinstance(ranges, list):
-        ranges = []
-    return _normalize_proxy_ranges(ranges)
 
 
-def _trusted_proxy_ranges(state):
-    ranges = _manual_proxy_ranges(state)
-    cloudflare = state.get('cloudflare_proxy_cidrs', [])
-    if isinstance(cloudflare, list):
-        ranges.extend(cloudflare)
-    return _normalize_proxy_ranges(ranges)
 
 
-def _normalize_proxy_ranges(ranges):
-    normalized = []
-    for value in ranges:
-        if not isinstance(value, str):
-            continue
-        try:
-            network = ipaddress.ip_network(value, strict=False)
-        except ValueError:
-            continue
-        if network.prefixlen and str(network) not in normalized:
-            normalized.append(str(network))
-        if len(normalized) == 100:
-            break
-    return normalized
 
 
 def _read_cloudflare_ranges():
@@ -127,12 +74,17 @@ def _read_cloudflare_ranges():
     return normalized
 
 
-class Portal:
+from .http_surface import HttpSurface, _manual_proxy_ranges, _trusted_proxy_ranges, _normalize_proxy_ranges
+
+
+class Portal(HttpSurface):
     def __init__(self, relay, federation, state_path):
         self.relay, self.federation = relay, federation
         self.path = Path(state_path)
         self.state = json.loads(self.path.read_text(encoding='utf-8'))
         self.state['trusted_proxy_cidrs'] = _manual_proxy_ranges(self.state)
+        self.state.setdefault('trusted_proxy_enabled', bool(self.state['trusted_proxy_cidrs']))
+        self.state.setdefault('cloudflare_proxy_enabled', False)
         self.state.setdefault('issued_profiles', {})
         self.federation.region = self.state.get('region','')
         self.started = time.monotonic()
@@ -148,6 +100,7 @@ class Portal:
         self.node_action_lock = asyncio.Lock()
         self.runner = None
         self.proxy_refresh_task = None
+        self.proxy_refresh_event = asyncio.Event()
         self.federation.on_change = self.save
         self.relay.draining = self.state.get('draining', False)
         self.relay.capacity.configure(self.state.get('capacity', self.relay.capacity.policy))
@@ -160,30 +113,9 @@ class Portal:
         self.relay.diagnostics = self.diagnostics
         self.app.cleanup_ctx.append(self.diagnostics.lifecycle)
         self.app.add_routes([
-            web.get('/', self.page), web.get('/admin', self.admin_page),
-            web.get('/robots.txt', self.search_file), web.get('/sitemap.xml', self.search_file),
-            web.get('/login', self.account_page), web.get('/register', self.account_page),
-            web.get('/account', self.account_page),
-            web.get('/account/{section:access|profile|security|friends|players}', self.account_page),
-            web.get('/connect', self.connect_page),
-            web.get('/network', self.network_page), web.get('/network.js',self.asset),
-            web.get('/admin-bandwidth.js',self.asset),
-            web.get('/common.js', self.asset), web.get('/account-page.js', self.asset),
-            web.get('/launcher-login.js', self.asset),
-            web.get('/connect.js', self.asset), web.get('/theme.css', self.asset),
-            web.get('/theme.js', self.asset),
-            web.get(r'/{bundle:vue-[A-Za-z0-9_-]+\.js}', self.asset),
-            web.get('/admin/diagnostics', self.diagnostics_page),
-            web.get('/diagnostics.js', self.asset),
+            web.get('/api/status', self.status),
             web.get('/api/admin/diagnostics', self.diagnostics_sessions),
             web.get('/api/admin/diagnostics/{player}/{session}', self.diagnostics_events),
-            web.get('/admin/{section:nodes|network|settings|users|players|history|mail}', self.admin_page),
-            web.get('/developers', self.developers_page), web.get('/portal.css', self.asset),
-            web.get('/console.css', self.asset), web.get('/developers.css', self.asset),
-            web.get('/launcher-example.py', self.launcher_example),
-            web.get('/protocol.md', self.protocol_document),
-            web.get('/portal.js', self.asset), web.get('/admin.js', self.asset),
-            web.get('/accounts.js', self.asset), web.get('/api/status', self.status),
             web.post('/api/login', self.login), web.post('/api/logout', self.logout),
             web.get('/api/admin', self.admin), web.post('/api/settings', self.settings),
             web.get('/api/federation/invite', self.invite),
@@ -205,6 +137,10 @@ class Portal:
         self.app.add_routes(self.feedback.routes)
         self.app.cleanup_ctx.append(self.feedback.lifecycle)
         self.app.cleanup_ctx.append(self.uptime_lifecycle)
+        from .control_plane import ControlPlane
+        self.control = ControlPlane(self)
+        self.app.add_routes(self.control.routes)
+        self.app.cleanup_ctx.append(self.control.lifecycle)
 
     def save(self):
         now = time.monotonic()
@@ -235,125 +171,15 @@ class Portal:
             except OSError as error:
                 logging.getLogger(__name__).warning('Could not persist uptime on shutdown: %s', error)
 
-    @web.middleware
-    async def guard(self, request, handler):
-        request['external_scheme'] = self.external_scheme(request)
-        protected = request.path.startswith('/api/') and request.path != '/api/status'
-        if protected and request['external_scheme'] != 'https' and request.remote not in ('127.0.0.1', '::1'):
-            raise web.HTTPForbidden(text='请使用 HTTPS 或 SSH 本地转发访问管理和授权功能。')
-        try:
-            if request.method == 'POST':
-                origin = request.headers.get('Origin')
-                if origin and origin != self.external_origin(request):
-                    raise web.HTTPForbidden(text='Origin rejected')
-                upload = bool(re.fullmatch(r'/api/feedback/[0-9a-f]{32}/attachments', request.path))
-                if upload:
-                    self.feedback.viewer(request, True)
-                    if request.content_type != 'multipart/form-data':
-                        raise web.HTTPUnsupportedMediaType()
-                elif request.content_type != 'application/json':
-                    raise web.HTTPUnsupportedMediaType()
-                elif not isinstance(await request.json(), dict):
-                    raise ValueError('Expected an object')
-            response = await handler(request)
-        except web.HTTPException as exc:
-            response = exc
-        except (ValueError, KeyError, TypeError, json.JSONDecodeError):
-            response = web.json_response({'error': '输入无效，请检查后重试。'}, status=400)
-        if request.path.startswith(('/admin','/account','/login','/register','/launcher-login','/api/','/feedback')):
-            response.headers['X-Robots-Tag'] = 'noindex, nofollow'
-        response.headers.update({
-            'Cache-Control': 'no-store',
-            'X-Content-Type-Options': 'nosniff',
-            'Referrer-Policy': 'no-referrer',
-            'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; "
-                                       "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
-        })
-        if request.path.endswith(('.js', '.css')) and isinstance(response, web.FileResponse):
-            versioned = re.fullmatch(r'[a-f0-9]{12}', request.query.get('v', ''))
-            hashed = re.fullmatch(r'/vue-runtime-[A-Za-z0-9_-]+\.js', request.path)
-            response.headers['Cache-Control'] = ('public, max-age=31536000, immutable' if versioned or hashed
-                                                else 'public, max-age=0, must-revalidate')
-        if request['external_scheme'] == 'https':
-            response.headers['Strict-Transport-Security'] = 'max-age=86400'
-        if isinstance(response, web.HTTPException):
-            raise response
-        return response
 
-    async def search_file(self, request):
-        return web.FileResponse(Path(__file__).with_name('web') / request.path.lstrip('/'))
 
-    async def page(self, request):
-        return web.Response(text=self.page_text('index.html'), content_type='text/html')
 
-    async def account_page(self, request):
-        page = self.page_text('account.html')
-        try:
-            self.account_api.session(request)
-        except web.HTTPUnauthorized:
-            if request.path == '/register' and self.state.get('registration_open', False):
-                page = page.replace('<form id="account-login">', '<form id="account-login" hidden>')
-                page = page.replace('<form id="account-register" hidden>', '<form id="account-register">')
-                page = page.replace('>账号登录</h1>', '>注册账号</h1>')
-        else:
-            page = page.replace('<form id="account-login">', '<form id="account-login" hidden>')
-            page = page.replace('<div id="account-panel" hidden>', '<div id="account-panel">')
-            section = request.match_info.get('section', 'overview')
-            titles = {'overview': '用户中心', 'access': '连接启动器', 'profile': '个人资料',
-                      'security': '安全与备份', 'friends': '我的好友', 'players': '在线玩家'}
-            page = page.replace('>账号登录</h1>', '>' + titles[section] + '</h1>')
-            page = re.sub(r'<section data-view="([^"]+)"',
-                          lambda match: match.group(0) + (' hidden' if section not in match[1].split() else ''), page)
-        return web.Response(text=page, content_type='text/html')
 
-    async def network_page(self,request):
-        return web.Response(text=self.page_text('network.html'), content_type='text/html')
 
-    async def connect_page(self, request):
-        try:
-            self.account_api.session(request)
-        except web.HTTPUnauthorized:
-            return web.Response(text=self.page_text('connect.html'), content_type='text/html')
-        raise web.HTTPFound('/account/access')
 
-    async def diagnostics_page(self, request):
-        authenticated = True
-        try:
-            self.session(request)
-        except web.HTTPUnauthorized:
-            authenticated = False
-        response = self.support_page('diagnostics.html', 'diagnostics' if authenticated else None)
-        page = response.text
-        if authenticated:
-            page = page.replace(
-                '<section id="diagnostic-panel" hidden>',
-                '<section id="diagnostic-panel">')
-        else:
-            page = page.replace(
-                '<form id="diagnostic-login" class="user-card" hidden>',
-                '<form id="diagnostic-login" class="user-card">')
-        return web.Response(text=page, content_type='text/html')
 
-    def management_nav(self, section):
-        nav = (Path(__file__).with_name('web') / 'admin-nav.html').read_text(encoding='utf-8')
-        return nav.replace('href="/admin/' + section + '"', 'href="/admin/' + section + '" aria-current="page"')
 
-    @staticmethod
-    def page_text(filename, *, management=False):
-        assets = Path(__file__).with_name('web')
-        active = '/admin' if management else {
-            'index.html':'/', 'account.html':'/account', 'network.html':'/network',
-            'connect.html':'/connect', 'developers.html':'/developers', 'feedback.html':'/feedback',
-        }.get(filename, '/admin')
-        header = (assets / 'site-header.html').read_text(encoding='utf-8')
-        header = header.replace('href="' + active + '"', 'href="' + active + '" aria-current="page"')
-        return (assets / filename).read_text(encoding='utf-8').replace('{{SITE_HEADER}}', header)
 
-    def support_page(self, filename, section=None):
-        page = self.page_text(filename, management=bool(section))
-        page = page.replace('{{ADMIN_NAV}}', self.management_nav(section) if section else '')
-        page = page.replace('{{LAYOUT_CLASS}}', 'management-layout' if section else '')
-        return web.Response(text=page, content_type='text/html')
 
     async def diagnostics_sessions(self, request):
         self.session(request)
@@ -370,44 +196,10 @@ class Portal:
         result = await asyncio.to_thread(self.diagnostics.read, request.match_info['player'], request.match_info['session'])
         return web.json_response(result)
 
-    async def admin_page(self, request):
-        section = request.match_info.get('section', 'nodes')
-        selected = {'network': 'network-settings'}.get(section, section)
-        page = self.page_text('admin.html', management=True)
-        page = page.replace('{{ADMIN_NAV}}', self.management_nav(section))
-        titles = {'nodes': '节点列表', 'network': '连接网络', 'settings': '节点设置',
-                  'users': '用户列表', 'players': '在线玩家', 'history': '操作记录', 'mail': '邮件服务'}
-        title = titles[section]
-        page = page.replace('管理你的节点。', title).replace('<title>节点管理 ·', '<title>' + title + ' · 节点管理 ·')
-        page = page.replace('href="/admin/' + section + '"', 'href="/admin/' + section + '" aria-current="page"')
-        for name in ('nodes', 'network-settings', 'settings', 'users', 'players', 'history', 'mail'):
-            if name != selected:
-                page = page.replace('class="console-card" id="' + name + '"', 'class="console-card" hidden id="' + name + '"')
-        authenticated = True
-        try:
-            self.session(request)
-        except web.HTTPUnauthorized:
-            authenticated = False
-        if authenticated:
-            page = page.replace('<form id="login-form" class="console-card login-card">',
-                                '<form id="login-form" class="console-card login-card" hidden>')
-            page = page.replace('<div id="admin-panel" hidden>', '<div id="admin-panel">')
-        return web.Response(text=page, content_type='text/html')
 
-    async def developers_page(self, request):
-        page = self.page_text('developers.html')
-        from .runtime import protocol_path
-        protocol = protocol_path().read_text(encoding='utf-8')
-        return web.Response(text=page.replace('{{PROTOCOL}}', html.escape(protocol)), content_type='text/html')
 
-    async def launcher_example(self, request):
-        raise web.HTTPFound('/developers#examples')
 
-    async def protocol_document(self, request):
-        raise web.HTTPFound('/developers#protocol')
 
-    async def asset(self, request):
-        return web.FileResponse(Path(__file__).with_name('web') / request.path.lstrip('/'))
 
     def public_state(self):
         live = self.federation.live()
@@ -434,67 +226,22 @@ class Portal:
                 'streams': len(self.relay.streams), 'max_rooms': self.relay.max_rooms,
                 'max_connections': self.relay.max_connections, 'network_nodes': len(live),
                 'public_join': self.state.get('public_join', False),
-                'launcher_login': 1,
-                'registration_open': self.state.get('registration_open', False),
+                'launcher_login': 0 if getattr(self.relay, 'managed_control', None) else 1,
+                'registration_open': False if getattr(self.relay, 'managed_control', None) else self.state.get('registration_open', False),
                 'email_verification': self.account_api.mail.required,
                 'network_mode': 'federated' if self.federation.seeds else 'standalone',
                 'heartbeat_interval': INTERVAL, 'heartbeat_timeout': TTL, 'heartbeat_fanout': FANOUT,
                 'fingerprint': self.federation.key.get_fingerprint(),
-                'nodes': self.federation.health()}
+                'nodes': [node for node in self.federation.health()
+                          if node['status'] in ('online', 'indirect')]}
 
-    def trusted_proxy(self, request):
-        try:
-            source=ipaddress.ip_address(request.remote or '')
-        except ValueError:
-            return False
-        ranges = _trusted_proxy_ranges(self.state)
-        if not isinstance(ranges, list):
-            return False
-        for value in ranges:
-            if not isinstance(value, str):
-                continue
-            try:
-                if source in ipaddress.ip_network(value, strict=False):
-                    return True
-            except ValueError:
-                continue
-        return False
 
-    def external_scheme(self, request):
-        if self.trusted_proxy(request) and request.headers.get('X-Forwarded-Proto', '').strip().lower() == 'https':
-            return 'https'
-        return request.scheme
 
-    def external_origin(self, request):
-        return self.external_scheme(request) + '://' + request.host
 
-    def client_address(self, request):
-        source=request.remote or 'unknown'
-        if self.trusted_proxy(request):
-            try:
-                return str(ipaddress.ip_address(request.headers.get('CF-Connecting-IP', '')))
-            except ValueError:
-                pass
-        return source
 
     async def status(self, request):
         return web.json_response(self.public_state())
 
-    def throttle(self, request, limit=8):
-        now = time.monotonic()
-        source = self.client_address(request)
-        # Enrollment, email, login challenges and login are separate operations;
-        # a normal registration must not exhaust its own subsequent login.
-        key = (source, request.path)
-        calls = self.attempts.setdefault(key, deque())
-        self.attempts.move_to_end(key)
-        while len(self.attempts) > 2048:
-            self.attempts.popitem(last=False)
-        while calls and calls[0] < now - 300:
-            calls.popleft()
-        if len(calls) >= limit:
-            raise web.HTTPTooManyRequests(text='尝试过于频繁，请稍后重试。')
-        calls.append(now)
 
     def session(self, request, write=False):
         now = time.monotonic()
@@ -563,6 +310,8 @@ class Portal:
                                   'accounts': users,
                                   **presence,
                                   'trusted_proxy_cidrs': '\n'.join(self.state.get('trusted_proxy_cidrs', [])),
+                                  'trusted_proxy_enabled': self.state.get('trusted_proxy_enabled', bool(_manual_proxy_ranges(self.state))),
+                                  'cloudflare_proxy_enabled': self.state.get('cloudflare_proxy_enabled', False),
                                   'cloudflare_proxy_cidrs': self.state.get('cloudflare_proxy_cidrs', []),
                                   'cloudflare_proxy_updated': self.state.get('cloudflare_proxy_updated'),
                                   'cloudflare_proxy_last_attempt': self.state.get('cloudflare_proxy_last_attempt'),
@@ -590,6 +339,10 @@ class Portal:
         next_capacity = policy(data.get('capacity', self.relay.capacity.policy))
         region=data.get('region',self.state.get('region',''))
         if not isinstance(region,str) or len(region.strip())>80:raise ValueError('Invalid region')
+        proxy_enabled = data.get('trusted_proxy_enabled', self.state.get('trusted_proxy_enabled', bool(_manual_proxy_ranges(self.state))))
+        cloudflare_enabled = data.get('cloudflare_proxy_enabled', self.state.get('cloudflare_proxy_enabled', False))
+        if type(proxy_enabled) is not bool or type(cloudflare_enabled) is not bool:
+            raise ValueError('Invalid trusted proxy settings')
         if 'trusted_proxy_cidrs' in data:
             proxies=data['trusted_proxy_cidrs']
         else:
@@ -613,18 +366,46 @@ class Portal:
         self.state['capacity'] = next_capacity
         self.state.update(public_join=public_join, draining=draining, registration_open=registration)
         self.state['trusted_proxy_cidrs']=[str(network) for network in proxy_ranges]
+        proxy_changed = (proxy_enabled != self.state.get('trusted_proxy_enabled', bool(_manual_proxy_ranges(self.state)))
+                         or cloudflare_enabled != self.state.get('cloudflare_proxy_enabled', False))
+        self.state.update(trusted_proxy_enabled=proxy_enabled, cloudflare_proxy_enabled=cloudflare_enabled)
         self.relay.draining = draining
         self.save()
+        if proxy_changed and getattr(self, 'proxy_refresh_event', None):
+            self.proxy_refresh_event.set()
         return web.json_response({'ok': True})
 
     async def invite(self, request):
         self.session(request)
-        return web.json_response(self.federation.invitation())
+        if getattr(self, 'control', None) and self.control.mode != 'mesh':
+            raise ValueError('受管节点请使用短期控制中心入网凭证。')
+        from .content_cache import configuration
+        from .content_cache_admin import federation_configuration
+        value = self.federation.invitation()
+        value['room_cache'] = federation_configuration(configuration(self.relay))
+        return web.json_response(value, headers={'Cache-Control': 'no-store'})
 
     async def join(self, request):
         self.session(request, True)
-        self.federation.join(await request.json())
-        return web.json_response({'ok': True})
+        if getattr(self, 'control', None) and self.control.mode != 'mesh':
+            raise ValueError('受管节点请通过 control 配置加入，不能直接更换联邦。')
+        from .content_cache_admin import federation_configuration
+        data = await request.json()
+        if not isinstance(data, dict) or 'room_cache' not in data:
+            raise ValueError('联邦邀请缺少资源加速配置，请对方升级节点后重新生成邀请。')
+        value = federation_configuration(data['room_cache'])
+        async with self.content_cache_admin.lock:
+            previous = dict(self.state)
+            self.state['room_cache'] = value
+            try:
+                # Federation.join persists membership and the adopted settings together.
+                self.federation.join(data)
+            except Exception:
+                self.state.clear()
+                self.state.update(previous)
+                raise
+            self.relay.content_cache_config = value
+        return web.json_response({'ok': True, 'resource_settings_synced': True})
 
     async def block(self, request):
         self.session(request, True)
@@ -666,6 +447,8 @@ class Portal:
 
     async def leave(self, request):
         self.session(request, True)
+        if getattr(self, 'control', None) and self.control.mode != 'mesh':
+            raise ValueError('请先在维护窗口切换为 mesh 模式，再退出网络。')
         await self.federation.close()
         for peer in tuple(self.relay.peers):
             if peer.role == 'federation':
@@ -743,21 +526,19 @@ class Portal:
     async def start(self, host, port, ssl_context=None):
         self.federation.publish()
         self.proxy_refresh_task = asyncio.create_task(self.proxy_refresh_loop())
-        self.runner = web.AppRunner(self.app, access_log=None)
-        await self.runner.setup()
-        site = web.TCPSite(self.runner, host, port, ssl_context=ssl_context)
-        await site.start()
-        return site
+        return await super().start(host, port, ssl_context)
 
     async def close(self):
         if self.proxy_refresh_task:
             self.proxy_refresh_task.cancel()
             await asyncio.gather(self.proxy_refresh_task, return_exceptions=True)
             self.proxy_refresh_task = None
-        if self.runner:
-            await self.runner.cleanup()
+        await super().close()
 
     async def refresh_cloudflare_proxies(self):
+        if not (self.state.get('trusted_proxy_enabled', bool(_manual_proxy_ranges(self.state)))
+                and self.state.get('cloudflare_proxy_enabled', False)):
+            return False
         self.state['cloudflare_proxy_last_attempt'] = time.time()
         self.state['cloudflare_proxy_last_result'] = 'running'
         self.state.pop('cloudflare_proxy_last_error', None)
@@ -791,5 +572,10 @@ class Portal:
 
     async def proxy_refresh_loop(self):
         while True:
+            self.proxy_refresh_event.clear()
             await self.refresh_cloudflare_proxies()
-            await asyncio.sleep(24 * 60 * 60)
+            enabled = self.state.get('trusted_proxy_enabled') and self.state.get('cloudflare_proxy_enabled')
+            try:
+                await asyncio.wait_for(self.proxy_refresh_event.wait(), timeout=24 * 60 * 60 if enabled else None)
+            except asyncio.TimeoutError:
+                pass

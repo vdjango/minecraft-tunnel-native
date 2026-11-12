@@ -61,6 +61,39 @@ class RoomLobbyTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse((await self.request(guest, joined['session'], 'member_update',
             **dict(fields, seq=13, task='install-1', state='failed')))['accepted'])
 
+    async def test_member_path_keeps_node_and_host_latency_separate_and_expires_samples(self):
+        host, guest, hosted, joined = await self.pair()
+        guest_snapshot = await self.request(guest, joined['session'], 'members')
+        member_id = guest_snapshot['self_id']
+        await self.request(guest, joined['session'], 'member_path', path='relay',
+            rtt_ms=7.5, rtt_kind='node', node_rtt_ms=7.5, host_rtt_ms=23.25,
+            host_rtt_method='minecraft-status-ping')
+
+        async def guest_row():
+            state = await self.request(host, hosted['session'], 'members')
+            return next(row for row in state['members'] if row['id'] == member_id)
+
+        row = await guest_row()
+        self.assertEqual((row['node_rtt_ms'], row['host_rtt_ms'], row['host_rtt_method']),
+                         (7.5, 23.25, 'minecraft-status-ping'))
+        await self.request(guest, joined['session'], 'member_path', path='relay',
+                           rtt_ms=9.0, rtt_kind='node')
+        row = await guest_row()
+        self.assertEqual(row['node_rtt_ms'], 9.0)
+        self.assertIsNone(row['host_rtt_ms'])
+        await self.rejected(guest, joined['session'], 'member_path', path='relay',
+                            rtt_ms=1.0, rtt_kind='node', host_rtt_ms=float('nan'))
+        self.assertEqual((await guest_row())['node_rtt_ms'], 9.0)
+
+        stored = self.node.rooms[hosted['room']].lobby.members[member_id]
+        stored['_path_seen'] = time.monotonic() - 21
+        await self.request(guest, joined['session'], 'member_update',
+            config_id=guest_snapshot['config_id'], seq=1, task='install',
+            state='downloading', stage='mods', done=10, total=20, speed=5)
+        row = await guest_row()
+        self.assertEqual((row['path'], row['node_rtt_ms'], row['host_rtt_ms']),
+                         ('unknown', None, None))
+
     async def test_transfer_requires_acceptance_and_preserves_real_game_streams(self):
         host, guest, hosted, joined = await self.pair(self.port)
         hs, gs = hosted['session'], joined['session']

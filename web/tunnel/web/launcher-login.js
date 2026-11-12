@@ -1,4 +1,4 @@
-// Device approval stays on this node. Only the device public key reaches the browser.
+// Device approval stays on the control service. Only the device public key reaches the browser.
 const launcherRequest = accountLauncherRequest;
 const launcherApproval = $('launcher-approval');
 const accountPanel = $('account-panel');
@@ -28,7 +28,7 @@ if (launcherRequest && launcherApproval) {
       $('launcher-approve').textContent = '确认登录这台启动器';
       $('launcher-approve').disabled = !requestReady;
       $('page-title').textContent = '登录并连接启动器';
-      $('page-description').textContent = '先登录节点账号，再确认要连接的启动器设备。';
+      $('page-description').textContent = '先登录联机账号，再确认要连接的启动器设备。';
     }
   }
   document.addEventListener('launcher-account-state',event => showLauncherAccount(event.detail));
@@ -58,12 +58,14 @@ if ($('launcher-approve')) $('launcher-approve').onclick = async () => {
   finally {if (button.textContent !== '已授权') button.disabled = false;}
 };
 async function loadLauncherDevices() {
-  if (!$('launcher-device-list') || $('account-panel').hidden) return;
+  if (!$('launcher-device-list') || $('account-panel').hidden || document.hidden) return;
   try {
     const {devices} = await api('/api/launcher/devices');
     $('launcher-device-list').replaceChildren(...devices.map(device => {
-      const row = document.createElement('p'), name = document.createElement('span');
-      name.textContent = device.name + (device.active ? ' · 已登录' : ' · 已失效');row.append(name);
+      const row = document.createElement('div'), name = document.createElement('strong'),details=document.createElement('small'),description=document.createElement('span');row.className='peer-row';
+      name.textContent = device.name + (device.active ? ' · 已登录' : ' · 已失效');
+      details.textContent=(device.client?.system||'未知系统')+' · Bugg 启动器 · 最近使用 '+formatDeviceTime(device.last_used);
+      description.append(name,details);row.append(description);
       if (device.active) {
         const button = document.createElement('button');button.type = 'button';button.className = 'secondary';button.textContent = '撤销登录';
         button.onclick = async () => {button.disabled = true;try {await api('/api/launcher/revoke', {id: device.id});await loadLauncherDevices();}
@@ -73,7 +75,19 @@ async function loadLauncherDevices() {
       return row;
     }));
     if (!devices.length) $('launcher-device-list').textContent = '暂无启动器登录设备。';
+    await loadBrowserSessions();
   } catch (error) {if (error.status !== 401) feedback('account-feedback', error);}
+}
+function formatDeviceTime(seconds){return seconds?new Intl.DateTimeFormat('zh-CN',{dateStyle:'medium',timeStyle:'short'}).format(new Date(seconds*1000)):'暂无记录';}
+async function loadBrowserSessions(){
+  const {sessions}=await api('/api/account/sessions');
+  $('browser-session-list').replaceChildren(...sessions.map(session=>{
+    const row=document.createElement('div'),text=document.createElement('span'),title=document.createElement('strong'),detail=document.createElement('small');row.className='peer-row';
+    title.textContent=(session.client?.system||'未知系统')+' · '+(session.client?.browser||'未知浏览器')+(session.current?' · 当前会话':'');
+    detail.textContent='最近使用 '+formatDeviceTime(session.last_used);text.append(title,detail);row.append(text);
+    if(!session.current){const button=document.createElement('button');button.type='button';button.className='secondary';button.textContent='退出此会话';button.onclick=async()=>{button.disabled=true;try{await api('/api/account/session-revoke',{id:session.id});await loadBrowserSessions();}catch(e){feedback('account-feedback',e);button.disabled=false;}};row.append(button);}
+    return row;
+  }));
 }
 loadLauncherDevices();
 setInterval(loadLauncherDevices, 15000);

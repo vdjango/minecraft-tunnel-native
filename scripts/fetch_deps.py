@@ -18,6 +18,9 @@ SOURCES = {
              'aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63'),
     'zlib': ('https://zlib.net/zlib-1.3.2.tar.gz', 'zlib-1.3.2',
              'bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16'),
+    'base64': ('https://codeload.github.com/aklomp/base64/tar.gz/refs/tags/v0.5.2',
+               'base64-0.5.2',
+               '723a0f9f4cf44cf79e97bcc315ec8f85e52eb104c8882942c3f2fba95acc080d'),
 }
 LIBSSH_MIRROR_COMMIT = '07430deb9b97b751ec5ea5a7fc307f40bf042e0a'
 
@@ -25,7 +28,8 @@ def fetch(item):
     name, (url, folder, expected) = item
     base = ROOT / '.deps'
     base.mkdir(exist_ok=True)
-    archive = base / ('libssh.tar.xz' if name == 'libssh' else ('zlib.tar.gz' if name == 'zlib' else folder))
+    archive = base / (name + ('.tar.xz' if name == 'libssh' else '.tar.gz')
+                      if name != 'json' else folder)
     archive.parent.mkdir(parents=True, exist_ok=True)
     if not archive.exists():
         request = urllib.request.Request(url, headers={'User-Agent': 'Buggcraft-native-build'})
@@ -67,7 +71,7 @@ def fetch(item):
     if digest != expected:
         raise ValueError('Dependency SHA-256 mismatch: ' + name)
     target = base / folder
-    if name in ('libssh', 'zlib') and not target.exists():
+    if name != 'json' and not target.exists():
         with tarfile.open(archive) as source:
             source.extractall(base, filter='data')
     return f'{name} sha256={digest} source={target}'

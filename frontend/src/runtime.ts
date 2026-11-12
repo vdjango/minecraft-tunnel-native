@@ -1,5 +1,4 @@
 import { createApp, defineComponent, onMounted, onBeforeUnmount, h, reactive, type Component } from 'vue';
-import { createViews } from './views';
 import { capturePageSeed } from './pageSeed';
 
 export type PageScope = ReturnType<typeof createScope>;
@@ -75,10 +74,9 @@ export function createScope() {
 }
 
 /** Mount the complete visible page; server HTML remains available before JS loads. */
-export function mountPage(initialize: (scope:PageScope,views:ReturnType<typeof createViews>)=>void, Page?:Component) {
+export function mountPage(initialize: (scope:PageScope)=>void, Page?:Component) {
   if(document.querySelector('[data-vue-page]'))return;
   const seed=capturePageSeed();
-  const views=createViews();
   const host=document.createElement('div');
   host.className='vue-page-root'; host.dataset.vuePage='';
   if(Page){host.style.display='contents';document.body.replaceChildren(host);}
@@ -88,16 +86,16 @@ export function mountPage(initialize: (scope:PageScope,views:ReturnType<typeof c
       const scope=createScope();
       onMounted(()=>{
         seed.restore();
-        try{initialize(scope,views);}catch(error){
+        try{initialize(scope);}catch(error){
           scope.state.error=String(error);console.error(error);
           const feedback=document.createElement('p');feedback.setAttribute('role','alert');
-          feedback.textContent='Page initialization failed. Refresh and try again.';
+          feedback.textContent='页面加载遇到问题，请刷新重试。';
           (document.querySelector('main')||document.body).prepend(feedback);
           document.dispatchEvent(new CustomEvent('page-initialization-error',{detail:String(error)}));
         }
       });
-      onBeforeUnmount(()=>{scope.dispose();views.dispose();});
-      return ()=>Page?h(Page,{seed:seed.state,views}):h('span',{'data-pending':scope.state.pending});
+      onBeforeUnmount(()=>{scope.dispose();});
+      return ()=>Page?h(Page,{seed:seed.state}):h('span',{'data-pending':scope.state.pending});
     },
   }));
   application.mount(host);

@@ -9,7 +9,6 @@
       };
       const archNames = { arm64:'Buggcraft-macos-arm64.zip', x86_64:'Buggcraft-macos-x86_64.zip' };
       const linuxArchNames = { arm64:'Buggcraft-linux-arm64.zip', x86_64:'Buggcraft-linux-x86_64.zip' };
-      const root = document.documentElement;
       const query = new URLSearchParams(location.search);
       const requestedVersion = query.get('version') || '';
       let selectedPlatform = ['windows','mac','linux'].includes(query.get('platform')) ? query.get('platform') : detectPlatform();
@@ -112,7 +111,7 @@
         const {release,file}=result;
         title.textContent=`${release.tag_name || release.name || '发行版'} · ${file.name}`;
         meta.textContent=`${release.prerelease?'预发布版本':'正式版本'} · ${dateText(release.published_at || release.created_at)}`;
-        const label=selectedPlatform==='mac' ? `下载 ${selectedArch==='arm64'?'Apple Silicon':'Intel'} 版` : `下载 ${config.title}${selectedPlatform==='linux'?' '+selectedArch:''} 版`;
+        const label=selectedPlatform==='mac' ? `下载 ${selectedArch==='arm64'?'Apple Silicon':'Intel'} 版 ZIP` : `下载 ${config.title}${selectedPlatform==='linux'?' '+selectedArch:''} 版 ZIP`;
         setLink(button,file.browser_download_url,label+' ↓','暂无可下载版本');
         const checksumName=config.checksums?config.checksums[selectedArch]:config.checksum;
         const sum=release.assets.find(item=>item.name===checksumName);
@@ -189,17 +188,22 @@
           renderSelectedRelease();
         }
       }
-      document.getElementById('theme-toggle').addEventListener('click',()=>{
-        root.dataset.theme=root.dataset.theme==='light'?'dark':'light';
-        const light=root.dataset.theme==='light';
-        document.getElementById('theme-toggle').textContent=light?'深色主题':'浅色主题';
-        document.getElementById('theme-toggle').setAttribute('aria-pressed',String(light));
-        try{localStorage.setItem('buggcraft.theme',root.dataset.theme);}catch(_){}
-      });
+      async function loadDownloadStatistics(){
+        const target=document.getElementById('download-statistics');
+        try {
+          const response=await fetch('https://download.bugg.icu/api/launcher/statistics',{cache:'no-store'});
+          if(!response.ok)throw new Error('Statistics unavailable');
+          const data=await response.json();
+          if(!Number.isSafeInteger(data.downloads)||data.downloads<0||!Number.isFinite(data.since))throw new Error('Invalid statistics');
+          target.textContent=`共计下载 ${data.downloads.toLocaleString('zh-CN')} 次 · 自 ${new Date(data.since*1000).toLocaleDateString('zh-CN')} 起统计`;
+          target.title='统计已接受的网站安装包下载请求；同一网络与浏览器的同一文件，10 分钟内只计一次。断点续传、更新检测、HEAD 和失败请求不重复计数；不代表完成安装或独立玩家人数。';
+        } catch { target.textContent='下载统计暂时无法读取'; }
+      }
       document.querySelectorAll('.platform-tab').forEach(button=>button.addEventListener('click',()=>selectPlatform(button.dataset.platform)));
       document.querySelectorAll('.arch-button').forEach(button=>button.addEventListener('click',()=>selectArch(button.dataset.arch)));
       document.getElementById('history-more').addEventListener('click',()=>{shownHistory+=8;renderHistory();});
       selectPlatform(selectedPlatform,false);
       selectArch(selectedArch,false);
       loadReleases();
+      loadDownloadStatistics();
     })();

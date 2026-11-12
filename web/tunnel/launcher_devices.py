@@ -28,7 +28,7 @@ class LauncherDevices:
                 raise ValueError('Invalid launcher device entry')
             grant = device['grant']
             account = grant.get('a') if isinstance(grant, dict) else None
-            record = self.store.replication.get(account) if isinstance(account, str) else None
+            record = self.store.get(account) if isinstance(account, str) else None
             if (not record or grant.get('r') != identifier or grant.get('p') != DEVICE_GRANT or
                     not 0 < grant.get('e', 0) - grant.get('b', 0) <= MAX_AGE):
                 raise ValueError('Invalid launcher device grant')
@@ -45,7 +45,7 @@ class LauncherDevices:
                        web.post('/api/launcher/revoke', self.revoke)]
 
     def save(self):
-        from .portal import atomic_json
+        from .storage import atomic_json
         atomic_json(self.path, self.devices)
 
     def active(self, device):
@@ -62,6 +62,8 @@ class LauncherDevices:
             device = self.devices.get(grant.get('r'))
             return bool(device and device['grant'] == grant and self.active(device) and
                         self.api.allowed(grant['a']))
+        if self.store.local_only:
+            return False
         # Only the issuer's authenticated, signed heartbeat can grant a lease.
         record = self.store.federation.records.get(grant.get('i'), {}).get('body', {})
         leases = record.get('launcher_devices', {})
@@ -127,7 +129,7 @@ class LauncherDevices:
         grant = value.get('grant')
         if not grant or grant['a'] != session['account'] or 'device' in value:
             raise web.HTTPConflict(text='登录请求已变更，请重新确认。')
-        verify(self.store.replication.get(session['account'])['certificate']['public_key'],
+        verify(self.store.get(session['account'])['certificate']['public_key'],
                canonical(grant), data.get('signature'))
         self.devices = {k: d for k, d in self.devices.items()
                         if d['grant']['e'] > time.time() and not d.get('revoked')}
@@ -142,7 +144,7 @@ class LauncherDevices:
             del self.devices[identifier]
             raise
         value['device'] = identifier
-        self.store.federation.publish()
+        self.store.publish()
         return web.json_response({'ok': True})
 
     def profile(self, identifier):
@@ -152,6 +154,11 @@ class LauncherDevices:
         profile = dict(self.store.federation.profile)
         profile['token'] = self.store.credential(device['grant']['a'],
                                                 (device['grant'], device['signature']))
+        authority = getattr(self.portal, 'identity_authority', None)
+        if authority:
+            record = self.store.get(device['grant']['a'])
+            profile['control'] = dict(authority.metadata(), certificate=record['certificate'],
+                                      issuer_signature=record['issuer_signature'])
         return dict(profile=profile, id=identifier, name=self.store.federation.name,
                     region=self.store.federation.region,
                     expires_at=min(device['grant']['e'], device['last_used'] + IDLE_AGE))
@@ -163,6 +170,9 @@ class LauncherDevices:
                                            nonce=value['nonce'])), data.get('signature'))
         if 'device' not in value:
             return web.json_response({'status': 'pending'}, headers={'Cache-Control': 'no-store'})
+        authority = getattr(self.portal, 'identity_authority', None)
+        if authority:
+            await authority.authorize(self.devices[value['device']])
         return web.json_response(dict(status='approved', **self.profile(value['device'])),
                                  headers={'Cache-Control': 'no-store'})
 
@@ -198,7 +208,10 @@ class LauncherDevices:
         except BaseException:
             device['last_used'] = previous
             raise
-        self.store.federation.publish()
+        self.store.publish()
+        authority = getattr(self.portal, 'identity_authority', None)
+        if authority:
+            await authority.authorize(device)
         return web.json_response(self.profile(identifier), headers={'Cache-Control': 'no-store'})
 
     async def list_devices(self, request):
@@ -213,6 +226,9 @@ class LauncherDevices:
         device = self.devices.get((await request.json()).get('id'))
         if not device or device['grant']['a'] != session['account']:
             raise web.HTTPNotFound()
+        authority = getattr(self.portal, 'identity_authority', None)
+        if authority:
+            await authority.revoke(device)
         old = device['revoked']
         device['revoked'] = True
         try:
@@ -220,5 +236,5 @@ class LauncherDevices:
         except BaseException:
             device['revoked'] = old
             raise
-        self.store.federation.publish()
+        self.store.publish()
         return web.json_response({'ok': True})

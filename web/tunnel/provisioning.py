@@ -17,7 +17,7 @@ from cryptography.x509.oid import NameOID
 def initialize(directory, host, port, *, name='Buggcraft 社区节点', web_port=18443,
                entry_host=None, entry_port=None, admin_username='admin',
                admin_password=None, access_password=None, capacity=None,
-               public_join=False):
+               public_join=False, control=None):
     base = Path(directory).resolve()
     base.mkdir(parents=True, exist_ok=True)
     names = ('server.conf', 'relay.token', 'relay_host_key', 'relay-profile.json',
@@ -33,6 +33,7 @@ def initialize(directory, host, port, *, name='Buggcraft 社区节点', web_port
     if not isinstance(name, str) or not 1 <= len(name.strip()) <= 80:
         raise ValueError('Node name must contain 1–80 characters')
     from tunnel.capacity import policy
+    from tunnel.native_relay import DEFAULT_COMPRESSION
     capacity = policy(capacity)
     if type(public_join) is not bool:
         raise ValueError('Invalid public access policy')
@@ -81,10 +82,36 @@ def initialize(directory, host, port, *, name='Buggcraft 社区节点', web_port
                                             serialization.PrivateFormat.PKCS8,
                                             serialization.NoEncryption()).decode(),
         'server.conf': f'[relay]\nhost = 0.0.0.0\nport = {port}\ntoken_file = relay.token\n'
-                      'host_key = relay_host_key\nmax_connections = 512\nmax_rooms = 128\n'
+                      f'host_key = relay_host_key\ncompression = {DEFAULT_COMPRESSION}\nmax_connections = 512\nmax_rooms = 128\n'
                       'max_streams_per_room = 128\nmax_total_streams = 512\nmax_streams_per_client = 8\n'
                       f'\n[web]\nhost = 0.0.0.0\nport = {web_port}\nstate_file = node-state.json\n'
                       'profile_file = relay-profile.json\ntls_cert = web-cert.pem\ntls_key = web-key.pem\n'}
+    if control is not None:
+        import configparser
+        from tunnel.managed_control import ControlConnection
+        # Reuse strict origin, certificate and signing-key validation. No socket
+        # is opened until the configured service starts.
+        connection = ControlConnection(control, base)
+        credential = Path(control['credential_file']).read_text(encoding='utf-8').strip()
+        if not 32 <= len(credential) <= 4096:
+            raise ValueError('Invalid enrollment credential')
+        for field in ('endpoint', 'proof_endpoint'):
+            if not isinstance(control.get(field), str) or not control[field]:
+                raise ValueError('Managed endpoint is required')
+        conf = configparser.ConfigParser(interpolation=None)
+        conf.read_string(values['server.conf'])
+        conf['web'].pop('profile_file', None)
+        if ':' in host:
+            conf['relay']['host'] = conf['web']['host'] = '::'
+        conf['control'] = dict(control, mode='native', ca_file='control-ca.pem',
+                               credential_file='control-enrollment')
+        import io
+        output = io.StringIO()
+        conf.write(output)
+        values['server.conf'] = output.getvalue()
+        values['node-state.json'] = json.dumps({'draining': False, 'capacity': capacity}, indent=2)
+        values['control-ca.pem'], values['control-enrollment'] = connection.ca, credential
+        del values['relay-profile.json'], values['admin-credentials.txt']
     created = []
     try:
         for name, content in values.items():

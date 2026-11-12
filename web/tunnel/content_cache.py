@@ -10,18 +10,26 @@ from urllib.parse import urlsplit
 from .room_lobby import config_id
 
 
+def configuration(relay):
+    """Return the effective local settings, including legacy environment config."""
+    configured = getattr(relay, 'content_cache_config', None)
+    if configured is not None:
+        return dict(configured) if configured.get('enabled') else dict(enabled=False)
+    endpoint = os.environ.get('BUGGCRAFT_ROOM_CACHE_URL', '').rstrip('/')
+    if not endpoint:
+        return dict(enabled=False)
+    return dict(enabled=True, url=endpoint,
+                secret=os.environ.get('BUGGCRAFT_ROOM_CACHE_SECRET', ''),
+                issuer=os.environ.get('BUGGCRAFT_ROOM_CACHE_ISSUER', 'default'), name='')
+
+
 def grant(peer, room, request):
     if (not room or peer.role not in ('host', 'client') or not peer.authenticated
             or peer.conn.is_closed() or peer.room in peer.relay.closed_rooms
             or room.lobby and peer.member_id in room.lobby.blocked):
         raise ValueError('Room authentication required')
-    endpoint = os.environ.get('BUGGCRAFT_ROOM_CACHE_URL', '').rstrip('/')
-    secret = os.environ.get('BUGGCRAFT_ROOM_CACHE_SECRET', '')
-    issuer = os.environ.get('BUGGCRAFT_ROOM_CACHE_ISSUER', 'default')
-    configured = getattr(peer.relay, 'content_cache_config', None)
-    if configured is not None:
-        configured = configured if configured.get('enabled') else {}
-        endpoint, secret, issuer = (configured.get(key, '') for key in ('url', 'secret', 'issuer'))
+    configured = configuration(peer.relay)
+    endpoint, secret, issuer = (configured.get(key, '') for key in ('url', 'secret', 'issuer'))
     url = urlsplit(endpoint)
     if (not endpoint or url.scheme != 'https' or not url.hostname
             or url.username or url.password or url.path or url.query or url.fragment

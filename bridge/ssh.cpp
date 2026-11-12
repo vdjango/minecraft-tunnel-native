@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "ssh.hpp"
+#include "cipher_policy.hpp"
 #include "../core/transport_diagnostics.hpp"
 #include "profile_exchange.hpp"
+#include "../core/encoding.hpp"
 #include <libssh/server.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
@@ -14,26 +16,18 @@ Json Ssh::diagnostics() const { return transport_diagnostics(session_, traffic_,
 namespace {
 std::string base64_decode(std::string value) {
     if(value.empty() || value.size()>8192 || value.size()%4==1) throw Failure(-32602,"Invalid access code");
-    for(char& c:value) { if(c=='-')c='+';else if(c=='_')c='/';else if(!std::isalnum(static_cast<unsigned char>(c))&&c!='='&&c!='+'&&c!='/')throw Failure(-32602,"Invalid access code"); }
-    while(value.size()%4)value+='=';
-    std::string result(value.size()/4*3,'\0');
-    int count=EVP_DecodeBlock(reinterpret_cast<unsigned char*>(result.data()),reinterpret_cast<const unsigned char*>(value.data()),static_cast<int>(value.size()));
-    if(count<0)throw Failure(-32602,"Invalid access code");
-    if(value.back()=='=')--count;if(value.size()>1&&value[value.size()-2]=='=')--count;
-    result.resize(static_cast<size_t>(count));return result;
+    try { return native::encoding::base64_decode(value, {native::encoding::Alphabet::mixed_url, true, true, false}); }
+    catch(const std::invalid_argument&) { throw Failure(-32602,"Invalid access code"); }
 }
 }
 std::string random_id(size_t count) {
     std::string bytes(count,'\0');if(RAND_bytes(reinterpret_cast<unsigned char*>(bytes.data()),static_cast<int>(count))!=1)throw std::runtime_error("Secure random unavailable");
-    std::string encoded(4*((count+2)/3),'\0');
-    EVP_EncodeBlock(reinterpret_cast<unsigned char*>(encoded.data()),reinterpret_cast<const unsigned char*>(bytes.data()),static_cast<int>(count));
-    for(char& c:encoded){if(c=='+')c='-';if(c=='/')c='_';}while(!encoded.empty()&&encoded.back()=='=')encoded.pop_back();return encoded;
+    return native::encoding::base64_encode(bytes, true);
 }
 std::string room_id(const std::string& secret) {
     unsigned char digest[32];unsigned int count=0;
     if(EVP_Digest(secret.data(),secret.size(),digest,&count,EVP_sha256(),nullptr)!=1)throw std::runtime_error("SHA256 unavailable");
-    constexpr char hex[]="0123456789abcdef";std::string result;result.reserve(32);
-    for(size_t i=0;i<16;++i){result+=hex[digest[i]>>4];result+=hex[digest[i]&15];}return result;
+    return native::encoding::hex(std::string_view(reinterpret_cast<const char*>(digest), 16));
 }
 std::string invitation(const std::string& value) {
     if(!value.starts_with("bugg1-"))throw Failure(-32602,"Invalid room invitation");
@@ -43,6 +37,7 @@ std::string invitation(const std::string& value) {
 Profile Profile::from_json(const Json& value) {
     if(!value.is_object()||!value.contains("server_host")||!value.contains("server_port")||!value["server_port"].is_number_integer())throw Failure(-32602,"Invalid node profile");
     Profile p;p.host=value.at("server_host").get<std::string>();p.port=value.at("server_port").get<int>();p.token=value.at("token").get<std::string>();p.key=value.at("server_public_key").get<std::string>();
+    if(value.contains("control")) {p.control=value.at("control");if(!p.control.is_object()||p.control.dump().size()>12000)throw Failure(-32602,"Invalid control metadata");}
     if(value.contains("name")&&value["name"].is_string()&&value["name"].get_ref<const std::string&>().size()<=80)p.name=value["name"].get<std::string>();
     if(p.host.empty()||p.host.size()>253||p.host.find_first_of(" /\\@?#\t\r\n")!=std::string::npos||p.host.find('\0')!=std::string::npos||p.port<1||p.port>65535||p.token.size()<32||p.token.size()>2048||p.key.size()>4096)throw Failure(-32602,"Invalid node profile");
     const auto split=p.key.find(' ');ssh_key key=nullptr;
@@ -56,7 +51,7 @@ Profile Profile::decode(const std::string& code) {
     if(code.size()>4096||!code.starts_with("buggnode1-"))throw Failure(-32602,"Invalid access code");
     return from_json(Json::parse(base64_decode(code.substr(10))));
 }
-Ssh::Ssh(const Profile& p,const std::string& user,const std::string& secret,int timeout_seconds,const std::string& member_token)
+Ssh::Ssh(const Profile& p,const std::string& user,const std::string& secret,int timeout_seconds,const std::string& member_token,bool probe_only)
     :heartbeat_(static_cast<uint64_t>(Clock::now().time_since_epoch().count())) {
     session_=ssh_new();if(!session_)throw std::bad_alloc();
     ssh_set_counters(session_,nullptr,&traffic_);
@@ -68,6 +63,8 @@ Ssh::Ssh(const Profile& p,const std::string& user,const std::string& secret,int 
         ssh_options_set(session_,SSH_OPTIONS_HOST,p.host.c_str());ssh_options_set(session_,SSH_OPTIONS_PORT,&p.port);
         ssh_options_set(session_,SSH_OPTIONS_USER,user.c_str());ssh_options_set(session_,SSH_OPTIONS_TIMEOUT,&timeout);
         ssh_options_set(session_,SSH_OPTIONS_COMPRESSION,"none");
+        const auto& policy=cipher_policy();
+        const bool policy_applied=apply_cipher_policy(session_,policy);
         if(ssh_connect(session_)!=SSH_OK)throw Failure(-32000,"Node connection failed");
         stage="identity";
         ssh_key received=nullptr,pinned=nullptr;
@@ -77,14 +74,20 @@ Ssh::Ssh(const Profile& p,const std::string& user,const std::string& secret,int 
         const bool equal=imported==SSH_OK&&read==SSH_OK&&ssh_key_cmp(received,pinned,SSH_KEY_CMP_PUBLIC)==0;
         ssh_key_free(received);ssh_key_free(pinned);
         if(!equal){log("node_identity_rejected");throw Failure(-32030,"Node identity verification failed");}
+        if(probe_only)return; // Reachability/key probe never authenticates a player or opens a directory.
         stage="authenticate";
         Json credentials{{"token",p.token.substr(0,p.token.find('~'))}};if(!secret.empty())credentials["secret"]=secret;
         if(!member_token.empty())credentials["member_token"]=member_token;
+        if(!p.allocation_ticket.empty())credentials["allocation_ticket"]=p.allocation_ticket;
         auto password=credentials.dump();const int auth=ssh_userauth_password(session_,nullptr,password.c_str());
         authentication=auth;
         OPENSSL_cleanse(password.data(),password.size());
         if(auth!=SSH_AUTH_SUCCESS)throw Failure(-32031,"Node authentication failed");
         tune_tcp(fd());ssh_set_blocking(session_,0);
+        log("ssh_transport_ready",{{"cipher_policy",policy.name},{"cipher_policy_applied",policy_applied},
+            {"cipher_probe_ms",policy.probe_ms},{"aes_bulk_ns",policy.aes_bulk_ns},
+            {"chacha_bulk_ns",policy.chacha_bulk_ns},{"aes_small_ns",policy.aes_small_ns},
+            {"chacha_small_ns",policy.chacha_small_ns},{"transport",diagnostics()}});
     }catch(...){
         try{log("ssh_connection_failed",{{"node_host",p.host},{"node_port",p.port},{"stage",stage},
             {"role",user.starts_with("host:")?"host":user.starts_with("client:")?"client":"directory"},

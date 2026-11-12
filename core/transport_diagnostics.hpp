@@ -26,9 +26,12 @@ inline nlohmann::json transport_diagnostics(ssh_session session, const ssh_count
                                           const Heartbeat& heartbeat) {
     const auto now = Heartbeat::Clock::now();
     const char* message = ssh_get_error(session);
+    const char* cipher_in = ssh_get_cipher_in(session);
+    const char* cipher_out = ssh_get_cipher_out(session);
     return {{"schema", 1}, {"ssh_error_code", ssh_get_error_code(session)},
             {"ssh_error_kind", ssh_error_kind(message ? message : "")},
             {"ssh_status", ssh_get_status(session)}, {"ssh_connected", ssh_is_connected(session) != 0},
+            {"cipher_in", cipher_in ? cipher_in : ""}, {"cipher_out", cipher_out ? cipher_out : ""},
             {"ssh_rx_packets", traffic.in_packets}, {"ssh_tx_packets", traffic.out_packets},
             {"ssh_rx_bytes", traffic.in_bytes}, {"ssh_tx_bytes", traffic.out_bytes},
             {"rx_age_ms", heartbeat.receive_age_ms(traffic.in_packets, now)},

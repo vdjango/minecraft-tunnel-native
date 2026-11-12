@@ -23,43 +23,27 @@ TTL = 30
 LOG = logging.getLogger(__name__)
 
 
-def canonical(value):
-    return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode()
+class AccountRPCRejected(ValueError):
+    """Authenticated remote business rejection; retrying another center is unsafe."""
 
 
-def identity(public_key):
-    key = asyncssh.import_public_key(public_key).export_public_key().decode().strip()
-    return hashlib.sha256(key.encode()).hexdigest()[:32]
 
 
-def validate_profile(value):
-    if not isinstance(value, dict) or set(value) != {'server_host', 'server_port', 'token', 'server_public_key'}:
-        raise ValueError('Invalid node profile')
-    host, port, token = value['server_host'], value['server_port'], value['token']
-    if (not isinstance(host, str) or not host or len(host) > 253 or
-            any(c.isspace() or c in '/\\@?#' for c in host) or
-            type(port) is not int or not 1 <= port <= 65535 or
-            not isinstance(token, str) or not 32 <= len(token) <= 2048):
-        raise ValueError('Invalid node address or credential')
-    asyncssh.import_public_key(value['server_public_key'])
-    return dict(value)
 
 
-class Federation:
+
+
+from .identity import AccountIssuer, canonical, identity, validate_profile
+
+
+class Federation(AccountIssuer):
     """Operators share admission authority, but each origin signs its own state.
 
     No replicated game state and no leader: room ownership stays at the origin.
     The network key is never sent to launcher clients or the public website.
     """
     def __init__(self, key, profile, *, network_key, name='Community node', blocked=()):
-        self.key = key
-        self.profile = validate_profile(profile)
-        self.id = identity(profile['server_public_key'])
-        self.network_key = network_key
-        if not isinstance(network_key, str) or len(network_key) < 32:
-            raise ValueError('Invalid federation network key')
-        self.name = name[:80]
-        self.blocked = set(blocked)
+        super().__init__(key, profile, network_key=network_key, name=name, blocked=blocked)
         self.records = {}
         self.seen = {}
         self.seeds = {}
@@ -81,11 +65,10 @@ class Federation:
         self.routing_sample_at = 0
         self.last_failure = {}
         self.accounts = None
+        self.control = None
         self.account_lookup = AccountLookup(self)
         self.on_change = lambda: None
 
-    def proof(self, node_id):
-        return hmac.new(self.network_key.encode(), node_id.encode(), hashlib.sha256).hexdigest()
 
     def accepts(self, node_id, key):
         # Admission requires a previously verified signed membership record.
@@ -144,6 +127,8 @@ class Federation:
                 profile = validate_profile(body['profile'])
                 node_id = identity(profile['server_public_key'])
                 if node_id != body['id'] or node_id == self.id or node_id in self.blocked:
+                    continue
+                if self.control and not self.control.admitted(node_id):
                     continue
                 if not hmac.compare_digest(record['proof'], self.proof(node_id)):
                     continue
@@ -398,12 +383,21 @@ class Federation:
         if key != self.network_key:
             if len(self.seeds) or (self.relay and self.relay.rooms):
                 raise ValueError('已有联邦或活动房间，不能直接更换网络；请先停服并重新配置。')
-            self.network_key = key
-            self.records.clear()
-            self.seen.clear()
-        self.seeds[node_id] = profile
-        self.publish()
-        self.on_change()
+        previous = (self.network_key, dict(self.records), dict(self.seen), dict(self.seeds))
+        try:
+            if key != self.network_key:
+                self.network_key = key
+                self.records.clear()
+                self.seen.clear()
+            self.seeds[node_id] = profile
+            self.publish()
+            self.on_change()
+        except Exception:
+            self.network_key, records, seen, seeds = previous
+            for target, value in ((self.records, records), (self.seen, seen), (self.seeds, seeds)):
+                target.clear()
+                target.update(value)
+            raise
 
     async def introduce(self, profile, public):
         # Bootstrap uses the seed's player credential ONLY to introduce our
@@ -445,6 +439,10 @@ class Federation:
                 request = {'op': 'snapshot', 'record_cursor': after,
                            'record_versions': wire.page_versions(self.live(), after, node_id),
                            'snapshot_versions': self.snapshot_versions.get(node_id, {})}
+                if self.control and self.control.mode == 'edge':
+                    # Announce on the edge's own cadence; the center need not
+                    # round-robin all members within the 30-second lease.
+                    request['origin'] = self.records.get(self.id)
                 if self.accounts:
                     request.update(social_version=self.accounts.social.digest(), presence_version=self.accounts.social.digest(True))
                 process.stdin.write(json.dumps(request).encode() + b'\n')
@@ -477,12 +475,15 @@ class Federation:
                 response = bytearray()
                 while not response.endswith(b'\n'):
                     chunk = await asyncio.wait_for(process.stdout.read(16384), 3)
-                    if not chunk or len(response) + len(chunk) > 32768:
+                    limit = 256 * 1024 if operation in ('social', 'social_control', 'social_deliver') else 32768
+                    if not chunk or len(response) + len(chunk) > limit:
                         raise ValueError('Invalid account RPC response')
                     response.extend(chunk)
                 value = json.loads(response)
                 if not value.get('ok'):
-                    raise ValueError('Account update rejected')
+                    if value.get('retryable') is True:
+                        raise OSError('Remote control temporarily unavailable')
+                    raise AccountRPCRejected(str(value.get('error', 'Account update rejected'))[:160])
                 return value['result']
 
     async def lookup_accounts(self, identifier):
@@ -553,6 +554,8 @@ class Federation:
             self.publish()
             profiles = {identity(p['server_public_key']): p for p in self.topology()}
             profiles.update(self.seeds)
+            if self.control and self.control.mode == 'edge':
+                profiles = {identity(p['server_public_key']): p for p in self.control.profiles()}
             profiles = {node: profile for node, profile in profiles.items()
                         if node != self.id and node not in self.blocked}
             now = time.monotonic()

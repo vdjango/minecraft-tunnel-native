@@ -1,0 +1,8 @@
+{
+  "version": "3.13.11",
+  "windows-x64": {
+    "url": "https://www.python.org/ftp/python/3.13.11/python-3.13.11-embed-amd64.zip",
+    "mirror": "https://registry.npmmirror.com/-/binary/python/3.13.11/python-3.13.11-embed-amd64.zip",
+    "sha256": "1ec066fb61ba5e8c73e29e048cd07c26850f74585e3a116005135b31b8004890"
+  }
+}

@@ -3,4 +3,5 @@
 #include "ssh.hpp"
 namespace bridge {
 Json social_event(const Profile&,const Json& params);
+std::string sign_delegated_message(const Profile&,const std::string& message);
 }

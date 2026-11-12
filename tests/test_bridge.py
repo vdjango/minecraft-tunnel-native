@@ -9,6 +9,8 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
+from scripts.benchmark_cpu import child_environment
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'web'))
 from tunnel.native_relay import RelayServer
@@ -29,8 +31,13 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
             self.logs = Path(self.temporary.name)
             self.addCleanup(self.temporary.cleanup)
         self.key = asyncssh.generate_private_key('ssh-ed25519')
-        self.node = await RelayServer('127.0.0.1', 0, host_key=self.key,
-            token=secrets.token_urlsafe(48), workers=2).start()
+        # Mask native children only; keep the Python load generator's crypto
+        # unchanged. No benchmark mode is a production configuration change.
+        self.native_environment = child_environment(os.environ.get('BUGGCRAFT_SOAK_NATIVE_MODE', 'auto'))
+        with patch.dict(os.environ, self.native_environment, clear=True):
+            self.node = await RelayServer('127.0.0.1', 0, host_key=self.key,
+                token=secrets.token_urlsafe(48), workers=2,
+                compression=os.environ.get('BUGGCRAFT_SOAK_COMPRESSION', 'auto')).start()
         self.node.diagnostics = Diagnostics(self.logs / 'node', self.node)
         lifecycle = self.node.diagnostics.lifecycle(None)
         await anext(lifecycle)
@@ -63,10 +70,11 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.process_count += 1
         logs = self.logs / ('bridge-' + str(self.process_count))
         binary = os.environ.get('BUGGCRAFT_BRIDGE_EXECUTABLE', str(ROOT/'build'/('buggcraft-bridge.exe' if os.name=='nt' else 'buggcraft-bridge')))
-        command = getattr(self, 'bridge_command', None) or [binary]
+        command = getattr(self, 'bridge_command', None) or [
+            binary, *json.loads(os.environ.get('BUGGCRAFT_BRIDGE_ARGUMENTS', '[]'))]
         process = await asyncio.create_subprocess_exec(*command, stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-            env=dict(os.environ, BUGGCRAFT_BRIDGE_LOG_DIR=str(logs)))
+            env=dict(self.native_environment, BUGGCRAFT_BRIDGE_LOG_DIR=str(logs)))
         process.player_logs = logs
         process.expected_returncode = 0
         process.errors = asyncio.create_task(process.stderr.read())
@@ -146,6 +154,57 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.open_connection('127.0.0.1',int(joined['address'].rsplit(':',1)[1]))
         await self.call(process,'room.close',{'session':hosted['session']})
         self.assertNotIn(hosted['room'],self.node.rooms)
+
+    async def test_node_compression_off_forces_raw_bridge_forwarding_and_eof(self):
+        self.node.compression = 'off'
+        host, guest = await self.process(), await self.process()
+        hn, gn = await self.add(host), await self.add(guest)
+        # Unchanged clients request auto; the node configuration is authoritative.
+        hosted = await self.call(host, 'room.host', dict(node=hn, game_port=self.port, transport='relay'))
+        joined = await self.call(guest, 'room.join', dict(node=gn, invite=hosted['invite'], transport='relay'))
+        await self.exchange(joined)
+        await self.exchange(joined, b'compressible terrain ' * 65536)
+        await self.call(guest, 'room.close', dict(session=joined['session']))
+        await self.call(host, 'room.close', dict(session=hosted['session']))
+        host.stdin.close()
+        await asyncio.wait_for(host.wait(), 15)
+        paths = [row for path in host.player_logs.glob('*/*.jsonl')
+                 for line in path.read_text(encoding='utf-8').splitlines()
+                 if (row := json.loads(line)).get('event') == 'game_path']
+        self.assertTrue(paths)
+        self.assertTrue(all(row['path'] == 'relay' and row['compression'] is False for row in paths))
+
+    async def test_cipher_preference_retains_restricted_node_algorithms(self):
+        from tunnel.relay import RelayServer as LegacyRelay
+        create_server = asyncssh.create_server
+        original_profile = self.profile
+        for cipher in ('chacha20-poly1305@openssh.com', 'aes256-ctr'):
+            with self.subTest(cipher=cipher):
+                connections = []
+                async def restricted_server(*args, **kwargs):
+                    def record_peer():
+                        peer = args[0]()
+                        connections.append(peer)
+                        return peer
+                    return await create_server(record_peer, *args[1:], **dict(kwargs, encryption_algs=[cipher]))
+                with patch('asyncssh.create_server', restricted_server):
+                    legacy = await LegacyRelay('127.0.0.1', 0, host_key=self.key,
+                        token=secrets.token_urlsafe(48)).start()
+                try:
+                    self.profile = dict(original_profile, server_port=legacy.port, token=legacy.token)
+                    process = await self.process()
+                    # This legacy control-plane fixture verifies pinned-key
+                    # authentication and directory RPC under restricted ciphers.
+                    # Payload/EOF is covered against the native node separately.
+                    await self.add(process)
+                    self.assertTrue(connections)
+                    for peer in connections:
+                        self.assertTrue(peer.authenticated)
+                        self.assertEqual(peer.conn.get_extra_info('send_cipher'), cipher)
+                        self.assertEqual(peer.conn.get_extra_info('recv_cipher'), cipher)
+                finally:
+                    self.profile = original_profile
+                    await legacy.close()
 
     async def test_two_native_processes_mixed_p2p_relay(self):
         host, guest = await self.process(), await self.process()
@@ -315,6 +374,14 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         await self.exchange(stable)
 
     async def test_three_players_continuous_load_latency_and_log_isolation(self):
+        # unittest enables expensive asyncio diagnostics by default. Dedicated
+        # performance runs choose explicitly; ordinary regression keeps debug.
+        loop = asyncio.get_running_loop()
+        previous_debug = loop.get_debug()
+        debug = os.environ.get('BUGGCRAFT_BRIDGE_SOAK_ASYNCIO_DEBUG')
+        if debug is not None:
+            loop.set_debug(debug == '1')
+            self.addCleanup(loop.set_debug, previous_debug)
         duration = float(os.environ.get('BUGGCRAFT_BRIDGE_SOAK_SECONDS', '8'))
         bulk_rate = float(os.environ.get('BUGGCRAFT_BRIDGE_SOAK_BULK_RATE', '96'))
         bulk_streams = int(os.environ.get('BUGGCRAFT_BRIDGE_SOAK_BULK_STREAMS', '1'))
@@ -322,13 +389,15 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         host = await self.process()
         node = await self.add(host)
         hosted = await self.call(host, 'room.host', {
-            'node': node, 'game_port': self.port, 'transport': 'relay'})
+            'node': node, 'game_port': self.port, 'transport': 'relay',
+            'compression': os.environ.get('BUGGCRAFT_SOAK_COMPRESSION', 'auto')})
         guests, joined = [], []
         for _ in range(3):
             guest = await self.process()
             guest_node = await self.add(guest)
             joined.append(await self.call(guest, 'room.join', {
-                'node': guest_node, 'invite': hosted['invite'], 'transport': 'relay'}))
+                'node': guest_node, 'invite': hosted['invite'], 'transport': 'relay',
+                'compression': os.environ.get('BUGGCRAFT_SOAK_COMPRESSION', 'auto')}))
             guests.append(guest)
         identities = [
             (await self.call(guest, 'room.request', {
@@ -433,6 +502,8 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
             stopped.set()
             await observer
         report = {'duration_seconds': duration, 'clients': 3, 'game_protocol': False,
+                  'compression': os.environ.get('BUGGCRAFT_SOAK_COMPRESSION', 'auto'),
+                  'asyncio_debug': loop.get_debug(),
                   'elapsed_seconds': round(time.perf_counter() - started_at, 3),
                   'path': 'native-relay', 'bulk_streams_per_client': bulk_streams,
                   'bulk_rate_per_stream': bulk_rate, 'churn_connections': churn_count,
@@ -464,6 +535,9 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(any(row['event'] == 'stream_closed' for row in events), player)
             self.assertNotIn(hosted['invite'], ''.join(file.read_text(encoding='utf-8') for file in files))
         await self.node.diagnostics.flush()
+        report['ssh_transports'] = [row for path in self.logs.glob('bridge-*/*/*.jsonl')
+            for line in path.read_text(encoding='utf-8').splitlines()
+            if (row := json.loads(line)).get('event') == 'ssh_transport_ready']
         for player in identities:
             node_files = list((self.node.diagnostics.root / player).glob('*.jsonl'))
             self.assertTrue(node_files, f'Node journal lost player {player}')

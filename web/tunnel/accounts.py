@@ -21,9 +21,7 @@ ITERATIONS = 600000
 AUTHENTICATION_FAILURE = ContextVar('account_authentication_failure', default=None)
 
 
-def canonical(value):
-    return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode()
-
+from .identity import canonical
 
 def encode(value):
     return base64.urlsafe_b64encode(value).decode().rstrip('=')
@@ -65,8 +63,9 @@ def validate_box(box):
 
 
 class Accounts:
-    def __init__(self, federation, path):
+    def __init__(self, federation, path, *, local_only=False):
         self.federation, self.path = federation, Path(path)
+        self.local_only = local_only
         self.records = {}
         if self.path.exists():
             values = json.loads(self.path.read_text(encoding='utf-8'))
@@ -77,15 +76,39 @@ class Accounts:
         self.challenges = {}
         self.sessions = {}
         self.grants = {}
-        from .account_replication import Replication
-        self.replication = Replication(self)
+        if not local_only:
+            from .account_replication import Replication
+            self.replication = Replication(self)
         from .account_email import EmailAccounts
         self.email_accounts = EmailAccounts(self)
-        from .social import Social
-        self.social = Social(self)
+        if not local_only:
+            from .social import Social
+            self.social = Social(self)
+
+    def get(self, account):
+        """Read an identity on the event loop; central mode never consults peers."""
+        if self.local_only:
+            return self.records.get(account) if isinstance(account, str) else None
+        return self.replication.get(account)
+
+    async def resolve(self, identifier):
+        if not self.local_only:
+            return await self.replication.resolve(identifier)
+        record = self.get(identifier)
+        if record:
+            return record
+        matches = [r for r in self.records.values() if isinstance(identifier, str)
+                   and r['certificate']['username'].lower() == identifier.lower()]
+        if len(matches) != 1:
+            raise ValueError('账号不存在或用户名不唯一，请使用完整账号 ID。')
+        return matches[0]
+
+    def publish(self):
+        if not self.local_only:
+            self.federation.publish()
 
     def save(self):
-        from .portal import atomic_json
+        from .storage import atomic_json
         atomic_json(self.path, list(self.records.values()))
         if hasattr(self, 'replication'):
             self.replication.save()
@@ -99,7 +122,7 @@ class Accounts:
         cert, state = record['certificate'], record['state']
         if not isinstance(cert, dict) or not isinstance(state, dict) or set(cert) != {'uid', 'home', 'home_key', 'username', 'public_key', 'created'}:
             raise ValueError('Invalid identity certificate')
-        from .federation import identity
+        from .identity import identity
         if not isinstance(cert['uid'], str) or not re.fullmatch('[0-9a-f]{32}', cert['uid']) or identity(cert['home_key']) != cert['home']:
             raise ValueError('Invalid identity issuer')
         if not isinstance(cert['username'], str) or not re.fullmatch(r'[A-Za-z0-9_-]{3,32}', cert['username']) or type(cert['created']) not in (float, int):
@@ -218,7 +241,7 @@ class Accounts:
         return challenge
 
     def authorize(self, account, challenge, signature):
-        verify(self.replication.get(account)['certificate']['public_key'], challenge['message'].encode(), signature)
+        verify(self.get(account)['certificate']['public_key'], challenge['message'].encode(), signature)
         grant = json.loads(challenge['message'])
         if grant['a'] != account or grant['i'] != self.federation.id or grant['p'] != 'buggcraft-account-login-v2':
             raise ValueError('Invalid login grant')
@@ -248,7 +271,7 @@ class Accounts:
             payload = decode(encoded)
             claims = json.loads(payload)
             account, issuer = claims['a'], claims['i']
-            record = (self.replication.get(account) or self.replication.directory.get(account)) if isinstance(account, str) else None
+            record = (self.get(account) or (self.replication.directory.get(account) if not self.local_only else None)) if isinstance(account, str) else None
             if not isinstance(account, str) or not isinstance(issuer, str):
                 return reject('account-identity-format')
             if require_record and not record:

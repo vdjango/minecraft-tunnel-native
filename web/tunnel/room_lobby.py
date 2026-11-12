@@ -61,6 +61,8 @@ class RoomLobby:
         self.members[member] = dict(previous, id=member, name=previous.get('name', '玩家'),
             account_name=account_name,
             online=True, state=previous.get('state', 'idle'),
+            path='unknown', rtt_ms=None, rtt_kind='unknown', node_rtt_ms=None,
+            host_rtt_ms=None, host_rtt_method='unknown', _path_seen=0,
             updated=int(time.time()), _seen=time.monotonic(), _peer=peer)
         # Bound reconnect history independently of the node's live connection limit.
         for key, value in list(self.members.items()):
@@ -73,7 +75,9 @@ class RoomLobby:
         self.logs.clear(peer.member_id)
         value = self.members.get(peer.member_id)
         if value and value.get('_peer') is peer:
-            value.update(online=False, updated=int(time.time()), path='unknown', rtt_ms=None)
+            value.update(online=False, updated=int(time.time()), path='unknown', rtt_ms=None,
+                         rtt_kind='unknown', node_rtt_ms=None, host_rtt_ms=None,
+                         host_rtt_method='unknown', _path_seen=0)
         if self.transfer and peer.member_id in (self.transfer['from'], self.transfer['to']):
             self.transfer = None
         self.emit()
@@ -100,13 +104,17 @@ class RoomLobby:
 
     def public(self, value):
         stale = not value.get('online') or time.monotonic() - value.get('_seen', 0) > 20
+        path_stale = stale or time.monotonic() - value.get('_path_seen', 0) > 20
         result = {key: item for key, item in value.items() if key in (
             'id', 'name', 'account_name', 'online', 'state', 'stage', 'task', 'seq', 'done', 'total',
             'speed', 'files_done', 'files_total', 'code', 'updated', 'config_id')}
         result.update(manager=value['id'] == self.manager, provider=value['id'] == self.provider,
-                      stale=stale, path='unknown' if stale else value.get('path', 'unknown'),
-                      rtt_ms=None if stale else value.get('rtt_ms'),
-                      rtt_kind=value.get('rtt_kind', 'unknown'))
+                      stale=stale, path='unknown' if path_stale else value.get('path', 'unknown'),
+                      rtt_ms=None if path_stale else value.get('rtt_ms'),
+                      rtt_kind='unknown' if path_stale else value.get('rtt_kind', 'unknown'),
+                      node_rtt_ms=None if path_stale else value.get('node_rtt_ms'),
+                      host_rtt_ms=None if path_stale else value.get('host_rtt_ms'),
+                      host_rtt_method='unknown' if path_stale else value.get('host_rtt_method', 'unknown'))
         return result
 
     def snapshot(self, peer, request):
@@ -182,9 +190,18 @@ class RoomLobby:
             path, rtt, kind = request.get('path'), request.get('rtt_ms'), request.get('rtt_kind', 'unknown')
             if path not in ('p2p', 'relay', 'unknown', 'local') or kind not in ('game', 'node', 'unknown', 'local'):
                 raise ValueError('Invalid member path')
-            if rtt is not None and (type(rtt) not in (int, float) or not math.isfinite(rtt) or not 0 <= rtt <= 1000000):
-                raise ValueError('Invalid member latency')
-            value.update(path=path, rtt_ms=rtt, rtt_kind=kind, _seen=time.monotonic())
+            node_rtt = request.get('node_rtt_ms', rtt if kind == 'node' else None)
+            host_rtt = request.get('host_rtt_ms', rtt if kind == 'game' else None)
+            method = request.get('host_rtt_method', 'local' if kind == 'local' else 'unknown')
+            if method not in ('minecraft-status-ping', 'p2p-heartbeat', 'unknown', 'local'):
+                raise ValueError('Invalid member latency method')
+            for measurement in (rtt, node_rtt, host_rtt):
+                if measurement is not None and (type(measurement) not in (int, float) or
+                        not math.isfinite(measurement) or not 0 <= measurement <= 1000000):
+                    raise ValueError('Invalid member latency')
+            value.update(path=path, rtt_ms=rtt, rtt_kind=kind, node_rtt_ms=node_rtt,
+                         host_rtt_ms=host_rtt, host_rtt_method=method,
+                         _seen=time.monotonic(), _path_seen=time.monotonic())
             return dict(accepted=True)
         if op in ('member_kick', 'member_unblock', 'owner_offer', 'owner_cancel'):
             self.require_manager(peer)

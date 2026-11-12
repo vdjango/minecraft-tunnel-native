@@ -13,6 +13,10 @@ import time
 
 import asyncssh
 import psutil
+try:
+    from .benchmark_cpu import child_environment
+except ImportError:
+    from benchmark_cpu import child_environment
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -23,9 +27,15 @@ def sample(pid):
     memory = sum(p.memory_info().rss for p in processes)
     return cpu, memory
 
-async def trial(engine, flows, size, rooms, workers, buffer_kib, room_secrets):
+async def trial(engine, flows, size, rooms, workers, buffer_kib, room_secrets, mode=None, core=None):
+    # Only the server process tree receives these masks. The AsyncSSH traffic
+    # generators in this parent process always retain ordinary CPU acceleration.
+    env = child_environment(mode) if mode else os.environ.copy()
+    if core:
+        env['BUGGCRAFT_NATIVE_CORE'] = str(Path(core).resolve())
     node = await asyncio.create_subprocess_exec(sys.executable, str(ROOT / 'scripts/benchmark_server.py'), engine,
-        '--workers', str(workers), '--buffer-kib', str(buffer_kib), stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
+        '--workers', str(workers), '--buffer-kib', str(buffer_kib), env=env,
+        stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
     connections = []
     server = None
     try:
@@ -136,13 +146,27 @@ async def main(args):
                   cpu_count=os.cpu_count(), started=time.time(), trials=[])
     report['dependencies'] = {name: importlib.metadata.version(name) for name in ('asyncssh', 'cryptography', 'psutil')}
     report['core_sha256'] = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted((ROOT / 'core').glob('*')) if p.is_file()}
+    report['binaries'] = {}
+    for label, candidate in [('current', os.environ.get('BUGGCRAFT_NATIVE_CORE')), ('baseline', args.baseline_core)]:
+        if candidate:
+            binary = Path(candidate).resolve()
+            report['binaries'][label] = dict(path=str(binary), sha256=hashlib.sha256(binary.read_bytes()).hexdigest())
     room_secrets = [secrets.token_urlsafe(32) for _ in range(args.rooms)]
-    for flows in args.flows:
-        for engine in args.engines:
-            result = await trial(engine, flows, args.mib*1048576, args.rooms, args.workers, args.buffer_kib, room_secrets)
-            report['trials'].append(result)
-            print(json.dumps(result), flush=True)
-            Path(args.output).write_text(json.dumps(report, indent=2), encoding='utf-8')
+    for round_number in range(args.rounds):
+        for flows in args.flows:
+            scenarios = [(engine, mode, None) for engine in args.engines
+                         for mode in (args.modes if engine == 'native' else ['auto'])]
+            if args.baseline_core:
+                scenarios.append(('native', 'baseline', args.baseline_core))
+            if round_number % 2:
+                scenarios.reverse()
+            for engine, mode, core in scenarios:
+                result = await trial(engine, flows, args.mib*1048576, args.rooms, args.workers,
+                                     args.buffer_kib, room_secrets, 'auto' if core else mode, core)
+                result.update(mode=mode, round=round_number)
+                report['trials'].append(result)
+                print(json.dumps(result), flush=True)
+                Path(args.output).write_text(json.dumps(report, indent=2), encoding='utf-8')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -153,4 +177,7 @@ if __name__ == '__main__':
     parser.add_argument('--workers', type=int, default=4)
     parser.add_argument('--buffer-kib', type=int, default=512)
     parser.add_argument('--output', default='benchmark.json')
+    parser.add_argument('--rounds', type=int, default=1)
+    parser.add_argument('--modes', nargs='+', choices=['auto', 'scalar', 'crypto-generic', 'generic'], default=['auto'])
+    parser.add_argument('--baseline-core', type=Path)
     asyncio.run(main(parser.parse_args()))

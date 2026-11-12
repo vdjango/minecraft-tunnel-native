@@ -114,6 +114,7 @@ class ProfileExchangeTests(unittest.IsolatedAsyncioTestCase):
 
     def test_cloudflare_ranges_are_combined_without_allowing_default_route(self):
         state = {
+            'trusted_proxy_enabled': True, 'cloudflare_proxy_enabled': True,
             'trusted_proxy_cidrs': ['192.0.2.0/24'],
             'cloudflare_proxy_cidrs': ['173.245.48.0/20', '0.0.0.0/0', 'bad']}
         self.assertEqual(_trusted_proxy_ranges(state),
@@ -122,6 +123,7 @@ class ProfileExchangeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_refresh_failure_preserves_successful_cache(self):
         portal = self.make_portal()
+        portal.state.update(trusted_proxy_enabled=True, cloudflare_proxy_enabled=True)
         portal.state['cloudflare_proxy_cidrs'] = ['173.245.48.0/20']
         portal.state['cloudflare_proxy_updated'] = 123
         with patch('tunnel.portal._read_cloudflare_ranges', side_effect=OSError('offline')):
@@ -135,6 +137,7 @@ class ProfileExchangeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_refresh_success_replaces_cache_and_records_result(self):
         portal = self.make_portal()
+        portal.state.update(trusted_proxy_enabled=True, cloudflare_proxy_enabled=True)
         portal.state['cloudflare_proxy_last_error'] = '旧错误'
         ranges = ['173.245.48.0/20', '2405:b500::/32']
         with patch('tunnel.portal._read_cloudflare_ranges', return_value=ranges):
@@ -147,6 +150,7 @@ class ProfileExchangeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_empty_refresh_result_is_reported_as_failure(self):
         portal = self.make_portal()
+        portal.state.update(trusted_proxy_enabled=True, cloudflare_proxy_enabled=True)
         portal.state['cloudflare_proxy_cidrs'] = ['173.245.48.0/20']
         with patch('tunnel.portal._read_cloudflare_ranges', return_value=[]):
             self.assertFalse(await portal.refresh_cloudflare_proxies())
@@ -154,6 +158,25 @@ class ProfileExchangeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(portal.state['cloudflare_proxy_last_result'], 'failed')
         self.assertEqual(portal.state['cloudflare_proxy_last_error'], '返回的网段列表无效')
         portal.save.assert_called_once()
+
+    async def test_disabled_proxy_ignores_cached_ranges_and_never_fetches_cloudflare(self):
+        portal = self.make_portal()
+        portal.state.update(trusted_proxy_cidrs=['192.0.2.0/24'],
+                            cloudflare_proxy_cidrs=['173.245.48.0/20'])
+        # Old automatically fetched Cloudflare caches never opt a site in.
+        self.assertEqual(_trusted_proxy_ranges(portal.state), ['192.0.2.0/24'])
+        with patch('tunnel.portal._read_cloudflare_ranges') as fetch:
+            self.assertFalse(await portal.refresh_cloudflare_proxies())
+            fetch.assert_not_called()
+        portal.state.update(trusted_proxy_enabled=False, cloudflare_proxy_enabled=True)
+        self.assertEqual(_trusted_proxy_ranges(portal.state), [])
+        request = self.request(remote='192.0.2.42', scheme='http',
+            headers={'X-Forwarded-Proto': 'https', 'CF-Connecting-IP': '198.51.100.9'})
+        self.assertEqual(portal.external_scheme(request), 'http')
+        self.assertEqual(portal.client_address(request), '192.0.2.42')
+        with patch('tunnel.portal._read_cloudflare_ranges') as fetch:
+            self.assertFalse(await portal.refresh_cloudflare_proxies())
+            fetch.assert_not_called()
 
     def test_cloudflare_fetch_reads_ipv4_and_ipv6_lists(self):
         class Response:

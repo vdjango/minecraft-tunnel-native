@@ -1,87 +1,85 @@
-'use strict';
-const views={overview:['用户中心','管理你的联机身份、好友与个人资料。'],access:['连接启动器','使用节点 HTTPS 地址登录，不再需要接入码。'],players:['在线玩家','查看当前节点的游戏连接状态。'],friends:['我的好友','同一网络，不同节点，也能找到彼此。'],profile:['个人资料','昵称与备忘加密保存。'],security:['安全与备份','管理身份恢复文件和加密副本。']};
+// Account navigation is local; room/friend/presence rules stay in the native control service.
+const views={overview:['联机账号','管理登录与启动器设备。'],access:['连接启动器','所有节点使用此控制服务登录。'],devices:['登录设备','撤销不再使用的设备。'],email:['登录邮箱','验证邮箱后可使用邮箱登录。']};
 function accountView(view='overview') {
-  if(!views[view]) view='overview';
+  if(!views[view])view='overview';
   const [title,description]=views[view];
-  $('page-title').textContent=title;$('page-description').textContent=description;
-  document.title=title+' · Buggcraft';
-  const launcher=accountLauncherRequest;
-  history.replaceState(null,'',(view==='overview'?'/account':'/account/'+view)+(launcher?'?launcher='+encodeURIComponent(launcher):''));
-  for(const section of document.querySelectorAll('[data-view]')) section.hidden=!section.dataset.view.split(' ').includes(view);
-  for(const link of document.querySelectorAll('[data-account-view]')) {
+  $('page-title').textContent=title;$('page-description').textContent=description;document.title=title+' · Buggcraft';
+  document.body.dataset.accountState='authenticated';
+  history.replaceState(null,'',(view==='overview'?'/account':'/account/'+view)+(accountLauncherRequest?'?launcher='+encodeURIComponent(accountLauncherRequest):''));
+  for(const section of document.querySelectorAll('[data-view]'))section.hidden=section.dataset.view!==view;
+  for(const link of document.querySelectorAll('[data-account-view]')){
     link.setAttribute('aria-current',link.dataset.accountView===view?'page':'false');
     link.onclick=event=>{event.preventDefault();accountView(link.dataset.accountView);};
   }
   $('account-feedback').textContent='';
-  if(view==='players') refreshOnlinePlayers().catch(e=>feedback('online-player-count',e));
+  if(view==='devices')loadLauncherDevices();
+  if(view==='overview')loadMemories();
 }
-async function refreshOnlinePlayers(){
-  const result=await api('/api/account/players');
-  const roles={host:'房主',client:'访客'},paths={p2p:'P2P直连',relay:'节点中转',mixed:'混合',auto:'协商中',unknown:'待确认',unavailable:'不可用'};
-  const players=result.players||[];$('online-player-count').textContent=players.length+' 个全网在线'+(result.partial?'（部分节点暂不可达）':'');
-  $('online-players').replaceChildren(...players.map(player=>{
-    const row=document.createElement('tr');
-    for(const value of [player.username,roles[player.role]||player.role,player.room,paths[player.path]||player.path,
-      Number.isFinite(player.peer_rtt_ms)?player.peer_rtt_ms.toFixed(1)+' ms':'—']){
-      const cell=document.createElement('td');cell.textContent=value;row.append(cell);
+function memoryDuration(seconds){
+  if(seconds<60)return seconds>0?'不到 1 分钟':'还没有记录';
+  if(seconds<3600)return Math.floor(seconds/60)+' 分钟';
+  const hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60);
+  return hours+' 小时'+(minutes?' '+minutes+' 分钟':'');
+}
+function showCompanionMemories(data){
+  const target=$('memory-reunion');target.replaceChildren();
+  const known=data.companions.filter(friend=>Number(friend.last_connected)>0);
+  const paragraph=(text)=>{const row=document.createElement('p');row.textContent=text;target.append(row);};
+  if(!known.length){paragraph(data.friends_count?'有些相遇发生在记录开始之前。那些日子没有保存下来，但好友还在。以后一起连接时，新的回忆会从这里慢慢长出来。':'第一段共同的回忆，还在前面等你。回到启动器，认识伙伴，发出第一次联机邀请吧。');return;}
+  const closest=[...known].sort((a,b)=>b.seconds-a.seconds)[0];
+  if(closest.seconds>0)paragraph('和 '+closest.name+'，已经一起连接了 '+memoryDuration(closest.seconds)+'。原来，那些“再玩一会儿”，已经积攒了这么久。');
+  const distant=[...known].filter(friend=>Date.now()/1000-Number(friend.last_connected)>=30*86400).sort((a,b)=>a.last_connected-b.last_connected).slice(0,3);
+  for(const friend of distant){
+    const days=Math.max(1,Math.floor((Date.now()/1000-Number(friend.last_connected))/86400));
+    paragraph(friend.name+' · 已有 '+days+' 天没有记录到你们一起连接。上一次是 '+formatDeviceTime(friend.last_connected)+'。也许某个周末，可以再问一句：“还玩吗？”');
+  }
+  if(!distant.length)paragraph('最近的一次相遇：'+[...known].sort((a,b)=>b.last_connected-a.last_connected)[0].name+'。有空时，在启动器里邀请老朋友再出发吧。');
+}
+async function loadMemories(){
+  const owner=authenticatedAccount;
+  $('memory-status').textContent='正在收集我们的小足迹…';
+  try{
+    const data=await api('/api/account/memories');
+    if(owner!==authenticatedAccount||!owner)return;
+    const joined=Number(data.joined_at)*1000;
+    const days=Number.isFinite(joined)?Math.max(1,Math.floor((Date.now()-joined)/86400000)+1):null;
+    $('memory-days').textContent=days===null?'暂无记录':days.toLocaleString('zh-CN')+' 天';
+    $('memory-greeting').textContent=days>1?'不知不觉，Bugg 已陪伴你 '+days.toLocaleString('zh-CN')+' 天。':'故事从今天开始。愿你在这里，遇到一起创造世界的人。';
+    $('memory-multiplayer').textContent=memoryDuration(data.multiplayer_seconds);
+    $('memory-friends').textContent=Number(data.friends_count).toLocaleString('zh-CN')+' 位';
+    const calendar=$('memory-calendar');calendar.replaceChildren();
+    const byDay=new Map(data.days.map(day=>[day.day,day]));
+    const today=new Date(Date.now()+8*3600000);today.setUTCHours(0,0,0,0);
+    for(let index=29;index>=0;index--){
+      const date=new Date(today.getTime()-index*86400000),key=date.toISOString().slice(0,10),record=byDay.get(key);
+      const seconds=record?.multiplayer_seconds||0,online=record?.online_seconds||0;
+      const cell=document.createElement('button');cell.type='button';cell.className='memory-day';cell.setAttribute('role','listitem');
+      const description=key+' · 联机连接 '+memoryDuration(seconds)+' · 启动器在线 '+memoryDuration(online);
+      cell.dataset.level=String(seconds>=3600?4:seconds>=600?3:seconds>0?2:online>0?1:0);
+      cell.title=description;cell.setAttribute('aria-label',description);cell.textContent=String(date.getUTCDate());
+      cell.onclick=()=>{$('memory-calendar-note').textContent=description;};calendar.append(cell);
     }
-    return row;
-  }));
+    $('memory-calendar-note').textContent=data.days.length?'点选日期，看看那天留下的足迹。':'还没有活动记录。下一次连接，会留下新的足迹。';
+    const companions=$('memory-companions');companions.replaceChildren();
+    for(const friend of data.companions){
+      const item=document.createElement('button');item.type='button';item.className='memory-friend';item.textContent=friend.name||'未命名的伙伴';
+      item.dataset.weight=String(friend.seconds>=3600?3:friend.seconds>0?2:1);
+      item.title=friend.last_connected?'最近同时连接 '+formatDeviceTime(friend.last_connected)+' · 累计 '+memoryDuration(friend.seconds):'已经是好友；旧版本没有保存共同连接时间。';
+      item.setAttribute('aria-label',item.textContent+'，'+item.title);item.addEventListener('click',()=>{$('memory-friend-note').textContent=item.textContent+' · '+item.title;});companions.append(item);
+    }
+    if(!data.companions.length){const empty=document.createElement('p');empty.textContent='这里等着新的名字。回到启动器，邀请伙伴一起玩吧。';companions.append(empty);}
+      showCompanionMemories(data);
+      $('memory-online').textContent='已记录的启动器在线时间：'+memoryDuration(data.online_seconds)+'。多设备重叠时间只计一次。';
+    $('memory-status').textContent=data.recording_since?'活动记录始于 '+formatDeviceTime(data.recording_since)+'；按已确认心跳估算。':'历史时长未记录，不会把已有账号的年龄算作游玩时间。';
+  }catch(error){if(owner===authenticatedAccount)$('memory-status').textContent='小足迹暂时无法读取，稍后重新打开账号页即可重试。';}
 }
-setInterval(()=>{
-  if(location.pathname==='/account/players'&&!document.hidden&&!$('account-panel').hidden)
-    refreshOnlinePlayers().catch(()=>{});
-},5000);
 async function refresh() {
-  const s=await api('/api/status');
-  $('show-register').hidden=!s.registration_open;
-  emailRequired=!!s.email_verification;
-  $('email-registration-fields').hidden=!emailRequired;
-  $('register-email').required=emailRequired;$('register-email-code').required=emailRequired;
-  if(!s.registration_open && location.pathname==='/register') {accountEntry();$('account-feedback').textContent='此节点暂未开放注册，已有账号仍可登录。';}
+  const s=await api('/api/status');$('show-register').hidden=!s.registration_open;emailRequired=!!s.email_verification;
+  $('email-registration-fields').hidden=!emailRequired;$('register-email').required=emailRequired;$('register-email-code').required=emailRequired;
+  if(!s.registration_open && location.pathname==='/register'){accountEntry();$('account-feedback').textContent='此服务暂未开放注册，已有账号仍可登录。';}
 }
-async function shortFriendCode(account) {
-  const bytes=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('buggcraft-friend-v1:'+account)));
-  const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';let code='',bits=0,value=0;
-  for(const byte of bytes){value=(value<<8)|byte;bits+=8;while(bits>=5&&code.length<12){bits-=5;code+=alphabet[(value>>>bits)&31];}if(code.length===12)break;}
-  return code.match(/.{4}/g).join('-');
-}
-function friendRow(item,label,op,ref) {
-  const row=document.createElement('div');row.className='friend-row';
-  const name=document.createElement('span');name.textContent=item.username+(item.online===true?' · 在线':item.online===false?' · 离线':'');
-  const id=document.createElement('small');id.title=item.account;id.style.overflowWrap='anywhere';name.append(document.createElement('br'),id);row.append(name);
-  shortFriendCode(item.account).then(code=>{id.textContent=code;}).catch(()=>{id.textContent=item.account;});
-  if(label) {const button=document.createElement('button');button.type='button';button.className='secondary';button.textContent=label;
-    button.onclick=async()=>{button.disabled=true;try{if(!await requireIdentity('操作好友关系需要确认账号身份'))return;await friendAction(op,item.account,ref);$('friend-feedback').textContent='操作已保存，其他节点同步后可见。';await refreshFriends();}catch(e){feedback('friend-feedback',e);}finally{button.disabled=false;}};row.append(button);}
-  return row;
-}
-async function friendAction(op,target,ref) {
-  if(!launcherKey||!loginGrant) throw new Error('请验证密码后操作好友关系。');
-  const action={op,target,at:Date.now()/1000,id:Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join(''),...(ref?{ref}:{})};
-  const key=await crypto.subtle.importKey('jwk',launcherKey,{name:'ECDSA',namedCurve:'P-256'},false,['sign']);
-  return api('/api/account/social',{event:{grant:loginGrant,proof:loginProof,action,signature:await signBytes(key,canonicalBytes(action))}});
-}
-async function refreshFriends() {
-  const state=await api('/api/account/social');
-  $('friends-summary').textContent=state.friends.length+' 位好友';
-  $('friend-list').replaceChildren(...state.friends.map(item=>friendRow(item,'移除','remove')));
-  if(!state.friends.length) $('friend-list').textContent='还没有好友，用好友码或用户名查找你的朋友吧。';
-  $('friend-requests').replaceChildren(...state.requests.map(item=>friendRow(item,item.incoming?'同意申请':'撤回申请',item.incoming?'accept':'remove',item.incoming?item.id:undefined)));
-  if(!state.requests.length) $('friend-requests').textContent='暂无好友申请。';
-}
-$('friend-search').onsubmit=async event=>{
-  event.preventDefault();const button=event.submitter;button.disabled=true;$('friend-feedback').textContent='正在查找…';$('friend-results').replaceChildren();
-  try{const result=await api('/api/account/lookup',{username:$('friend-username').value.trim()});
-    $('friend-results').replaceChildren(...result.users.filter(item=>item.account!==$('account-current').textContent).map(item=>friendRow(item,'添加好友','request')));
-    $('friend-feedback').textContent=$('friend-results').childElementCount?'找到用户，发送申请后需对方同意。':'未找到其他用户。';
-  }catch(e){feedback('friend-feedback',e);}finally{button.disabled=false;}
-};
-$('copy-friend-code').onclick=async()=>{
-  try{await navigator.clipboard.writeText($('my-friend-code').textContent);$('friend-feedback').textContent='好友码已复制，发给朋友即可添加。';}
-  catch(e){feedback('friend-feedback',e);}
-};
 (async()=>{
-  try{await refresh();if(!crypto.subtle) throw new Error('请使用支持 WebCrypto 的浏览器，通过 HTTPS 访问。');
-    try{await showAccount();}catch{accountEntry(location.pathname==='/register'?'register':'login');}
+  try{await refresh();if(!crypto.subtle)throw new Error('请使用支持 WebCrypto 的浏览器，通过 HTTPS 访问。');
+    try{await showAccount();}catch(e){if(e.status!==401)throw e;accountEntry(location.pathname==='/register'?'register':location.pathname==='/forgot-password'?'recovery':'login');}
   }catch(e){feedback('account-feedback',e);}
 })();

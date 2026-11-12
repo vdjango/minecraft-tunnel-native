@@ -1,22 +1,58 @@
 export type Section = {
   id: string; title: string; paragraphs?: string[]; steps?: string[];
-  note?: string; image?: string; caption?: string;
+  note?: string; image?: string; caption?: string; imageWidth?: number; imageHeight?: number;
+  links?: { label: string; href: string }[];
+  code?: string;
 };
 export type Guide = {
   slug: string; title: string; summary: string; category: string; minutes: number;
   keywords: string[]; sections: Section[];
 };
-export const updated = '2026-11-05';
-export const categories = ['开始游玩', '好友联机', '加速与排查'];
+export const updated = '2026-11-11';
+export const categories = ['开始游玩', '好友联机', '加速与排查', '启动器打不开', '开发者接入'];
 export const guides: Guide[] = [
+  {
+    slug:'experience',title:'更顺手的启动与联机，具体快在哪里？',category:'加速与排查',minutes:4,
+    summary:'从界面响应、文件准备到游戏转发，解释优化对玩家的实际作用，以及网络延迟的边界。',
+    keywords:['C++','SIMD','指令集','联机延迟','中继','压缩','性能'],
+    sections:[
+      {id:'interface',title:'下载和校验时，界面仍能响应',paragraphs:['网络、目录扫描、哈希与安装放在受控后台任务中，列表分页、图片按显示尺寸解码。你可以查看进度和取消任务，不必让界面等整批文件处理完。','C++ / Qt Quick 是实现方式，真正减少的是主线程等待和重复工作；这不改变 Minecraft 的渲染器，也不直接增加游戏 FPS。']},
+      {id:'files',title:'同一份文件，尽量少读几遍',paragraphs:['文件需要多种摘要时共用一次磁盘读取。已经完成的下载和可复用的扫描结果继续使用，失败时优先补齐未完成项。','收益取决于磁盘、缓存和文件规模。第一次下载缺失内容，仍需要真实传输这些字节。']},
+      {id:'route',title:'联机时，让游戏数据走合适的路径',paragraphs:['统一服务负责登录、好友、邀请和节点分配。游戏数据通过双方直连或房间所属的联机节点传输，统一账号服务不再多转发一次游戏数据。','能建立 P2P 时尝试直连；网络条件不允许时使用中继。加入朋友的房间会连接房间所在节点，不会因为两人地区不同而分到两个世界。','有界缓冲、背压和游戏优先的文件发送节奏，用于减少大文件传输挤占游戏处理时间；不能消除出口带宽已经用满造成的排队。']},
+      {id:'isa',title:'新电脑用上硬件能力，旧电脑保留可用路径',paragraphs:['字节处理和密码库会按 CPU 与操作系统支持选择实现，例如 x86 的 SSE / AVX，ARM 的 NEON 及硬件加密。没有对应能力时使用通用实现，不要求玩家手动选择指令集。','这些优化主要减少编码、校验和加密所需的 CPU 工作。它们不是“网络延迟减少八倍”，也不能把 6 Mbps 线路变成更宽的线路。']},
+      {id:'compression',title:'默认关闭额外转发压缩，减少实时计算',paragraphs:['游戏转发的额外压缩默认关闭，传输加密仍开启。对低延迟游戏包，这可以避免多一层压缩与解压；Minecraft 自身的协议压缩各有用途，不会被此设置关闭。','带宽非常紧张且数据可压缩时，压缩可能有收益。因此自建节点保留配置，效果应按真实负载测试；关闭压缩并不保证所有网络都更快。']},
+      {id:'choose',title:'卡顿时，先看是哪种等待',steps:['界面操作慢：观察是否正在扫描、下载或校验，以及任务错误。','人物回弹、方块延迟：查看实际连接方式、双方丢包、房主和节点出口占用。','画面帧率低：检查游戏模组、光影、内存、显卡与世界负载。启动器网络优化不能代替游戏设置。'],links:[{label:'联机与文件排查',href:'/docs/help/troubleshooting'}]}
+    ]
+  },
+  {
+    slug:'developer-multiplayer',title:'联机接入：统一服务、节点与 C ABI SDK',category:'开发者接入',minutes:6,
+    summary:'按实际接口接入账号授权、好友邀请和房间调度，游戏数据复用同一份原生桥。',keywords:['SDK','C ABI','统一服务','联机协议','接入'],
+    sections:[
+      {id:'owners',title:'先明确三个角色',paragraphs:['统一服务管理账号、设备授权、好友、在线与节点分配；节点负责房间连接和转发；桥与 SDK 运行在玩家电脑上。游戏字节不经过统一服务。','客户端使用统一服务的浏览器设备授权，不在节点实现第二个登录入口。自建服务通过配置 origin、CA 和签名公钥接入，不分发管理员令牌或中心私钥。']},
+      {id:'health',title:'检查控制协议入口',code:'curl --fail --silent --show-error -X POST \\\n  -H "Content-Type: application/json" \\\n  --data \'{}\' https://node.bugg.icu/v1/health',paragraphs:['/v1 操作使用 HTTPS POST 与 JSON 对象；有权限的操作在 Authorization: Bearer 请求头传入对应的短期运行授权。HTTP 与 WSS 调用同一个领域入口，不能把管理员密钥放在客户端。']},
+      {id:'authorization',title:'设备授权与控制身份',steps:['调用 /api/launcher/start，提交本机设备公钥与可辨认的设备名；在浏览器完成账号登录并确认。','设备对轮询挑战签名，经 /api/launcher/poll 取得授权与控制服务元信息。保留并校验服务 CA 和签名公钥。','使用证书、设备委托和设备私钥挑战调用 /v1/identity/challenge、identity/prove，取得玩家运行授权。刷新与撤销沿用同一套设备协议。'],note:'签名字段和规范化字节必须按源码协议处理。优先使用原生桥现有实现，不在每种语言中各造一套认证。'} ,
+      {id:'social',title:'好友与房间',paragraphs:['/v1/social/state 取得好友与邀请；social/apply 提交带 event_id 的操作，social/inbox 与 social/ack 区分已持久化、已送达和已读。','placement/candidates 返回有界候选；placement/reserve 原子预留容量。好友加入固定 room_id / epoch 所属节点，不能把加入已有房间改成重新按地区分配。节点使用 placement/confirm 确认与续租，结束后 release。']},
+      {id:'abi',title:'复用原生桥的内存与并发契约',paragraphs:['SDK 入口为 buggcraft_bridge_create、buggcraft_bridge_call、buggcraft_bridge_free 与 buggcraft_bridge_destroy。请求使用 UTF-8 JSON-RPC，最大 8192 字节；业务错误仍需检查响应 JSON。','响应内存由原库释放；同一句柄串行调用，不与 destroy 竞争。销毁所有句柄并释放响应后再卸载库。CLI 与 C ABI 共用 Rpc / ControlClient，不复制转发或调度规则。'],links:[{label:'联机节点与 SDK 源码',href:'https://github.com/vdjango/minecraft-tunnel-native'}]}
+    ]
+  },
+  {
+    slug:'developer-source',title:'源站接入：目录、搜索、译文与制品事实',category:'开发者接入',minutes:5,
+    summary:'区分元数据查询、搜索与文件分发，按现有源站接口接入，避免误用管理凭据。',keywords:['源站','API','CurseForge','Modrinth','开发者'],
+    sections:[
+      {id:'catalog',title:'目录元数据网关',paragraphs:['只读 GET /v1/catalog/modrinth/search 保留 Modrinth query、facets、offset、limit；GET /v1/catalog/curseforge/mods/search 保留 CurseForge gameId、classId、gameVersion、categoryId 和分页。','项目详情和版本沿用对应平台路径。游戏版本与加载器过滤由官方参数表达，不把项目简介当作包内依赖证据。上游 Key 留在服务器。'],code:'curl --fail --get \\\n  --data-urlencode "query=sodium" \\\n  --data-urlencode "limit=10" \\\n  https://mirror.bugg.icu/v1/catalog/modrinth/search'},
+      {id:'search',title:'搜索结果与包内事实分别使用',paragraphs:['GET /api/v1/search、/api/v1/search/capabilities 提供全文或语义搜索能力与实际覆盖信息；GET /api/v1/projects/{provider:id}/similar 提供相似项目。具体可用能力以目标部署返回为准。','包内声明来自完整 JAR 的校验、受限读取与解析。管理端 /api/v1/artifacts/{sha256}/dependencies 返回有证据的声明；它不是兼容性结论，也不是自动安装清单。']},
+      {id:'download',title:'元数据可查，不等于文件可分发',paragraphs:['目录网关不会在请求中执行下载、解压、翻译或依赖求解。文件使用源站已公布的实际下载地址与校验值；不得把任意上游 URL 作为公开代理输入。','请求保留超时、取消、分页与错误语义。搜索与带身份的管理响应遵守 Cache-Control，不因 CDN 命中绕过鉴权。']},
+      {id:'configure',title:'接入自己的源站',paragraphs:['启动器使用同一个可配置源站基址。自建时配置服务器自己的上游授权、公开 HTTPS 和相关分发权限，再逐项验证分类、中文搜索、版本、下载与哈希。','示例展示接口形状，目标域名是否启用某个可选功能以实际能力响应为准。管理与采集接口需要独立权限，不能在玩家应用中嵌入管理员令牌。'],links:[{label:'源站开发者入口',href:'https://mirror.bugg.icu/developers'}]}
+    ]
+  },
   {
     slug: 'download-game', title: '下载游戏与安装加载器', category: '开始游玩', minutes: 3,
     summary: '从选择 Minecraft 版本开始，安装原版或模组加载器，确认 Java 和内存后进入游戏。',
     keywords: ['Minecraft下载', '我的世界安装', 'Forge', 'NeoForge', 'Fabric', 'Java'],
     sections: [
       { id: 'prepare', title: '先准备启动器和游戏账号', paragraphs: ['从下载站选择适合自己系统的 BUGG 启动器。首次打开后完成引导，设置游戏目录，并使用你拥有的 Minecraft 游戏账号和合法游戏文件。', '已有游戏可以添加到实例管理里。一个实例对应一套游戏版本、模组和启动设置，方便把不同玩法分开。'] },
-      { id: 'version', title: '选择游戏版本', steps: ['进入「下载」里的游戏分类。', '找到要玩的 Minecraft 版本，进入安装页面。', '填写容易辨认的实例名称，确认安装目录。'], image: 'game-versions.webp', caption: '下载页的游戏版本列表，界面示例。' },
-      { id: 'loader', title: '按玩法选择加载器', paragraphs: ['只玩原版，可以不装加载器。玩整合包或模组时，按作者要求选择 Forge、NeoForge、Fabric 或 Quilt，并核对加载器版本。', 'Forge 与 NeoForge 需要分别选择，不能仅凭游戏版本号相同就互换。也不要把服务端压缩包当作客户端安装。'], image: 'game-install.webp', caption: '游戏版本与加载器安装入口，界面示例。' },
+      { id: 'version', title: '选择游戏版本', steps: ['在启动首页点击当前游戏，进入「选择游戏」，再点击底部「安装游戏」。', '在「安装游戏」中选择 Minecraft 版本与所需加载器。', '填写容易辨认的实例名称，确认安装目录。'], image: 'native-instances.webp', caption: '新版原生启动器的游戏选择页；示例列表仅演示界面。' },
+      { id: 'loader', title: '按玩法选择加载器', paragraphs: ['只玩原版，可以不装加载器。玩整合包或模组时，按作者要求选择 Forge、NeoForge、Fabric 或 Quilt，并核对加载器版本。', 'Forge 与 NeoForge 需要分别选择，不能仅凭游戏版本号相同就互换。也不要把服务端压缩包当作客户端安装。'], image: 'native-install.webp', caption: '游戏版本与加载器安装入口，界面示例。' },
       { id: 'install', title: '等待下载和安装完成', paragraphs: ['开始安装后，可以在下载任务中看进度。首次安装会准备游戏核心、依赖库和原版资源，耗时取决于文件大小、已有缓存和下载来源。', '某个文件失败时，先查看任务日志里的文件名与错误。使用任务提供的继续或重试入口，不必重新删除整套游戏。'] },
       { id: 'launch', title: '确认 Java 与内存，再启动', paragraphs: ['按游戏或整合包要求准备 Java。可以扫描本机已有 Java，也可以在启动器中添加或下载。', '内存按整合包建议设置，并给操作系统留出空间。选择刚安装的实例启动；如有启动前检查提示，先阅读具体原因。'], note: '安装完成表示文件准备完成，能否正常进入游戏还取决于 Java、模组兼容性和电脑配置。' },
     ],
@@ -27,7 +63,7 @@ export const guides: Guide[] = [
     keywords: ['整合包导入', 'mrpack', 'zip整合包', 'Minecraft整合包'],
     sections: [
       { id: 'file', title: '先确认拿到的是客户端整合包', paragraphs: ['常见的 .mrpack 和带有安装清单的 .zip 整合包可以尝试导入。普通文件夹压缩包、服务端包或再次套了一层目录的压缩包，不一定能按整合包识别。', '先看作者给出的游戏版本、加载器、Java 和内存要求。'] },
-      { id: 'import', title: '拖入文件，或从导入入口选择', steps: ['在下载页点击「导入整合包」，也可以把支持的整合包文件拖入启动器。', '选择独立实例和安装位置，确认识别出的 Minecraft 与加载器版本。', '开始安装，在下载任务中查看准备、下载、校验和安装进度。'], image: 'modpack-import.webp', caption: '整合包导入入口，界面示例。' },
+      { id: 'import', title: '拖入文件，或从导入入口选择', steps: ['打开顶部工具中的「导入整合包」，或把支持的本地整合包拖入启动器。', '选择独立实例和安装位置，确认识别出的 Minecraft 与加载器版本。', '开始安装，在下载任务中查看准备、下载、校验和安装进度。'] },
       { id: 'download', title: '整合包为什么还要下载文件？', paragraphs: ['许多整合包只包含文件清单和配置，并没有把所有模组本体装进压缩包。导入后仍需从对应来源获取模组、游戏库和原版资源。', '下载速度取决于来源与缓存。公开来源可用时直接下载，命中服务缓存时按策略取用；不是每个资源都已经存放在 BUGG 的服务器里。'] },
       { id: 'failure', title: '有文件失败时怎么处理', paragraphs: ['先看失败文件和日志中的具体错误，再使用任务里的继续或补齐入口。不要仅为绕过报错删除必需模组，也不要把已经成功的文件全部清掉。', '若作者要求手动获取某些文件，按作者说明放入正确位置。仍无法安装时，反馈整合包名称、版本、失败文件和日志。'] },
       { id: 'ready', title: '第一次启动前再核对一次', paragraphs: ['选择新建的实例，确认 Java、内存和加载器正确。能进入主菜单后，再根据整合包说明开始游戏或联机。'], note: '保存原压缩包有助于再次安装，但它不一定包含实际存档。备份世界时请单独备份对应的存档目录。' },
@@ -39,7 +75,7 @@ export const guides: Guide[] = [
     keywords: ['Minecraft模组安装', '资源包安装', '光影安装', '加载器兼容'],
     sections: [
       { id: 'instance', title: '先选对要修改的实例', paragraphs: ['同一启动器可以管理多个玩法。安装资源之前，先确认目标实例：游戏版本是什么、加载器是哪一种，避免装到另一个整合包里。'] },
-      { id: 'search', title: '在对应分类里查找资源', steps: ['打开下载页，选择模组、资源包或光影包分类。', '搜索项目，查看资源说明和适用版本。', '选择符合当前实例的文件，再下载到目标实例。'], image: 'resources.webp', caption: '资源分类与目标实例，界面示例。' },
+      { id: 'search', title: '在对应分类里查找资源', steps: ['打开「广场」，进入「发现内容」，切换模组、资源包、光影包或整合包。', '搜索项目，查看资源说明和适用版本。', '选择符合当前实例的文件，再下载到目标实例。'], image: 'native-content.webp', caption: '资源分类与目标实例，界面示例。' },
       { id: 'mods', title: '模组看版本，也看加载器', paragraphs: ['模组通常放入对应实例的 mods 目录。下载前核对 Minecraft 版本、Forge / NeoForge / Fabric / Quilt，以及项目列出的依赖模组。', '不要仅因为文件名相似，就替换整合包已经指定的文件。给现成整合包加模组前，先备份配置。'] },
       { id: 'packs', title: '资源包和光影还要在游戏里启用', paragraphs: ['资源包一般位于 resourcepacks 目录，进入游戏后在资源包设置里启用。光影包一般位于 shaderpacks 目录，并需要游戏中已有兼容的光影加载组件。', '下载到目录只是准备文件，不代表当前游戏一定支持对应光影。具体依赖和配置以资源作者说明为准。'] },
       { id: 'multiplayer', title: '和朋友玩时如何保持一致', paragraphs: ['房间会核对需要匹配的游戏配置。涉及玩法和网络协议的模组尤其需要对齐；纯客户端显示类资源是否必须一致，要看资源本身和整合包要求。', '提示不兼容时，优先使用房间同步或作者提供的客户端，不要随意删掉必需模组。'] },
@@ -47,13 +83,13 @@ export const guides: Guide[] = [
   },
   {
     slug: 'minecraft', title: 'Minecraft Java 版好友联机教程', category: '好友联机', minutes: 5,
-    summary: '双方登录节点，房主创建房间并开放世界，朋友核对配置后加入；一步看清完整联机顺序。',
+    summary: '双方登录统一服务，房主创建房间并开放世界，朋友核对配置后加入；一步看清完整联机顺序。',
     keywords: ['我的世界联机', 'Minecraft联机教程', 'Java版联机', 'BUGG联机', 'P2P'],
     sections: [
-      { id: 'overview', title: '先看双方分别做什么', steps: ['双方：安装 BUGG，准备游戏，并登录同一个联机节点。', '房主：选择游戏实例，创建房间，进入存档并对局域网开放。', '朋友：使用邀请码加入，核对或同步配置，再进入游戏。'], note: '世界和存档在房主电脑上。节点负责发现、协商和必要的中转；房主需要保持游戏和启动器运行。' },
-      { id: 'node', title: '双方添加节点并完成登录', steps: ['进入联机大厅，从节点菜单打开「添加与管理节点」。', '填写 https://node.bugg.icu，点击打开浏览器登录的按钮。', '在网页登录账号并确认设备授权，回到大厅等待节点可用。'], paragraphs: ['第一次一起玩，双方先选择同一个节点入口。节点登录用于联机授权，与 Minecraft 游戏账号的登录各有用途。'], image: 'node-login.webp', caption: '添加节点与浏览器授权入口，界面示例。' },
-      { id: 'host', title: '房主建房并开放世界', paragraphs: ['首页选好实例，进入大厅点击「创建房间」。默认可以「先开房，稍后进入游戏」，朋友能先进入房间准备客户端。', '房主启动 Minecraft 并进入存档后，按 Esc → 对局域网开放 → 开始局域网世界。确认启动器关联正确的世界，再把邀请码发给朋友。'], image: 'create-room.webp', caption: '先建房或关联已有世界，界面示例。' },
-      { id: 'guest', title: '朋友加入并核对配置', paragraphs: ['大厅点击「加入房间」，粘贴邀请码。配置一致时，等世界开放后按提示进入游戏；不一致时先点「同步安装」。', '多人列表没有显示房间时，可以复制启动器提供的游戏地址，在 Minecraft 的「多人游戏 → 直接连接」里粘贴。'], image: 'join-room.webp', caption: '邀请码加入入口，示例中未填写真实邀请码。' },
+      { id: 'overview', title: '先看双方分别做什么', steps: ['双方：安装 Bugg、准备游戏，在「联机」中通过同一个统一服务登录。工作节点由服务分配。', '房主：选择游戏实例，创建房间，进入存档并对局域网开放。', '朋友：使用邀请码加入，核对或同步配置，再进入游戏。'], note: '世界和存档在房主电脑上。节点负责发现、协商和必要的中转；房主需要保持游戏和启动器运行。' },
+      { id: 'node', title: '登录联机账号', steps: ['进入启动器「联机」，选择浏览器登录。', '在统一服务网页登录账号，确认本次设备授权。', '回到启动器等待登录完成，再创建或加入朋友的房间。'], paragraphs: ['默认服务无需填写地址；自建用户可在自定义服务配置其他统一服务。联机账号用于房间与好友授权，与 Minecraft 游戏账号各有用途。'],image:'native-login.webp',caption:'新版启动器的浏览器登录入口，界面示例。' },
+      { id: 'host', title: '房主建房并开放世界', paragraphs: ['首页选好实例，进入大厅点击「创建房间」。默认可以「先开房，稍后进入游戏」，朋友能先进入房间准备客户端。', '房主启动 Minecraft 并进入存档后，按 Esc → 对局域网开放 → 开始局域网世界。确认启动器关联正确的世界，再把邀请码发给朋友。'], image: 'native-create.webp', caption: '先建房或关联已有世界，界面示例。' },
+      { id: 'guest', title: '朋友加入并核对配置', paragraphs: ['大厅点击「加入房间」，粘贴邀请码。配置一致时，等世界开放后按提示进入游戏；不一致时先点「同步安装」。', '多人列表没有显示房间时，可以复制启动器提供的游戏地址，在 Minecraft 的「多人游戏 → 直接连接」里粘贴。'], image: 'native-join.webp', caption: '邀请码加入入口，示例中未填写真实邀请码。' },
       { id: 'loader', title: '模组联机要特别核对加载器', paragraphs: ['Minecraft 版本相同仍可能不兼容。房主使用 NeoForge，朋友装成 Forge，就需要重新准备正确配置；加载器版本和必需模组也要核对。', '出现不匹配提示时先查看详情和安装日志，不建议为绕过检查直接删除必需模组。'] },
       { id: 'leave', title: '玩的时候保持连接，结束后再退出', paragraphs: ['网络允许时尝试 P2P，不能直连时通过节点中继。线路是否流畅取决于双方网络与节点情况。', '房主退出世界后，朋友不能继续在该世界游玩；再次进入需要重新对局域网开放。最小化启动器可以，主动关闭主启动器会结束自己的联机连接。'] },
     ],
@@ -63,8 +99,8 @@ export const guides: Guide[] = [
     summary: '选择实例、创建准备房间、开放局域网世界，再向朋友分享邀请码。',
     keywords: ['Minecraft创建房间', '对局域网开放', '房间邀请码', '房主'],
     sections: [
-      { id: 'before', title: '确认要玩的实例与节点', paragraphs: ['先在首页选中这次使用的游戏实例，确认能正常启动。进入联机大厅，选择已授权且可用的节点。', '房间配置来自创建时选择的实例，不要把另一个整合包误当作房间客户端。'] },
-      { id: 'create', title: '使用「先开房，稍后进入游戏」', steps: ['点击「创建房间」，填写便于朋友辨认的名称。', '核对游戏实例，保留「先开房，稍后进入游戏」。', '创建房间。只和熟人玩时，保留邀请码加入；是否公开由你决定。'], image: 'create-room.webp', caption: '创建准备房间，界面示例。' },
+      { id: 'before', title: '确认要玩的实例与联机账号', paragraphs: ['先在首页选中这次使用的游戏实例，确认能正常启动。进入「联机」，通过浏览器登录并确认设备授权。无需手动选择同一台工作节点。', '房间配置来自创建时选择的实例，不要把另一个整合包误当作房间客户端。'] },
+      { id: 'create', title: '先建房，再进入游戏', steps: ['点击「创建房间」，填写便于朋友辨认的名称。', '核对游戏实例。世界还未启动时，不勾选「关联已开放的世界」。', '按需要选择可见范围，再点击「创建房间」。'], image: 'native-create.webp', caption: '创建准备房间，界面示例。' },
       { id: 'world', title: '进入存档，对局域网开放', steps: ['启动房间对应的 Minecraft 实例。', '进入自己的单人世界，按 Esc。', '选择「对局域网开放」，设置好游戏规则后开始局域网世界。', '回到启动器，确认房间已关联这个世界。'], paragraphs: ['若已经开放世界，可以在建房时选「关联已开放的世界」。发现多个世界时请明确选择，未找到时重新查找并核对游戏显示的端口。'] },
       { id: 'invite', title: '把邀请码发给一起玩的朋友', paragraphs: ['在房间里复制邀请码，通过可信聊天渠道发送。朋友加入后可以先准备客户端；需要邀请码的房间，即使出现在大厅，也不能只凭房间名称进入。', '分享截图前遮住真实邀请码。房主也可以查看成员准备状态，确认大家是否已经准备好。'] },
       { id: 'end', title: '结束游玩与再次开房', paragraphs: ['房主退出存档会停止该世界的游戏服务。重新进入存档后，再次对局域网开放；若端口变化或检测到多个世界，按提示重新关联。', '主动关闭房间或主启动器会结束联机。存档在运行世界的电脑上，重要进度请定期备份。'] },
@@ -75,8 +111,8 @@ export const guides: Guide[] = [
     summary: '用邀请码加入朋友的房间，配置不一致时同步安装，再连接开放的游戏世界。',
     keywords: ['加入Minecraft房间', '客户端同步', '房间同步安装', 'NeoForge'],
     sections: [
-      { id: 'invite', title: '先取得房主的邀请码', steps: ['登录可用的联机节点，第一次先与房主选择同一个入口。', '点击「加入房间」，粘贴房主分享的邀请码。', '公开且允许直接加入的房间，也可从大厅列表进入。'], image: 'join-room.webp', caption: '粘贴邀请码加入，界面示例。' },
-      { id: 'sync', title: '配置不一致，先同步安装', paragraphs: ['加入后查看房间要求的 Minecraft、加载器和模组。出现不匹配提示时，点击「同步安装」，选择全新下载或从已有配置补齐。', '首次同步建议建立独立实例，保留原有整合包。下载和校验完成后，复核配置，再进入游戏。'], image: 'sync-install.webp', caption: '未准备好时的同步安装入口，界面示例。' },
+      { id: 'invite', title: '先取得房主的邀请码', steps: ['在「联机」中登录房主使用的统一服务；官方默认入口无需填写地址。', '点击「加入房间」，粘贴房主分享的邀请码。', '公开且允许直接加入的房间，也可从大厅列表进入。'], image: 'native-join.webp', caption: '粘贴邀请码加入，界面示例。' },
+      { id: 'sync', title: '配置不一致，先同步安装', paragraphs: ['加入后查看房间要求的 Minecraft、加载器和模组。出现不匹配提示时，点击「同步安装」，选择全新下载或从已有配置补齐。', '首次同步建议建立独立实例，保留原有整合包。下载和校验完成后，复核配置，再进入游戏。'], image: 'native-sync.webp', caption: '未准备好时的同步安装入口，界面示例。' },
       { id: 'files', title: '同步失败时先看具体文件', paragraphs: ['公开下载来源、服务缓存、房主允许共享的文件，可能分别参与准备过程。某些文件暂不可用时，查看「安装日志」里的文件和错误，再使用界面提供的继续补齐入口。', '必需模组没有准备齐前，不建议为了进入游戏直接移除；Forge 和 NeoForge 不可因为游戏版本一致就混用。'] },
       { id: 'enter', title: '世界开放后进入游戏', paragraphs: ['房主尚未开放世界时，房间显示等待属于正常状态。配置准备好后可先停在主菜单，等世界开放。', '按房间提示进入游戏。多人列表未出现房间时，复制启动器提供的游戏地址，通过 Minecraft 的直接连接加入。'] },
       { id: 'disconnect', title: '断线与离开房间', paragraphs: ['网络中断后，启动器可能尝试恢复连接，但已断开的游戏连接仍可能需要重新进入。离开房间只结束自己的连接；房主退出世界后，其他人也无法继续在该世界游玩。'] },
@@ -103,7 +139,29 @@ export const guides: Guide[] = [
       { id: 'loader', title: '提示加载器或模组不匹配', paragraphs: ['先核对 Minecraft、加载器名称与版本，再看必需模组。NeoForge 与 Forge 需要分别核对，不能只看游戏版本。', '从正确实例建房，访客使用同步安装或作者提供的客户端。不要随意删除必需模组绕过检查。'] },
       { id: 'world', title: '进了房间却进不了世界', paragraphs: ['确认房主已进入正确存档，并执行对局域网开放。只创建准备房间，并不代表游戏世界已经运行。', '确认房间关联的是当前世界。游戏多人列表没有显示时，使用启动器提供的地址直接连接。'] },
       { id: 'performance', title: '先分清画面卡、世界卡还是连接卡', paragraphs: ['只有自己掉帧，先查帧率、光影、渲染距离和本机内存。多人同时遇到方块回弹、实体停顿，结合房主日志、CPU、内存和网络状态检查。', '人物瞬移、连接超时或反复掉线，查看双方网络和当前 P2P / 中继状态，必要时尝试节点中继。这些表现只帮助缩小范围，不能单凭一项认定原因。', '模组包的内存按作者建议设置，并给系统留出余量。内存太少和系统内存被挤满，都可能影响游玩。'] },
-      { id: 'report', title: '反馈时带哪些信息', steps: ['启动器版本、系统、Minecraft 与加载器版本。', '你是房主还是访客，问题发生的大致时间和复现步骤。', '当前 P2P / 中继状态、完整报错文字，以及对应安装或游戏日志。'], note: '公开发日志前，移除密码、访问令牌、房间邀请码和其他私密信息。可以在 GitHub Issues 或节点反馈入口提交。' },
+      { id: 'report', title: '反馈时带哪些信息', steps: ['启动器版本、系统、Minecraft 与加载器版本。', '你是房主还是访客，问题发生的大致时间和复现步骤。', '当前 P2P / 中继状态、完整报错文字，以及对应安装或游戏日志。'], note: '公开发日志前，移除密码、访问令牌、房间邀请码和其他私密信息。使用启动器的「问题反馈」提交，或在官网联系维护者。' },
+    ],
+  },
+  {
+    slug: 'launcher-windows', title: 'Windows 10 / 11 阻止启动器运行怎么办', category: '启动器打不开', minutes: 5,
+    summary: '区分 ZIP 下载、SmartScreen 和 Windows 11 智能应用控制，按提示逐步处理启动器打不开的问题。',
+    keywords: ['Windows 10', 'Windows 11', 'SmartScreen', '智能应用控制', 'Smart App Control', '无法运行', 'exe', 'ZIP'],
+    sections: [
+      { id: 'zip', title: '先确认下载与解压', steps: ['从 Buggcraft 下载站选择 Windows。下载文件名应以 .zip 结尾，例如 Buggcraft-windows-x64.zip。', '在“下载”文件夹中右键 ZIP，选择“全部解压缩”，再打开解压后的文件夹运行 Buggcraft.exe；不要直接在压缩包预览窗口中运行。', '若浏览器只显示 Buggcraft.exe，请先打开资源管理器“查看”中的“文件扩展名”，确认它是压缩包内的文件，还是浏览器实际下载的文件。'], note: '下载站提供 ZIP；ZIP 内包含 Windows 启动程序 Buggcraft.exe。它们是两个不同的文件。' },
+      { id: 'smartscreen', title: '提示“Windows 已保护你的电脑”', paragraphs: ['这是 Microsoft Defender SmartScreen 的提示。先确认文件确实来自 download.bugg.icu，并核对下载页提供的 SHA-256；来源不明时不要继续。'], steps: ['在拦截窗口中点击“更多信息”。', '核对应用名称和发布者信息；确认确为自己从官网下载的文件后，点击“仍要运行”。', '若没有“仍要运行”，检查是否由学校、公司或家长的安全策略管理，不要尝试绕过受管理设备的限制。'], image: 'windows-smartscreen-zh.svg', imageWidth: 760, imageHeight: 570, caption: 'SmartScreen 中文操作示意图，点击可放大。实际窗口会随 Windows 版本变化。', links: [{ label: '微软：Windows 安全中心的应用和浏览器控制', href: 'https://support.microsoft.com/zh-cn/windows/security/windows-security/app-browser-control-in-the-windows-security-app' }] },
+      { id: 'smart-app-control', title: 'Windows 11 显示“智能应用控制已阻止此应用”', paragraphs: ['这与 SmartScreen 是不同的拦截。请保留系统防护，记录弹窗原文、下载文件名和 SHA-256，联系我们核实该发行包。'], steps: ['从官网下载最新版本，核对 SHA-256 与文件来源。', '如果仍被阻止，请把系统版本、发行版本和弹窗截图提交反馈，等待处理后的发行包。', '学校或公司的受管理设备请联系管理员。'], links: [{ label: '提交问题反馈', href: 'https://bugg.icu/#community' }, { label: '微软：智能应用控制常见问题', href: 'https://support.microsoft.com/zh-cn/windows/security/threat-malware-protection/smart-app-control-frequently-asked-questions' }] },
+      { id: 'other', title: '双击没反应、缺文件或解压报错', steps: ['重新下载 ZIP，核对 SHA-256 后再解压；如果解压报错，不要继续使用损坏的文件。', '确认解压目录仍保留启动器附带的文件，不要只把 EXE 单独移到别处。', '如果安全软件隔离了文件，先检查隔离记录和文件来源；不要全局关闭杀毒软件。', '将系统版本、弹窗原文、启动器版本和错误时间提交反馈，也可以添加微信 junsi223（优先）或加入 QQ 群 849362477 求助。'], links: [{ label: '返回下载站', href: 'https://download.bugg.icu/' }, { label: '提交问题反馈', href: 'https://bugg.icu/#community' }] },
+    ],
+  },
+  {
+    slug: 'launcher-macos', title: 'MacBook 提示无法打开启动器怎么办', category: '启动器打不开', minutes: 4,
+    summary: '选对 Apple 芯片或 Intel 版本，解压后通过 macOS“隐私与安全性”处理未验证开发者提示。',
+    keywords: ['MacBook', 'macOS', 'Apple Silicon', 'Intel', '无法验证开发者', '仍要打开', '应用已损坏'],
+    sections: [
+      { id: 'architecture', title: '先选对芯片与文件', steps: ['点屏幕左上角苹果菜单→“关于本机”，确认是 Apple 芯片（M 系列）还是 Intel。', '从下载站下载对应版本的 ZIP，完整解压，再把 Buggcraft.app 放到“应用程序”文件夹。', '优先从“应用程序”中打开，不要直接在 ZIP 预览里打开。'], note: 'Apple 芯片与 Intel 的版本不同；选错版本可能无法运行。' },
+      { id: 'unverified', title: '提示“无法验证开发者”或阻止打开', paragraphs: ['只对自己从官网下载、并确认可信的 Buggcraft.app 操作。苹果提供了针对单个应用的“仍要打开”入口，无需关闭整个系统的安全检查。'], steps: ['先尝试打开 Buggcraft.app，让系统显示阻止提示。', '打开苹果菜单→“系统设置”→“隐私与安全性”，向下滚动到“安全性”。', '找到刚刚被阻止的 Buggcraft，点击“仍要打开”，按提示输入 Mac 登录密码或使用触控 ID，然后在确认框里打开。'], image: 'mac-unverified-developer.png', imageWidth: 520, imageHeight: 436, caption: 'Apple 官方示例：无法验证开发者时的提示。图片中的应用名称仅为示例。', links: [{ label: 'Apple：安全地打开 Mac 上的 App（图片来源）', href: 'https://support.apple.com/zh-cn/102445' }] },
+      { id: 'open-anyway', title: '在“隐私与安全性”中找到“仍要打开”', paragraphs: ['“仍要打开”通常要在刚刚尝试打开被阻止应用后才出现。它只允许这一个应用，不需要全局关闭 Gatekeeper。'], image: 'mac-open-anyway.png', imageWidth: 1430, imageHeight: 1196, caption: 'Apple 官方示例：“系统设置”→“隐私与安全性”中的“仍要打开”按钮。图片中的应用名称仅为示例。', links: [{ label: 'Apple：查看图示与最新操作步骤', href: 'https://support.apple.com/zh-cn/102445' }] },
+      { id: 'damaged', title: '提示“已损坏”、含恶意软件或仍然打不开', paragraphs: ['“已损坏”可能表示下载或解压不完整，先删除这份副本并从官网下载匹配芯片的新 ZIP，核对校验值后重试。若系统明确提示含恶意软件、证书被撤销或会损坏电脑，不要绕过警告。'], steps: ['确认下载文件是 ZIP，重新解压，检查 Buggcraft.app 没有被拆散。', '确认 macOS 版本与下载页要求相符；设备受公司管理时咨询管理员。', '依然失败时，记录弹窗的完整文字、macOS 版本、芯片类型和下载文件名，提交反馈；微信 junsi223 优先，QQ 群 849362477 也可联系。'], links: [{ label: 'Apple：了解 Mac 打开应用的安全提示', href: 'https://support.apple.com/zh-cn/102445' }, { label: '提交问题反馈', href: 'https://bugg.icu/#community' }] },
     ],
   },
 ];

@@ -1,0 +1,18 @@
+[Unit]
+Description=Buggcraft HTTPS clock synchronization fallback
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/lib/buggcraft-node/web/tunnel/clock_sync.py
+TimeoutStartSec=60
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+CapabilityBoundingSet=CAP_SYS_TIME
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

@@ -61,6 +61,23 @@ class NativeTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse((await self.call(client, {'op':'close'}))['ok'])
         self.assertEqual((await self.call(client, {'op':'describe'}))['result']['title'], 'Native world')
 
+    async def test_compression_default_off_and_explicit_auto_negotiation(self):
+        from tunnel.native_relay import DEFAULT_COMPRESSION
+        self.assertEqual(DEFAULT_COMPRESSION, 'off')
+        self.assertEqual(self.relay.compression, 'off')
+        directory = await self.connect()
+        capabilities = (await self.call(directory, {'op': 'ping'}))['result']['capabilities']
+        self.assertNotIn('relay-zstd-v1', capabilities)
+        host = await self.connect('host', secrets.token_urlsafe(32))
+        with self.assertRaises(asyncssh.ChannelListenError):
+            await host.forward_remote_port('buggcraft-zstd', 0, '127.0.0.1', 9)
+        self.relay.compression = 'auto'
+        capabilities = (await self.call(directory, {'op': 'ping'}))['result']['capabilities']
+        self.assertIn('relay-zstd-v1', capabilities)
+        listener = await host.forward_remote_port('buggcraft-zstd', 0, '127.0.0.1', 9)
+        self.assertGreater(listener.get_port(), 0)
+        listener.close()
+
     async def test_public_preparation_room_is_visible_without_game_port(self):
         directory = await self.connect()
         secret = secrets.token_urlsafe(32)
@@ -237,6 +254,42 @@ class NativeTests(unittest.IsolatedAsyncioTestCase):
             if connection:
                 connection.close()
                 await connection.wait_closed()
+            await relay.close()
+
+    async def test_dual_stack_stun_returns_the_request_address_family(self):
+        if not socket.has_ipv6:
+            self.skipTest('IPv6 is unavailable')
+        relay = await RelayServer('::', 0, host_key=self.key, token=self.relay.token, workers=1).start()
+        loop = asyncio.get_running_loop()
+        try:
+            for family, host, attribute_family, width in (
+                    (socket.AF_INET, '127.0.0.1', 1, 4), (socket.AF_INET6, '::1', 2, 16)):
+                connection = await asyncssh.connect(host, relay.port, username='directory:rooms',
+                    password=json.dumps(dict(token=relay.token, secret='')),
+                    known_hosts=([self.key.convert_to_public()], [], []), client_keys=[], config=None, agent_path=None)
+                try:
+                    self.assertTrue((await self.call(connection, {'op': 'ping'}))['ok'])
+                finally:
+                    connection.close()
+                    await connection.wait_closed()
+                udp = socket.socket(family, socket.SOCK_DGRAM)
+                udp.bind((host, 0))
+                udp.setblocking(False)
+                try:
+                    transaction = os.urandom(12)
+                    request = b'\x00\x01\x00\x00\x21\x12\xa4\x42' + transaction
+                    destination = (host, relay.port, 0, 0) if family == socket.AF_INET6 else (host, relay.port)
+                    await loop.sock_sendto(udp, request, destination)
+                    response, _ = await asyncio.wait_for(loop.sock_recvfrom(udp, 512), 3)
+                    self.assertEqual(response[8:20], transaction)
+                    self.assertEqual(response[25], attribute_family)
+                    self.assertEqual(len(response), 28 + width)
+                    decoded = bytes(a ^ b for a, b in zip(response[28:], request[4:]))
+                    self.assertEqual(decoded, socket.inet_pton(family, host))
+                    self.assertEqual(int.from_bytes(response[26:28], 'big') ^ 0x2112, udp.getsockname()[1])
+                finally:
+                    udp.close()
+        finally:
             await relay.close()
 
     async def test_payload_and_half_close_without_python_game_bytes(self):

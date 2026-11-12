@@ -83,13 +83,15 @@ class ReleaseAssetsTests(unittest.TestCase):
             output = Path(directory)
             names = ["buggcraft-native-1.2.3-" + platform + (".zip" if platform == "windows-x64" else ".tar.gz")
                      for platform in release_assets.PLATFORMS.values()]
-            names.append("buggcraft-node_1.2.3_amd64.deb")
+            names.extend("buggcraft-node_1.2.3_" + arch + ".deb" for arch in ('amd64', 'arm64'))
+            names.append("buggcraft-node-1.2.3-windows-x64-setup.exe")
+            names.extend("buggcraft-node-1.2.3-macos-" + arch + ".pkg" for arch in ('arm64', 'x64'))
             for name in names:
                 path = output / name
                 path.write_bytes(name.encode())
                 path.with_name(name + ".sha256").write_text(f"{release_assets.digest(path)}  {name}\n")
             release_assets.verify_assets(output, "1.2.3")
-            self.assertEqual(len((output / "SHA256SUMS").read_text().splitlines()), 5)
+            self.assertEqual(len((output / "SHA256SUMS").read_text().splitlines()), 10)
             (output / names[0]).write_bytes(b"changed")
             with self.assertRaisesRegex(ValueError, "checksum mismatch"):
                 release_assets.verify_assets(output, "1.2.3")

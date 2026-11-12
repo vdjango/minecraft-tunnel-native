@@ -157,7 +157,7 @@ class RoomControlSession(asyncssh.SSHServerSession):
             self.channel.close()
             return
         self.buffer.extend(data)
-        if len(self.buffer) > MAX_FRAME:
+        if len(self.buffer) > (1024 * 1024 if self.peer.role == 'federation' else MAX_FRAME):
             self.channel.close()
             return
         while b'\n' in self.buffer:
@@ -178,10 +178,12 @@ class RoomControlSession(asyncssh.SSHServerSession):
                 if self.lookup_task is not None and not self.lookup_task.done():
                     self.channel.close()
                     return
-                if (request.get('op') == 'account_lookup' and self.peer.role == 'directory') or request.get('op') == 'social':
+                if (request.get('op') == 'account_lookup' and self.peer.role == 'directory') or request.get('op') in ('social', 'social_control', 'social_deliver'):
                     self.lookup_task = asyncio.create_task(self._async_response(request))
                     continue
                 response = {'ok': True, 'result': self.dispatch(request)}
+            except OSError:
+                response = {'ok': False, 'error': 'Control storage temporarily unavailable', 'retryable': True}
             except (ValueError, TypeError, KeyError, UnicodeError) as exc:
                 response = {'ok': False, 'error': str(exc)[:160]}
             self.channel.write(json.dumps(response, ensure_ascii=True).encode() + b'\n')
@@ -198,44 +200,32 @@ class RoomControlSession(asyncssh.SSHServerSession):
                 raise ValueError('匿名接入没有好友功能，请领取个人接入码。')
             if peer.role not in ('directory', 'federation'):
                 raise ValueError('Invalid social role')
+            from .social_delivery import accept_context, route, submit
             envelope = request.get('event')
             if peer.role == 'federation':
-                actor, _ = fed.accounts.social.validate(envelope, fresh=True)
-                account = actor
-            else:
-                account = peer.account
-            if envelope is None:
-                result = fed.accounts.social.state(account)
-            else:
-                actor, action = fed.accounts.social.validate(envelope, fresh=True)
-                if actor != account or self.peer.relay.account_blocked(account):
+                operation = request.get('op')
+                if operation == 'social_control' and (not fed.control or fed.control.mode != 'center'):
+                    raise ValueError('This node is not a control center')
+                accept_context(fed, request.get('context', {}))
+                account = request.get('account')
+                if envelope is not None:
+                    actor, _ = fed.accounts.social.validate(envelope)
+                    if account is not None and account != actor:
+                        raise ValueError('Friend identity does not match authenticated account')
+                    account = actor
+                if account not in fed.accounts.replication.directory or peer.relay.account_blocked(account):
                     raise ValueError('Account access denied')
-                if action['op'] == 'join':
-                    invite = fed.accounts.social.invitations.get((action['target'], actor))
-                    room_id = invite['action']['room'] if invite else ''
-                else:
-                    room_id = action.get('room', '')
-                if room_id and room_id not in peer.relay.rooms:
-                    target = fed.locate(room_id)
-                    if peer.role != 'directory' or not target:
-                        raise ValueError('好友的房间暂不可用。')
-                    result = await fed.account_rpc(target, 'social', event=envelope)
-                    fed.accounts.social.ingest([envelope])
-                else:
-                    if action['op'] in ('invite', 'accept_join'):
-                        room = peer.relay.rooms.get(room_id)
-                        if not room or manager_account(room) != actor or not room.port:
-                            raise ValueError('只能邀请好友加入你创建的可用房间。')
-                    if action['op'] == 'presence' and room_id:
-                        room = peer.relay.rooms.get(room_id)
-                        owner = bool(room and manager_account(room) == actor)
-                        member = any(getattr(p, 'account', None) == actor and getattr(p, 'room', None) == room_id
-                                     for p in peer.relay.peers)
-                        if not room or (action['room_role'] == 'host' and not owner) or (not owner and not member):
-                            raise ValueError('当前房间连接已结束，请刷新状态。')
-                    result = fed.accounts.social.apply(account, envelope)
+                result = await route(fed, account, envelope,
+                                     local_only=operation != 'social_control', fresh=False)
+                if operation == 'social_control':
+                    from .social_delivery import context
+                    result = {'result': result, 'context': context(fed, envelope, account)}
+            else:
+                result = await submit(fed, peer.account, envelope)
             response = {'ok': True, 'result': result}
-        except (ValueError, TypeError, KeyError, OSError, asyncssh.Error) as exc:
+        except (OSError, TimeoutError, asyncssh.Error):
+            response = {'ok': False, 'error': 'Control service temporarily unavailable', 'retryable': True}
+        except (ValueError, TypeError, KeyError) as exc:
             response = {'ok': False, 'error': str(exc)[:160]}
         try:
             self.channel.write(json.dumps(response, ensure_ascii=True).encode() + b'\n')
@@ -281,6 +271,11 @@ class RoomControlSession(asyncssh.SSHServerSession):
         if operation == 'diagnostics' and peer.role in ('host', 'client') and relay.diagnostics:
             return relay.diagnostics.report(peer, request.get('report'))
         if peer.role == 'federation' and relay.federation and operation == 'snapshot':
+            origin = request.get('origin')
+            if origin is not None:
+                if not isinstance(origin, dict) or origin.get('body', {}).get('id') != peer.node_id:
+                    raise ValueError('Invalid snapshot origin')
+                relay.federation.ingest([origin])
             return relay.federation.snapshot(getattr(peer, 'node_id', None), request.get('social_version'),
                 request.get('presence_version'), request.get('record_versions'), request.get('snapshot_versions'),
                 request.get('record_cursor', ''))
@@ -310,6 +305,8 @@ class RoomControlSession(asyncssh.SSHServerSession):
                 store.ingest_one(record)
                 store.save()
                 return {'saved': True}
+        if operation == 'control_enroll' and peer.role == 'directory' and relay.federation and relay.federation.control:
+            return relay.federation.control.enroll(request)
         if operation == 'introduce' and peer.role == 'directory' and relay.federation:
             relay.federation.ingest([request.get('record')])
             return {'accepted': True}

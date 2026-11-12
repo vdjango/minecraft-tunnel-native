@@ -1,6 +1,23 @@
 """Hold TCP bytes without FIN/RST: the kernels still ACK both connections."""
 import asyncio
 import errno
+import ipaddress
+import socket
+import psutil
+
+
+def nonloopback_ipv4():
+    """Use an active interface, including hosts whose hostname resolves to lo."""
+    states = psutil.net_if_stats()
+    for name, addresses in psutil.net_if_addrs().items():
+        if name not in states or not states[name].isup:
+            continue
+        for address in addresses:
+            if address.family == socket.AF_INET:
+                ip = ipaddress.IPv4Address(address.address)
+                if not (ip.is_loopback or ip.is_link_local or ip.is_unspecified):
+                    return address.address
+    return None
 
 
 class BlackholeProxy:
@@ -75,23 +92,36 @@ class TcpOnlyRelay(BlackholeProxy):
             self.server = await asyncio.start_server(self.accept, host, 0)
             self.port = self.server.sockets[0].getsockname()[1]
             return self
-        # Windows may exclude a port for UDP even when TCP can bind it. Let
-        # UDP choose its own usable port, then reserve that same port for TCP.
+        # Windows excludes different ranges for each protocol. Alternate the
+        # protocol which chooses a port instead of retrying its excluded range.
         loop = asyncio.get_running_loop()
+        prefer_tcp = False
         for attempt in range(16):
-            transport, protocol = await loop.create_datagram_endpoint(
-                udp_factory, local_addr=(host, 0))
-            port = transport.get_extra_info('sockname')[1]
+            transport = server = None
             try:
-                server = await asyncio.start_server(self.accept, host, port)
+                if prefer_tcp:
+                    server = await asyncio.start_server(self.accept, host, 0)
+                    port = server.sockets[0].getsockname()[1]
+                    transport, protocol = await loop.create_datagram_endpoint(
+                        udp_factory, local_addr=(host, port))
+                else:
+                    transport, protocol = await loop.create_datagram_endpoint(
+                        udp_factory, local_addr=(host, 0))
+                    port = transport.get_extra_info('sockname')[1]
+                    server = await asyncio.start_server(self.accept, host, port)
             except OSError as error:
-                transport.close()
+                if transport is not None:
+                    transport.close()
+                if server is not None:
+                    server.close()
+                    await server.wait_closed()
                 await asyncio.sleep(0)
                 if (error.errno not in (errno.EACCES, errno.EADDRINUSE)
                         and getattr(error, 'winerror', None) not in (10013, 10048)):
                     raise
                 if attempt == 15:
                     raise
+                prefer_tcp = not prefer_tcp
             else:
                 self.server, self.port = server, port
                 self.udp_transport, self.udp_protocol = transport, protocol

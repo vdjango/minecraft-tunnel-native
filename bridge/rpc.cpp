@@ -7,24 +7,47 @@
 #include "rpc.hpp"
 #include "journal.hpp"
 #include "feedback.hpp"
+#include "control_client.hpp"
 #include <iostream>
 namespace bridge {
-struct Node{Profile identity,profile;std::vector<Profile> alternatives;std::unique_ptr<RouteSelector> routes;};
+struct Node{Profile identity,profile;std::vector<Profile> alternatives;std::unique_ptr<RouteSelector> routes;std::shared_ptr<ControlClient> control;};
 class Rpc {
     std::unordered_map<std::string,Node> nodes_;
     std::unordered_map<std::string,std::shared_ptr<Session>> sessions_;
     std::unordered_map<std::string,std::string> session_nodes_;
     Node& node(const Json& p){auto key=p.value("node",Json(nullptr));if(!key.is_string()||!nodes_.contains(key.get<std::string>()))throw Failure(-32602,"Unknown node handle; call node.add first");return nodes_.at(key.get<std::string>());}
     std::shared_ptr<Session> session(const Json& p){auto key=p.value("session",Json(nullptr));if(!key.is_string()||!sessions_.contains(key.get<std::string>()))throw Failure(-32004,"Unknown session");return sessions_.at(key.get<std::string>());}
-public:
+    void publish_listing(const std::shared_ptr<Session> &endpoint, Json &result,
+                         const Json &info) {
+      if (endpoint->role != "host")
+        return;
+      auto owner = nodes_.find(session_nodes_.at(endpoint->identity));
+      if (owner == nodes_.end() || !owner->second.control)
+        return;
+      try {
+        owner->second.control->publish(endpoint->room, info);
+      } catch (const Failure &error) {
+        result["directory_error"] = error.what();
+      }
+    }
+
+  public:
     ~Rpc(){for(auto& [id,s]:sessions_)s->stop();}
     Json dispatch(const std::string& method,const Json& p){
         if(method=="bridge.diagnostics"){auto value=journal().snapshot();value["native_version"]=BUGGCRAFT_VERSION;return value;}
         if(method=="feedback.submit"){auto& n=node(p);return submit_feedback(n.profile,p);}
         if(method=="bridge.initialize"){if(p.value("protocol",Json(1))!=1)throw Failure(-32602,"Unsupported bridge protocol version");
             return {{"protocol",1},{"name","buggcraft-bridge"},{"jsonrpc","2.0"},{"build",{{"protocol",1},{"implementation","cpp"},{"version",BUGGCRAFT_VERSION},{"signed",false}}},{"transports",{"auto","relay"}},{"mixed_rooms",true},
-                {"methods",{"bridge.diagnostics","node.add","node.remove","node.request","social.operate","node.routes","node.selected","node.failed","bridge.events","game.status","game.discover","game.announce","room.list","room.resolve","room.host","room.join","room.close","room.request","room.retarget","room.configure","mods.manifest","mods.fetch","mods.status","mods.cancel","mods.configure","feedback.submit","chat.poll","chat.send","session.events","session.list"}},{"limits",{{"request_bytes",8192},{"nodes",16},{"sessions",8}}}};}
-        if(method=="node.add"){if(nodes_.size()>=16)throw Failure(-32010,"Node limit reached");if(!p.contains("code")||!p["code"].is_string())throw Failure(-32602,"code must be a string");Node value;value.profile=Profile::decode(p["code"].get<std::string>());
+                {"methods",{"bridge.diagnostics","node.add","node.remove","node.request","social.operate","node.routes","node.select","node.selected","node.failed","bridge.events","game.status","game.discover","game.announce","room.list","room.resolve","room.host","room.join","room.close","room.request","room.retarget","room.configure","mods.manifest","mods.fetch","mods.status","mods.cancel","mods.configure","feedback.submit","chat.poll","chat.send","session.events","session.list"}},{"limits",{{"request_bytes",8192},{"nodes",16},{"sessions",8}}}};}
+        if(method=="node.add"){if(nodes_.size()>=16)throw Failure(-32010,"Node limit reached");Node value;
+            if(p.contains("profile"))value.profile=Profile::from_json(p.at("profile"));
+            else {if(!p.contains("code")||!p["code"].is_string())throw Failure(-32602,"code must be a string");value.profile=Profile::decode(p["code"].get<std::string>());}
+            if(!value.profile.control.empty()){
+                value.identity=value.profile;value.control=std::make_shared<ControlClient>(value.identity);
+                value.profile=value.control->discovery();value.routes=std::make_unique<RouteSelector>(value.profile,std::vector<Profile>{});
+                auto handle=random_id(12);Json result{{"node",handle},{"name",value.profile.name},{"identity","account"},{"managed",true}};
+                nodes_.emplace(handle,std::move(value));return result;
+            }
             auto imported=p.value("alternatives",Json::array());if(!imported.is_array()||imported.size()>5)throw Failure(-32602,"Invalid fallback profiles");
             for(const auto& item:imported)value.alternatives.push_back(Profile::from_json(item));
             bool verified=false;
@@ -44,14 +67,25 @@ public:
             if(value.identity.token.starts_with("acct1."))
                 for(auto& alternative:value.alternatives)alternative.token=value.identity.token;
             value.routes=std::make_unique<RouteSelector>(value.profile,value.alternatives);
-            try{value.routes->refresh(value.profile,value.alternatives);}catch(...){if(!verified)throw;log("route_probe_deferred");}
+            try{if(p.value("selection",std::string{})=="latency")value.routes->automatic(value.profile,value.alternatives,false);
+                else value.routes->refresh(value.profile,value.alternatives);}catch(...){if(!verified)throw;log("route_probe_deferred");}
             auto handle=random_id(12);Json result{{"node",handle},{"name",value.profile.name},{"identity",value.identity.token.starts_with("acct1.")?"account":"anonymous"}};nodes_.emplace(handle,std::move(value));return result;}
-        if(method=="node.routes"){auto& n=node(p);try{n.routes->refresh(n.profile,n.alternatives,p.value("refresh",false));}catch(...){}
-            return {{"name",n.profile.name},{"routes",n.routes->status()},{"backups",n.alternatives.size()}};}
-        if(method=="node.selected"){auto& n=node(p);try{n.routes->refresh(n.profile,n.alternatives);}catch(...){}
+        if(method=="node.routes"||method=="node.select"){auto& n=node(p);
+            if(n.control){
+                if(method=="node.select")return n.control->select_route(p.at("index").get<int>());
+                if(p.value("auto",false))return n.control->select_route(-1);
+                return n.control->routes(p.value("refresh",false));
+            }
+            if(method=="node.select"){
+                auto index=p.value("index",Json(nullptr));if(!index.is_number_integer()||index.get<int64_t>()<0)throw Failure(-32602,"Invalid route index");
+                n.routes->select(n.profile,n.alternatives,index.get<size_t>());
+            }else if(p.value("auto",false))n.routes->automatic(n.profile,n.alternatives,p.value("refresh",true));
+            else try{n.routes->refresh(n.profile,n.alternatives,p.value("refresh",false));}catch(...){}
+            return {{"name",n.profile.name},{"routes",n.routes->status(n.profile)},{"backups",n.alternatives.size()}};}
+        if(method=="node.selected"){auto& n=node(p);if(!n.control)try{n.routes->refresh(n.profile,n.alternatives);}catch(...){}
             auto profile_json=[](const Profile& profile){return Json{{"server_host",profile.host},{"server_port",profile.port},{"server_public_key",profile.key},{"token",profile.token}};};
             auto backups=Json::array();for(const auto& backup:n.alternatives)backups.push_back(profile_json(backup));
-            return {{"profile",profile_json(n.profile)},{"name",n.profile.name},{"backups",backups},{"accepting",n.routes->admissible(n.profile)}};}
+            return {{"profile",profile_json(n.profile)},{"name",n.profile.name},{"backups",backups},{"accepting",n.control?true:n.routes->admissible(n.profile)}};}
         if(method=="bridge.events"){auto result=Json::array();for(auto& [handle,n]:nodes_)for(auto& event:n.routes->events()){event["node"]=handle;result.push_back(event);}return {{"events",result}};}
         if(method=="game.status")return game_status(p.at("port").get<int>(),p.value("timeout_ms",2000));
         if(method=="game.discover"){std::set<int> excluded;auto list=p.value("exclude",Json::array());if(!list.is_array()||list.size()>64)throw Failure(-32602,"Invalid excluded ports");for(auto& item:list){if(!item.is_number_integer()||item.get<int>()<1||item.get<int>()>65535)throw Failure(-32602,"Invalid excluded port");excluded.insert(item.get<int>());}return discover_worlds(excluded,p.value("duration_ms",3000));}
@@ -59,6 +93,24 @@ public:
         if(method=="node.failed"){auto& n=node(p);n.routes->failed(Profile::from_json(p.at("profile")));return {{"recorded",true}};}
         if(method=="node.remove"){node(p);auto key=p.at("node").get<std::string>();for(auto& [id,n]:session_nodes_)if(n==key)throw Failure(-32009,"Node has active rooms");nodes_.erase(key);return {{"removed",true}};}
         if(method=="room.list"||method=="room.resolve"||method=="node.request"||method=="social.operate"){auto& n=node(p);Json request;
+            if(n.control){
+                if(method=="social.operate")return n.control->social(p);
+                if(method=="room.resolve")return n.control->resolve(p.at("id").get<std::string>());
+                if(method=="node.request"){
+                    auto op=p.at("request").value("op",std::string{});
+                    if(op=="social")return n.control->social({{"operation","state"}});
+                    if(op=="account_lookup")return n.control->lookup(p.at("request"));
+                }
+                if (method == "room.list") {
+                  auto result =
+                      n.control->rooms(p.value("query", std::string{}));
+                  auto route = n.control->routes(false);
+                  result["node_name"] = route.at("name");
+                  result["node_latency_ms"] = route.at("node_latency_ms");
+                  return result;
+                }
+                throw Failure(-32602,"Operation is not supported by the control service");
+            }
             const auto started=Clock::now();
             if(method=="room.list"){auto offset=p.value("offset",Json(0));auto limit=p.value("limit",20);auto query=p.value("query",std::string{});if(!offset.is_number_integer()||offset.get<int64_t>()<0||offset.get<int64_t>()>4096||limit<1||limit>50||query.size()>400)throw Failure(-32602,"Invalid room pagination");request={{"op","list"},{"offset",offset},{"limit",limit},{"query",query}};}
             else if(method=="room.resolve")request={{"op","resolve"},{"id",p.at("id")}};
@@ -77,26 +129,94 @@ public:
             if(method=="room.list"){
                 result["connect_ms"]=std::chrono::duration<double,std::milli>(Clock::now()-started).count();
                 result["node_name"]=n.profile.name;
+                for(const auto& route:n.routes->status(n.profile))if(route.value("selected",false))result["node_region"]=route.value("region",std::string{});
             }
             if(before.key!=n.profile.key||before.host!=n.profile.host||before.port!=n.profile.port){n.routes->failed(before);n.routes->recovered(before,n.profile);try{n.routes->refresh(n.profile,n.alternatives);}catch(...){}}
             return result;}
         if(method=="room.host"||method=="room.join"){auto& n=node(p);if(sessions_.size()>=8)throw Failure(-32010,"Session limit reached");auto policy=p.value("transport","auto");if(policy!="auto"&&policy!="relay")throw Failure(-32602,"Invalid transport policy");auto compression=p.value("compression","auto");if(compression!="auto"&&compression!="off")throw Failure(-32602,"Invalid compression policy");
             bool host=method=="room.host";int port=25565;if(host&&p.contains("game_port")){if(!p["game_port"].is_number_integer()||p["game_port"].is_boolean())throw Failure(-32602,"Invalid game_port");port=p["game_port"].get<int>();if(port<0||port>65535)throw Failure(-32602,"Invalid game_port");}
             std::string secret=host?random_id(32):invitation(p.at("invite").get<std::string>());Json settings=p.value("settings",Json::object());if(!settings.is_object())throw Failure(-32602,"Invalid room settings");
-            try{n.routes->refresh(n.profile,n.alternatives);}catch(...){if(host)throw;}
-            if(host&&!n.routes->admissible(n.profile))throw Failure(-32022,"No node with available room capacity");
+            if(!n.control)try{n.routes->refresh(n.profile,n.alternatives);}catch(...){if(host)throw;}
+            if(host&&!n.control&&!n.routes->admissible(n.profile))throw Failure(-32022,"No node with available room capacity");
             const auto before=n.profile;
-            auto profile=host?n.profile:locate_room(n.profile,n.alternatives,room_id(secret));
-            if(before.key!=n.profile.key||before.host!=n.profile.host||before.port!=n.profile.port){n.routes->failed(before);n.routes->recovered(before,n.profile);}
-            auto endpoint=std::make_shared<Session>(profile,host?"host":"client",secret,policy,port,settings,compression,n.alternatives,p.value("listen_port",0),p.value("announce",true),p.value("game_directory",std::string{}),p.value("chat_name",std::string("Player")),p.value("game_chat_enabled",false),p.value("game_chat_name",std::string{}),p.value("ice_family",std::string("auto")));auto result=endpoint->start();sessions_[endpoint->identity]=endpoint;session_nodes_[endpoint->identity]=p["node"].get<std::string>();return result;}
-        if(method=="room.close"){auto endpoint=session(p);endpoint->stop();sessions_.erase(endpoint->identity);session_nodes_.erase(endpoint->identity);return {{"closed",true}};}
-        if(method=="room.request")return session(p)->request(p.at("request"));
-        if(method=="session.events")return session(p)->events();
-        if(method=="room.retarget")return session(p)->retarget(p.at("port").get<int>(),p.at("game"));
-        if(method=="room.configure")return session(p)->configure(p.at("settings"));
-        if(method=="mods.manifest"||method=="mods.fetch"||method=="mods.status"||method=="mods.cancel"||method=="mods.configure")return session(p)->mods(method,p);
-        if(method=="chat.poll")return session(p)->chat(Json::object());
-        if(method=="chat.send"){auto text=p.at("text").get<std::string>();if(text.empty()||text.size()>2000)throw Failure(-32602,"Invalid chat text");return session(p)->chat({{"op","send"},{"text",text},{"request",random_id(12)}});}
+            auto profile =
+                n.control ? n.control->allocate(room_id(secret), secret, host)
+                          : (host ? n.profile
+                                  : locate_room(n.profile, n.alternatives,
+                                                room_id(secret)));
+            if (before.key != n.profile.key || before.host != n.profile.host ||
+                before.port != n.profile.port) {
+              n.routes->failed(before);
+              n.routes->recovered(before, n.profile);
+            }
+            auto endpoint = std::make_shared<Session>(
+                profile, host ? "host" : "client", secret, policy, port,
+                settings, compression, n.alternatives,
+                p.value("listen_port", 0), p.value("announce", true),
+                p.value("game_directory", std::string{}),
+                p.value("chat_name", std::string("Player")),
+                p.value("game_chat_enabled", false),
+                p.value("game_chat_name", std::string{}),
+                p.value("ice_family", std::string("auto")));
+            if (n.control) {
+              auto control = n.control;
+              auto room = room_id(secret);
+              endpoint->set_reconnector(
+                  [control, room] { return control->reconnect(room); });
+            }
+            auto result = endpoint->start();
+            sessions_[endpoint->identity] = endpoint;
+            session_nodes_[endpoint->identity] = p["node"].get<std::string>();
+            publish_listing(endpoint, result, result.at("info"));
+            return result;
+        }
+        if (method == "room.close") {
+          auto endpoint = session(p);
+          endpoint->stop();
+          auto owner = nodes_.find(session_nodes_.at(endpoint->identity));
+          if (owner != nodes_.end() && owner->second.control)
+            try {
+              owner->second.control->release(endpoint->room);
+            } catch (...) {
+            }
+          sessions_.erase(endpoint->identity);
+          session_nodes_.erase(endpoint->identity);
+          return {{"closed", true}};
+        }
+        if (method == "room.request") {
+          auto endpoint = session(p);
+          auto result = endpoint->request(p.at("request"));
+          if (p.at("request").value("op", std::string{}) == "describe")
+            publish_listing(endpoint, result, result);
+          return result;
+        }
+        if (method == "session.events")
+          return session(p)->events();
+        if (method == "room.retarget" || method == "room.configure") {
+          auto endpoint = session(p);
+          auto result =
+              method == "room.retarget"
+                  ? endpoint->retarget(p.at("port").get<int>(), p.at("game"))
+                  : endpoint->configure(p.at("settings"));
+          auto info = method == "room.retarget"
+                          ? endpoint->request({{"op", "describe"}})
+                          : result;
+          publish_listing(endpoint, result, info);
+          return result;
+        }
+        if (method == "mods.manifest" || method == "mods.fetch" ||
+            method == "mods.status" || method == "mods.cancel" ||
+            method == "mods.configure")
+          return session(p)->mods(method, p);
+        if (method == "chat.poll")
+          return session(p)->chat(Json::object());
+        if (method == "chat.send") {
+          auto text = p.at("text").get<std::string>();
+          if (text.empty() || text.size() > 2000)
+            throw Failure(-32602, "Invalid chat text");
+          return session(p)->chat(
+              {{"op", "send"}, {"text", text}, {"request", random_id(12)}});
+        }
         if(method=="session.list"){auto values=Json::array();for(auto& [id,s]:sessions_)values.push_back(s->status());return {{"sessions",values}};}
         throw Failure(-32601,"Method not found");
     }

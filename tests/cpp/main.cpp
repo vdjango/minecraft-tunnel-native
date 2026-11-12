@@ -11,6 +11,8 @@
 void add_codec_tests(std::vector<std::pair<std::string,std::function<void()>>>&);
 void add_heartbeat_tests(std::vector<std::pair<std::string,std::function<void()>>>&);
 void add_game_wire_tests(std::vector<std::pair<std::string,std::function<void()>>>&);
+void add_encoding_tests(std::vector<std::pair<std::string,std::function<void()>>>&);
+void add_cipher_policy_tests(std::vector<std::pair<std::string,std::function<void()>>>&);
 namespace {
 void require(bool condition,const char* message){if(!condition)throw std::runtime_error(message);}
 template<class F>void rejected(F action){bool caught=false;try{action();}catch(const std::exception&){caught=true;}require(caught,"invalid input was accepted");}
@@ -24,6 +26,8 @@ int main(){
     std::vector<std::pair<std::string,std::function<void()>>> cases;
     add_journal_tests(cases);
     add_codec_tests(cases);
+    add_encoding_tests(cases);
+    add_cipher_policy_tests(cases);
     add_heartbeat_tests(cases);
     add_game_wire_tests(cases);
     auto add=[&](std::string name,std::function<void()> test){cases.emplace_back(std::move(name),std::move(test));};

@@ -1,7 +1,14 @@
 {
-  "home":{"title":"BUGG启动器（Buggcraft）官网 - Minecraft Java 版启动器","description":"BUGG启动器（Buggcraft，也称 bugg）是一款 Minecraft Java 版开源启动器。安装游戏与加载器、管理模组、导入整合包，也可以创建房间和朋友联机。支持 Windows、macOS 和 Linux。","keywords":"BUGG启动器,bugg,buggcraft 启动器,Buggcraft,Minecraft启动器,我的世界启动器,Minecraft联机,整合包导入","url":"https://bugg.icu/"},
-  "index":{"title":"Buggcraft 联机节点 - Minecraft 好友联机","description":"Buggcraft（BUGG启动器）的 Minecraft 联机服务。查看节点状态和连接方法，在启动器中创建或加入好友房间。优先尝试 P2P 直连，无法直连时通过节点中继。","keywords":"Buggcraft,BUGG启动器,Minecraft联机,我的世界联机,好友联机,P2P联机,联机节点","url":"https://node.bugg.icu/"},
-  "network":{"title":"Minecraft 联机节点状态 - Buggcraft","description":"查看 Buggcraft 联机节点的地区、在线状态和可用情况，选择联机入口。页面延迟以节点之间的测量结果为准。","keywords":"Buggcraft,联机节点状态,Minecraft节点,节点网络","url":"https://node.bugg.icu/network"},
-  "connect":{"title":"如何连接联机节点 - Buggcraft","description":"按步骤在 Buggcraft 启动器中添加节点、完成浏览器登录，再创建房间或加入朋友的房间。","keywords":"Buggcraft联机教程,添加联机节点,好友房间","url":"https://node.bugg.icu/connect"},
-  "developers":{"title":"Minecraft 联机开发文档 - Buggcraft","description":"查看启动器如何通过 Buggcraft bridge 接入节点登录、房间、好友、P2P 和中继，以及节点部署与诊断方法。","keywords":"Minecraft联机开发,启动器联机接口,Buggcraft bridge","url":"https://node.bugg.icu/developers"}
+  "home": {
+    "title": "BUGG启动器（Buggcraft）官网 - Minecraft Java 版启动器",
+    "description": "BUGG启动器（Buggcraft，也称 bugg）是一款 Minecraft Java 版开源启动器。安装游戏与加载器、管理模组、导入整合包，也可以创建房间和朋友联机。支持 Windows、macOS 和 Linux。",
+    "keywords": "BUGG启动器,bugg,buggcraft 启动器,Buggcraft,Minecraft启动器,我的世界启动器,Minecraft联机,整合包导入",
+    "url": "https://bugg.icu/"
+  },
+  "download": {
+    "title": "Bugg 下载中心 · 选择你的系统",
+    "description": "BUGG启动器（Buggcraft，也称 bugg）是一款 Minecraft Java 版开源启动器。安装游戏与加载器、管理模组、导入整合包，也可以创建房间和朋友联机。支持 Windows、macOS 和 Linux。",
+    "keywords": "BUGG启动器,bugg,buggcraft 启动器,Buggcraft,Minecraft启动器,我的世界启动器,Minecraft联机,整合包导入",
+    "url": "https://download.bugg.icu/"
+  }
 }

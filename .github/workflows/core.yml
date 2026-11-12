@@ -23,26 +23,43 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install -r requirements.txt
         working-directory: .
+      - name: Check method and DOM inventory
+        working-directory: .
+        run: |
+          python -m pip install -r requirements-dev.txt
+          python scripts/update_code_inventory.py --check
+          python scripts/check_docs.py
       - run: python -m pip install playwright==1.64.0
       - run: python -m playwright install --with-deps chromium
-      - name: Verify node uptime survives restart
+      - name: Verify legacy uptime compatibility
         working-directory: .
-        run: python -m unittest tests.test_node_uptime tests.test_friend_codes_http -v
-      - name: Exercise built support pages in Chromium
+        run: python -m unittest tests.test_node_uptime -v
+      - name: Verify minimal service roles and account browser
         working-directory: .
-        run: python -m unittest tests.test_support_browser -v
+        env:
+          PYTHONPATH: web:tests
+        run: python -m unittest tests.test_service_portal tests.test_service_package tests.test_node_enrollment tests.test_service_browser -v
+      - name: Exercise redesigned website in Chromium
+        working-directory: .
+        run: python -m unittest tests.test_site_browser -v
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: support-page-browser-screenshots
-          path: build/web-browser-artifacts/
+          name: website-browser-screenshots
+          path: validation-artifacts/website-web/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: control-account-browser-screenshots
+          path: validation-artifacts/service-web/
           if-no-files-found: warn
 
   protocol:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2022, macos-15, macos-15-intel]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, windows-2022, macos-15, macos-15-intel]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +71,7 @@ jobs:
         shell: bash
         run: |
           python scripts/release_assets.py version --github-output "$GITHUB_OUTPUT"
-          python -m unittest tests.test_build_tools tests.test_release_assets tests.test_network_proxy -v
+          python -m unittest tests.test_build_tools tests.test_release_assets tests.test_network_proxy tests.test_clock_sync tests.test_capacity_budget -v
       - name: Ubuntu build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libssl-dev libcurl4-openssl-dev ninja-build dpkg-dev
@@ -81,6 +98,16 @@ jobs:
       - name: Build native runtime
         run: python -u scripts/build_native.py
       - run: ctest --test-dir build --build-config Release --output-on-failure
+      - name: Exercise runtime scalar fallback
+        env:
+          BUGGCRAFT_DISABLE_SIMD: '1'
+        run: ctest --test-dir build --build-config Release --output-on-failure
+      - name: Compile without optional native ISA kernels
+        if: runner.os == 'Linux'
+        run: |
+          cmake -S . -B build-scalar -DCMAKE_BUILD_TYPE=Release -DBUGGCRAFT_BRIDGE=OFF -DBUGGCRAFT_SIMD=OFF
+          cmake --build build-scalar --target buggcraft-encoding-tests --parallel 2
+          ctest --test-dir build-scalar -R encoding_units --output-on-failure
       - name: Install native runtime
         shell: pwsh
         run: |
@@ -99,7 +126,7 @@ jobs:
           $env:BUGGCRAFT_BRIDGE_SOAK_LOG_DIR = "$pwd/build/protocol-player-logs"
           python -u -m unittest tests.test_bridge_library.LibraryAbiTests -v 2>&1 | Tee-Object -FilePath windows-library-tests.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -u -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_peer_signaling_attempt tests.test_peer_stun_fallback tests.test_ipv4_p2p tests.test_relay_handshake tests.test_resource_metadata tests.test_room_lobby tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_profile_exchange tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v 2>&1 | Tee-Object -FilePath windows-protocol-tests.log
+          python -u -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_peer_signaling_attempt tests.test_peer_stun_fallback tests.test_ipv4_p2p tests.test_relay_handshake tests.test_resource_metadata tests.test_room_lobby tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_profile_exchange tests.test_content_cache tests.test_content_cache_admin tests.test_control_plane tests.test_social_party tests.test_network_presence tests.test_federation_resource_settings tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v 2>&1 | Tee-Object -FilePath windows-protocol-tests.log
           $testStatus = $LASTEXITCODE
           if ($testStatus -ne 0) { exit $testStatus }
           python -u scripts/check_compatibility.py 2>&1 | Tee-Object -FilePath windows-compatibility.log
@@ -116,7 +143,7 @@ jobs:
           else
             export BUGGCRAFT_BRIDGE_LIBRARY="$PWD/package/lib/libbuggcraft_bridge.so"
           fi
-          python -u -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_peer_signaling_attempt tests.test_peer_stun_fallback tests.test_ipv4_p2p tests.test_relay_handshake tests.test_resource_metadata tests.test_room_lobby tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_profile_exchange tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v 2>&1 | tee unix-protocol-tests.log
+          python -u -m unittest tests.test_native tests.test_bridge tests.test_bridge_services tests.test_bridge_library tests.test_peer_reconnect tests.test_peer_heartbeat tests.test_peer_signaling_attempt tests.test_peer_stun_fallback tests.test_ipv4_p2p tests.test_relay_handshake tests.test_resource_metadata tests.test_room_lobby tests.test_route_selection tests.test_node_health tests.test_player_logs tests.test_profile_exchange tests.test_content_cache tests.test_content_cache_admin tests.test_control_plane tests.test_social_party tests.test_network_presence tests.test_federation_resource_settings tests.test_federation_budget tests.test_federation_scale tests.test_federation_lookup tests.test_federation_resilience tests.test_federation_chain -v 2>&1 | tee unix-protocol-tests.log
           test_status=${PIPESTATUS[0]}
           if [ "$test_status" -ne 0 ]; then exit "$test_status"; fi
           python -u scripts/check_compatibility.py 2>&1 | tee unix-compatibility.log
@@ -154,6 +181,12 @@ jobs:
             'apt-get update -qq; apt-get install -y --no-install-recommends "/packages/$BUGGCRAFT_DEB_NAME" systemd; python3 /validate.py'
       - name: Archive tested runtime
         run: python scripts/release_assets.py package --runner '${{ matrix.os }}' --version '${{ steps.release.outputs.version }}'
+      - name: Build complete desktop node installer
+        if: runner.os != 'Linux'
+        shell: bash
+        run: |
+          python -m pip install -r requirements-package.txt
+          python scripts/build_node_bundle.py --runtime package --version '${{ steps.release.outputs.version }}' --installer
       - name: Stage Ubuntu release installer
         if: runner.os == 'Linux'
         run: cp build/debian/*.deb build/debian/*.deb.sha256 build/release-assets/
@@ -167,7 +200,7 @@ jobs:
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
-          name: buggcraft-node-ubuntu24.04-amd64
+          name: buggcraft-node-${{ matrix.os }}
           path: build/debian/*
           if-no-files-found: error
       - name: Publish complete native runtime
@@ -231,8 +264,8 @@ jobs:
         run: |
           set -euo pipefail
           options=(--verify-tag --title "Minecraft Tunnel Native $RELEASE_TAG")
-          if [[ -f "docs/releases/$RELEASE_TAG.md" ]]; then
-            options+=(--notes-file "docs/releases/$RELEASE_TAG.md")
+          if [[ -f "docs/60-版本发布/$RELEASE_TAG.md" ]]; then
+            options+=(--notes-file "docs/60-版本发布/$RELEASE_TAG.md")
           else
             options+=(--generate-notes)
           fi

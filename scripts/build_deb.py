@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from service_package import copy_node_payload, copy_node_runtime
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -38,22 +39,16 @@ def build(runtime, output, version):
         stage = work / 'package'
         app = stage / 'usr/lib/buggcraft-node'
         app.mkdir(parents=True)
-        ignore = shutil.ignore_patterns('__pycache__', '*.pyc', '*.log')
-        for folder in ('web', 'site', 'licenses'):
-            shutil.copytree(ROOT / folder, app / folder, ignore=ignore)
-        for name in ('PROTOCOL_STANDARD.md', 'THIRD_PARTY_NOTICES.md', 'LICENSE'):
-            shutil.copy2(ROOT / name, app / name)
+        copy_node_payload(app)
         native = app / 'native'
-        (native / 'bin').mkdir(parents=True)
-        shutil.copy2(runtime / 'bin/buggcraft-core', native / 'bin/buggcraft-core')
-        # Keep SONAME links and the private libssh, exclude the client bridge.
-        shutil.copytree(runtime / 'lib', native / 'lib', symlinks=True,
-                        ignore=shutil.ignore_patterns('*buggcraft_bridge*', 'cmake', 'pkgconfig', '*.a'))
+        copy_node_runtime(runtime, native)
         python = app / 'python'
         subprocess.run([sys.executable, '-m', 'pip', 'install', '--only-binary=:all:', '--no-compile',
                         '--target', str(python), '-r', str(ROOT / 'requirements.txt')], check=True)
         for name, dest in [('buggcraft-node', stage / 'usr/bin/buggcraft-node'),
-                           ('buggcraft-node.service', stage / 'usr/lib/systemd/system/buggcraft-node.service')]:
+                           ('buggcraft-node.service', stage / 'usr/lib/systemd/system/buggcraft-node.service'),
+                           ('buggcraft-clock-sync.service', stage / 'usr/lib/systemd/system/buggcraft-clock-sync.service'),
+                           ('buggcraft-clock-sync.timer', stage / 'usr/lib/systemd/system/buggcraft-clock-sync.timer')]:
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / 'packaging/debian' / name, dest)
             dest.chmod(0o755 if name == 'buggcraft-node' else 0o644)
@@ -80,10 +75,10 @@ def build(runtime, output, version):
         size = sum(p.stat().st_size for p in stage.rglob('*') if p.is_file()) // 1024
         (debian / 'control').write_text(f'Package: buggcraft-node\nVersion: {version}\nArchitecture: {arch}\n'
             'Maintainer: Buggcraft contributors <noreply@github.com>\nSection: net\nPriority: optional\n'
-            f'Installed-Size: {size}\nDepends: python3 (>= 3.12~), python3 (<< 3.13), adduser, ca-certificates, init-system-helpers, {deps}\n'
+            f'Installed-Size: {size}\nDepends: python3 (>= 3.12~), python3 (<< 3.13), adduser, ca-certificates, init-system-helpers, systemd-timesyncd | time-daemon, htpdate, {deps}\n'
             'Homepage: https://github.com/vdjango/minecraft-tunnel-native\n'
             'Description: Self-hosted Minecraft rooms with native P2P and encrypted relay\n'
-            ' C++20 transport and a browser-based node administration interface.\n')
+            ' C++20 transport with automatic managed-control enrollment and no node web console.\n')
         manifest = {str(p.relative_to(app)): hashlib.sha256(p.read_bytes()).hexdigest()
                     for p in app.rglob('*') if p.is_file()}
         (app / 'manifest.json').write_text(json.dumps(dict(version=version, architecture=arch, files=manifest), indent=2))

@@ -1,0 +1,5364 @@
+{
+  "schema": 1,
+  "elements": [
+    {
+      "path": "frontend/src/NodeHeader.vue",
+      "line": 2,
+      "tag": "header",
+      "attributes": {
+        "class": "shell topbar site-header"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/NodeHeader.vue",
+      "line": 3,
+      "tag": "a",
+      "attributes": {
+        "class": "brand"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/NodeHeader.vue",
+      "line": 3,
+      "tag": "small",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/NodeHeader.vue",
+      "line": 3,
+      "tag": "span",
+      "attributes": {
+        "class": "mark"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/NodeHeader.vue",
+      "line": 3,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/NodeHeader.vue",
+      "line": 4,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/NodeHeader.vue",
+      "line": 4,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/NodeHeader.vue",
+      "line": 4,
+      "tag": "nav",
+      "attributes": {
+        "aria-label": "账号导航"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 58,
+      "tag": "a",
+      "attributes": {
+        "class": "skip"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 59,
+      "tag": "header",
+      "attributes": {
+        "class": "header"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 60,
+      "tag": "a",
+      "attributes": {
+        "class": "brand"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 60,
+      "tag": "small",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 60,
+      "tag": "span",
+      "attributes": {
+        "class": "brand-icon"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 60,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 61,
+      "tag": "nav",
+      "attributes": {
+        "aria-label": "网站导航",
+        "class": "top-nav"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 62,
+      "tag": "RouterLink",
+      "attributes": {
+        "aria-current": "page"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 62,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 62,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 62,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 64,
+      "tag": "a",
+      "attributes": {
+        "class": "download"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 64,
+      "tag": "span",
+      "attributes": {
+        "aria-hidden": "true"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 65,
+      "tag": "button",
+      "attributes": {
+        "class": "menu-toggle"
+      },
+      "directives": [
+        {
+          "name": "bind",
+          "argument": "aria-expanded",
+          "expression": "open"
+        },
+        {
+          "name": "on",
+          "argument": "click",
+          "expression": "open = !open"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 67,
+      "tag": "div",
+      "attributes": {
+        "class": "layout"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 68,
+      "tag": "aside",
+      "attributes": {
+        "class": "sidebar",
+        "aria-label": "教程导航"
+      },
+      "directives": [
+        {
+          "name": "bind",
+          "argument": "class",
+          "expression": "{ open }"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 69,
+      "tag": "input",
+      "attributes": {
+        "aria-label": "搜索教程"
+      },
+      "directives": [
+        {
+          "name": "model",
+          "argument": "",
+          "expression": "search"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 69,
+      "tag": "label",
+      "attributes": {
+        "class": "search"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 69,
+      "tag": "span",
+      "attributes": {
+        "aria-hidden": "true"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 70,
+      "tag": "RouterLink",
+      "attributes": {
+        "class": "sidebar-home"
+      },
+      "directives": [
+        {
+          "name": "bind",
+          "argument": "class",
+          "expression": "{ selected: route.path === '/docs' }"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 70,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 71,
+      "tag": "div",
+      "attributes": {
+        "class": "nav-group"
+      },
+      "directives": [
+        {
+          "name": "for",
+          "argument": "",
+          "expression": "category in categories"
+        },
+        {
+          "name": "bind",
+          "argument": "key",
+          "expression": "category"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 72,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 73,
+      "tag": "RouterLink",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "for",
+          "argument": "",
+          "expression": "item in matching.filter(item => item.category === category)"
+        },
+        {
+          "name": "bind",
+          "argument": "key",
+          "expression": "item.slug"
+        },
+        {
+          "name": "bind",
+          "argument": "to",
+          "expression": "guidePath(item.slug)"
+        },
+        {
+          "name": "bind",
+          "argument": "class",
+          "expression": "{ selected: guide?.slug === item.slug }"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 75,
+      "tag": "p",
+      "attributes": {
+        "class": "search-empty"
+      },
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "!matching.length"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 76,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 76,
+      "tag": "div",
+      "attributes": {
+        "class": "sidebar-bottom"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 76,
+      "tag": "span",
+      "attributes": {
+        "class": "dot"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 78,
+      "tag": "button",
+      "attributes": {
+        "class": "scrim",
+        "aria-label": "关闭教程目录"
+      },
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "open"
+        },
+        {
+          "name": "on",
+          "argument": "click",
+          "expression": "open = false"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 79,
+      "tag": "RouterView",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 79,
+      "tag": "main",
+      "attributes": {
+        "id": "main-content",
+        "class": "main"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 81,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 81,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 81,
+      "tag": "footer",
+      "attributes": {
+        "class": "footer"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 81,
+      "tag": "small",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 81,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 81,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/App.vue",
+      "line": 81,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 12,
+      "tag": "div",
+      "attributes": {
+        "class": "article-layout"
+      },
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "guide"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 13,
+      "tag": "article",
+      "attributes": {
+        "class": "article"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 14,
+      "tag": "RouterLink",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 14,
+      "tag": "nav",
+      "attributes": {
+        "class": "breadcrumb",
+        "aria-label": "当前位置"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 14,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 15,
+      "tag": "h1",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 15,
+      "tag": "header",
+      "attributes": {
+        "class": "article-heading"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 15,
+      "tag": "p",
+      "attributes": {
+        "class": "eyebrow"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 15,
+      "tag": "p",
+      "attributes": {
+        "class": "summary"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 15,
+      "tag": "p",
+      "attributes": {
+        "class": "article-date"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 16,
+      "tag": "RouterLink",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "for",
+          "argument": "",
+          "expression": "section in guide.sections"
+        },
+        {
+          "name": "bind",
+          "argument": "key",
+          "expression": "section.id"
+        },
+        {
+          "name": "bind",
+          "argument": "to",
+          "expression": "{ path: route.path, hash: '#' + section.id }"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 16,
+      "tag": "details",
+      "attributes": {
+        "class": "mobile-toc"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 16,
+      "tag": "summary",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 17,
+      "tag": "section",
+      "attributes": {
+        "class": "article-section"
+      },
+      "directives": [
+        {
+          "name": "for",
+          "argument": "",
+          "expression": "(section, number) in guide.sections"
+        },
+        {
+          "name": "bind",
+          "argument": "key",
+          "expression": "section.id"
+        },
+        {
+          "name": "bind",
+          "argument": "id",
+          "expression": "section.id"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 18,
+      "tag": "h2",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 18,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 19,
+      "tag": "p",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "for",
+          "argument": "",
+          "expression": "paragraph in section.paragraphs"
+        },
+        {
+          "name": "bind",
+          "argument": "key",
+          "expression": "paragraph"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 20,
+      "tag": "code",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 20,
+      "tag": "pre",
+      "attributes": {
+        "class": "code-example"
+      },
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "section.code"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 21,
+      "tag": "li",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "for",
+          "argument": "",
+          "expression": "step in section.steps"
+        },
+        {
+          "name": "bind",
+          "argument": "key",
+          "expression": "step"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 21,
+      "tag": "ol",
+      "attributes": {
+        "class": "steps"
+      },
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "section.steps"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 22,
+      "tag": "a",
+      "attributes": {
+        "aria-label": "打开原图查看"
+      },
+      "directives": [
+        {
+          "name": "bind",
+          "argument": "href",
+          "expression": "'/help-assets/' + section.image"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 22,
+      "tag": "figcaption",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 22,
+      "tag": "figure",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "section.image"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 22,
+      "tag": "img",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "bind",
+          "argument": "src",
+          "expression": "'/help-assets/' + section.image"
+        },
+        {
+          "name": "bind",
+          "argument": "alt",
+          "expression": "section.caption || section.title"
+        },
+        {
+          "name": "bind",
+          "argument": "width",
+          "expression": "section.imageWidth || 960"
+        },
+        {
+          "name": "bind",
+          "argument": "height",
+          "expression": "section.imageHeight || 600"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 23,
+      "tag": "a",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "for",
+          "argument": "",
+          "expression": "link in section.links"
+        },
+        {
+          "name": "bind",
+          "argument": "key",
+          "expression": "link.href"
+        },
+        {
+          "name": "bind",
+          "argument": "href",
+          "expression": "link.href"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 23,
+      "tag": "div",
+      "attributes": {
+        "class": "article-sources"
+      },
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "section.links"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 24,
+      "tag": "aside",
+      "attributes": {
+        "class": "note"
+      },
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "section.note"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 24,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 24,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 26,
+      "tag": "RouterLink",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "previous"
+        },
+        {
+          "name": "bind",
+          "argument": "to",
+          "expression": "guidePath(previous.slug)"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 26,
+      "tag": "RouterLink",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "next"
+        },
+        {
+          "name": "bind",
+          "argument": "to",
+          "expression": "guidePath(next.slug)"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 26,
+      "tag": "nav",
+      "attributes": {
+        "class": "article-pagination",
+        "aria-label": "继续阅读"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 26,
+      "tag": "small",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 26,
+      "tag": "small",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 26,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 26,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 27,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 27,
+      "tag": "div",
+      "attributes": {
+        "class": "article-feedback"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 27,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 29,
+      "tag": "RouterLink",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "for",
+          "argument": "",
+          "expression": "section in guide.sections"
+        },
+        {
+          "name": "bind",
+          "argument": "key",
+          "expression": "section.id"
+        },
+        {
+          "name": "bind",
+          "argument": "to",
+          "expression": "{ path: route.path, hash: '#' + section.id }"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 29,
+      "tag": "a",
+      "attributes": {
+        "class": "toc-download"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 29,
+      "tag": "aside",
+      "attributes": {
+        "class": "toc",
+        "aria-label": "本篇目录"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 29,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Article.vue",
+      "line": 29,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 10,
+      "tag": "div",
+      "attributes": {
+        "class": "home"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 11,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 11,
+      "tag": "div",
+      "attributes": {
+        "class": "breadcrumb"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 11,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 12,
+      "tag": "br",
+      "attributes": {
+        "class": "desktop"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 12,
+      "tag": "h1",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 12,
+      "tag": "header",
+      "attributes": {
+        "class": "home-heading"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 12,
+      "tag": "p",
+      "attributes": {
+        "class": "eyebrow"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 12,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 13,
+      "tag": "div",
+      "attributes": {
+        "class": "start-path",
+        "aria-label": "推荐学习顺序"
+      },
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "!search && !route.meta.notFound"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 14,
+      "tag": "RouterLink",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 14,
+      "tag": "b",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 14,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 14,
+      "tag": "small",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 14,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 14,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 15,
+      "tag": "RouterLink",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 15,
+      "tag": "b",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 15,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 15,
+      "tag": "small",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 15,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 15,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 16,
+      "tag": "RouterLink",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 16,
+      "tag": "b",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 16,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 16,
+      "tag": "small",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 16,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 16,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 18,
+      "tag": "p",
+      "attributes": {
+        "class": "search-result"
+      },
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "search"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 19,
+      "tag": "section",
+      "attributes": {
+        "class": "guide-group"
+      },
+      "directives": [
+        {
+          "name": "for",
+          "argument": "",
+          "expression": "(category, index) in categories"
+        },
+        {
+          "name": "bind",
+          "argument": "key",
+          "expression": "category"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 20,
+      "tag": "template",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "visible.some(item => item.category === category)"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 21,
+      "tag": "h2",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 21,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 22,
+      "tag": "RouterLink",
+      "attributes": {
+        "class": "guide-card"
+      },
+      "directives": [
+        {
+          "name": "for",
+          "argument": "",
+          "expression": "item in visible.filter(item => item.category === category)"
+        },
+        {
+          "name": "bind",
+          "argument": "key",
+          "expression": "item.slug"
+        },
+        {
+          "name": "bind",
+          "argument": "to",
+          "expression": "guidePath(item.slug)"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 22,
+      "tag": "div",
+      "attributes": {
+        "class": "guide-grid"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 22,
+      "tag": "div",
+      "attributes": {
+        "class": "card-meta"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 22,
+      "tag": "h3",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 22,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 22,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 25,
+      "tag": "div",
+      "attributes": {
+        "class": "empty"
+      },
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "!visible.length"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 26,
+      "tag": "RouterLink",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 26,
+      "tag": "div",
+      "attributes": {
+        "class": "help-strip"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 26,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 26,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/help/Home.vue",
+      "line": 26,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 7,
+      "tag": "NodeHeader",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 8,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 8,
+      "tag": "aside",
+      "attributes": {
+        "class": "account-intro"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 8,
+      "tag": "br",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 8,
+      "tag": "br",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 8,
+      "tag": "br",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 8,
+      "tag": "div",
+      "attributes": {
+        "class": "intro-world"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 8,
+      "tag": "h2",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 8,
+      "tag": "main",
+      "attributes": {
+        "class": "shell user-main"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 8,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 8,
+      "tag": "section",
+      "attributes": {
+        "id": "account-dialog",
+        "class": "account-content"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 8,
+      "tag": "span",
+      "attributes": {
+        "class": "intro-label"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 8,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 8,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 8,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 9,
+      "tag": "div",
+      "attributes": {
+        "class": "page-heading"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 9,
+      "tag": "h1",
+      "attributes": {
+        "id": "page-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 9,
+      "tag": "p",
+      "attributes": {
+        "id": "page-description"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 9,
+      "tag": "span",
+      "attributes": {
+        "class": "account-symbol",
+        "aria-hidden": "true"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 10,
+      "tag": "p",
+      "attributes": {
+        "class": "feedback account-status",
+        "id": "account-feedback",
+        "role": "status",
+        "aria-live": "polite"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 11,
+      "tag": "form",
+      "attributes": {
+        "id": "account-login"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 11,
+      "tag": "input",
+      "attributes": {
+        "id": "account-id"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 11,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 12,
+      "tag": "button",
+      "attributes": {
+        "id": "send-login-email",
+        "class": "secondary"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 12,
+      "tag": "button",
+      "attributes": {
+        "id": "verify-login-email",
+        "class": "secondary"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 12,
+      "tag": "div",
+      "attributes": {
+        "id": "email-login-fields"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 12,
+      "tag": "div",
+      "attributes": {
+        "class": "email-code-row"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 12,
+      "tag": "input",
+      "attributes": {
+        "id": "login-email-code"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 12,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 12,
+      "tag": "label",
+      "attributes": {
+        "id": "email-account-picker"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 12,
+      "tag": "p",
+      "attributes": {
+        "id": "login-email-feedback",
+        "class": "feedback",
+        "role": "status",
+        "aria-live": "polite"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 12,
+      "tag": "select",
+      "attributes": {
+        "id": "email-account-choice"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 12,
+      "tag": "small",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 13,
+      "tag": "button",
+      "attributes": {
+        "class": "primary wide"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 13,
+      "tag": "button",
+      "attributes": {
+        "id": "show-recovery",
+        "class": "quiet wide"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 13,
+      "tag": "button",
+      "attributes": {
+        "id": "show-register",
+        "class": "quiet wide"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 13,
+      "tag": "input",
+      "attributes": {
+        "id": "account-password"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 13,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "button",
+      "attributes": {
+        "id": "recovery-back",
+        "class": "quiet"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "button",
+      "attributes": {
+        "id": "recovery-send",
+        "class": "secondary"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "button",
+      "attributes": {
+        "id": "recovery-verify",
+        "class": "secondary"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "button",
+      "attributes": {
+        "class": "primary wide"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "div",
+      "attributes": {
+        "class": "email-code-row"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "div",
+      "attributes": {
+        "id": "recovery-reset-fields"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "form",
+      "attributes": {
+        "id": "account-recovery"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "input",
+      "attributes": {
+        "id": "recovery-email"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "input",
+      "attributes": {
+        "id": "recovery-code"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "input",
+      "attributes": {
+        "id": "recovery-password"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "input",
+      "attributes": {
+        "id": "recovery-confirm"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "p",
+      "attributes": {
+        "id": "recovery-feedback",
+        "class": "feedback",
+        "role": "status",
+        "aria-live": "polite"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "select",
+      "attributes": {
+        "id": "recovery-choice"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 14,
+      "tag": "small",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 15,
+      "tag": "button",
+      "attributes": {
+        "id": "back-to-login",
+        "class": "quiet"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 15,
+      "tag": "form",
+      "attributes": {
+        "id": "account-register"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 15,
+      "tag": "input",
+      "attributes": {
+        "id": "register-name"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 15,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 16,
+      "tag": "button",
+      "attributes": {
+        "id": "send-email-code",
+        "class": "secondary",
+        "aria-describedby": "email-code-feedback"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 16,
+      "tag": "div",
+      "attributes": {
+        "id": "email-registration-fields"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 16,
+      "tag": "div",
+      "attributes": {
+        "class": "email-code-row"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 16,
+      "tag": "input",
+      "attributes": {
+        "id": "register-email"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 16,
+      "tag": "input",
+      "attributes": {
+        "id": "register-email-code"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 16,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 16,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 16,
+      "tag": "p",
+      "attributes": {
+        "id": "email-code-feedback",
+        "class": "feedback",
+        "role": "status",
+        "aria-live": "polite",
+        "aria-atomic": "true"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 17,
+      "tag": "input",
+      "attributes": {
+        "id": "register-password"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 17,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 18,
+      "tag": "input",
+      "attributes": {
+        "id": "register-confirm"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 18,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 19,
+      "tag": "button",
+      "attributes": {
+        "class": "primary wide"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 20,
+      "tag": "div",
+      "attributes": {
+        "id": "account-panel"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 21,
+      "tag": "a",
+      "attributes": {
+        "data-account-view": "overview"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 21,
+      "tag": "a",
+      "attributes": {
+        "data-account-view": "access"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 21,
+      "tag": "a",
+      "attributes": {
+        "data-account-view": "devices"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 21,
+      "tag": "a",
+      "attributes": {
+        "data-account-view": "email"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 21,
+      "tag": "nav",
+      "attributes": {
+        "class": "account-nav",
+        "aria-label": "账号管理"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "button",
+      "attributes": {
+        "id": "account-logout",
+        "class": "secondary"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "details",
+      "attributes": {
+        "class": "memory-method"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "div",
+      "attributes": {
+        "class": "memory-totals"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "div",
+      "attributes": {
+        "class": "memory-heading"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "div",
+      "attributes": {
+        "id": "memory-calendar",
+        "class": "memory-calendar",
+        "role": "list",
+        "aria-label": "最近 30 天的连接记录"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "div",
+      "attributes": {
+        "id": "memory-companions",
+        "class": "memory-companions",
+        "aria-label": "好友与共同连接记录"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "div",
+      "attributes": {
+        "id": "memory-reunion"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "h2",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "h3",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "h3",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "h3",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "p",
+      "attributes": {
+        "class": "memory-eyebrow"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "p",
+      "attributes": {
+        "id": "memory-greeting"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "p",
+      "attributes": {
+        "id": "memory-calendar-note",
+        "class": "muted"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "p",
+      "attributes": {
+        "id": "memory-friend-note",
+        "class": "muted",
+        "role": "status"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "p",
+      "attributes": {
+        "class": "memory-caption"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "p",
+      "attributes": {
+        "id": "memory-method"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "p",
+      "attributes": {
+        "id": "memory-online"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "p",
+      "attributes": {
+        "id": "memory-status",
+        "class": "muted",
+        "role": "status"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "section",
+      "attributes": {
+        "data-view": "overview",
+        "class": "user-card memory-card"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "section",
+      "attributes": {
+        "class": "memory-reunion"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "span",
+      "attributes": {
+        "id": "welcome-name"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "strong",
+      "attributes": {
+        "id": "memory-days"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "strong",
+      "attributes": {
+        "id": "memory-multiplayer"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "strong",
+      "attributes": {
+        "id": "memory-friends"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 22,
+      "tag": "summary",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 23,
+      "tag": "button",
+      "attributes": {
+        "id": "copy-node-address",
+        "class": "secondary"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 23,
+      "tag": "code",
+      "attributes": {
+        "id": "node-address",
+        "data-label": "服务地址"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 23,
+      "tag": "details",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 23,
+      "tag": "div",
+      "attributes": {
+        "class": "node-address-row"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 23,
+      "tag": "h2",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 23,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 23,
+      "tag": "p",
+      "attributes": {
+        "id": "node-address-feedback",
+        "class": "feedback",
+        "role": "status"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 23,
+      "tag": "section",
+      "attributes": {
+        "data-view": "access",
+        "class": "user-card"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 23,
+      "tag": "summary",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 24,
+      "tag": "div",
+      "attributes": {
+        "id": "launcher-device-list"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 24,
+      "tag": "div",
+      "attributes": {
+        "id": "browser-session-list"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 24,
+      "tag": "h2",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 24,
+      "tag": "h2",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 24,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 24,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 24,
+      "tag": "section",
+      "attributes": {
+        "data-view": "devices",
+        "class": "user-card"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 25,
+      "tag": "button",
+      "attributes": {
+        "id": "send-bind-email",
+        "class": "secondary"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 25,
+      "tag": "button",
+      "attributes": {
+        "id": "bind-email-save",
+        "class": "primary"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 25,
+      "tag": "div",
+      "attributes": {
+        "class": "email-code-row"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 25,
+      "tag": "h2",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 25,
+      "tag": "input",
+      "attributes": {
+        "id": "bind-email"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 25,
+      "tag": "input",
+      "attributes": {
+        "id": "bind-email-code"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 25,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 25,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 25,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 25,
+      "tag": "p",
+      "attributes": {
+        "id": "bind-email-feedback",
+        "class": "feedback",
+        "role": "status",
+        "aria-live": "polite"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 25,
+      "tag": "section",
+      "attributes": {
+        "data-view": "email",
+        "class": "user-card"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 27,
+      "tag": "button",
+      "attributes": {
+        "id": "launcher-approve",
+        "class": "primary"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 27,
+      "tag": "code",
+      "attributes": {
+        "id": "launcher-device-fingerprint"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 27,
+      "tag": "div",
+      "attributes": {
+        "class": "action-buttons"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 27,
+      "tag": "h2",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 27,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 27,
+      "tag": "p",
+      "attributes": {
+        "id": "launcher-device-policy"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 27,
+      "tag": "p",
+      "attributes": {
+        "id": "launcher-device-feedback",
+        "role": "status"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 27,
+      "tag": "section",
+      "attributes": {
+        "id": "launcher-approval",
+        "class": "user-card"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 27,
+      "tag": "strong",
+      "attributes": {
+        "id": "launcher-device-name"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 28,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 28,
+      "tag": "br",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 28,
+      "tag": "button",
+      "attributes": {
+        "id": "account-unlock-cancel",
+        "class": "secondary"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 28,
+      "tag": "button",
+      "attributes": {
+        "class": "primary"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 28,
+      "tag": "dialog",
+      "attributes": {
+        "id": "account-unlock-dialog",
+        "aria-labelledby": "account-unlock-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 28,
+      "tag": "div",
+      "attributes": {
+        "class": "action-buttons"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 28,
+      "tag": "footer",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 28,
+      "tag": "form",
+      "attributes": {
+        "id": "account-unlock-form"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 28,
+      "tag": "h2",
+      "attributes": {
+        "id": "account-unlock-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 28,
+      "tag": "input",
+      "attributes": {
+        "id": "account-unlock-password"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 28,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 28,
+      "tag": "p",
+      "attributes": {
+        "id": "account-unlock-reason"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/account.vue",
+      "line": 28,
+      "tag": "p",
+      "attributes": {
+        "id": "account-unlock-feedback",
+        "class": "feedback",
+        "role": "alert"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 7,
+      "tag": "header",
+      "attributes": {
+        "class": "site-header"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 7,
+      "tag": "nav",
+      "attributes": {
+        "class": "wrap nav",
+        "aria-label": "网站导航"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 8,
+      "tag": "a",
+      "attributes": {
+        "class": "brand"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 8,
+      "tag": "span",
+      "attributes": {
+        "class": "brand-mark"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 8,
+      "tag": "span",
+      "attributes": {
+        "class": "brand-name"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 8,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 9,
+      "tag": "a",
+      "attributes": {
+        "class": "nav-link"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 11,
+      "tag": "main",
+      "attributes": {
+        "class": "wrap"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 12,
+      "tag": "section",
+      "attributes": {
+        "class": "page-intro",
+        "aria-labelledby": "page-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 13,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 13,
+      "tag": "h1",
+      "attributes": {
+        "id": "page-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 13,
+      "tag": "p",
+      "attributes": {
+        "class": "eyebrow"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 13,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 14,
+      "tag": "aside",
+      "attributes": {
+        "class": "release-summary"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 14,
+      "tag": "small",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 14,
+      "tag": "span",
+      "attributes": {
+        "id": "release-summary-date"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 14,
+      "tag": "strong",
+      "attributes": {
+        "id": "release-summary-version"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 17,
+      "tag": "div",
+      "attributes": {
+        "class": "download-layout"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 18,
+      "tag": "section",
+      "attributes": {
+        "class": "download-main",
+        "aria-labelledby": "platform-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 19,
+      "tag": "p",
+      "attributes": {
+        "class": "section-overline"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 20,
+      "tag": "div",
+      "attributes": {
+        "class": "platform-tabs",
+        "role": "group",
+        "aria-label": "操作系统"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 21,
+      "tag": "button",
+      "attributes": {
+        "class": "platform-tab",
+        "data-platform": "windows",
+        "aria-pressed": "false"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 21,
+      "tag": "span",
+      "attributes": {
+        "class": "symbol",
+        "aria-hidden": "true"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 22,
+      "tag": "button",
+      "attributes": {
+        "class": "platform-tab",
+        "data-platform": "mac",
+        "aria-pressed": "false"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 22,
+      "tag": "span",
+      "attributes": {
+        "class": "symbol",
+        "aria-hidden": "true"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 23,
+      "tag": "button",
+      "attributes": {
+        "class": "platform-tab",
+        "data-platform": "linux",
+        "aria-pressed": "false"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 23,
+      "tag": "span",
+      "attributes": {
+        "class": "symbol",
+        "aria-hidden": "true"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 25,
+      "tag": "div",
+      "attributes": {
+        "class": "selected-platform"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 26,
+      "tag": "button",
+      "attributes": {
+        "class": "arch-button",
+        "data-arch": "arm64",
+        "aria-pressed": "true"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 26,
+      "tag": "button",
+      "attributes": {
+        "class": "arch-button",
+        "data-arch": "x86_64",
+        "aria-pressed": "false"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 26,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 26,
+      "tag": "div",
+      "attributes": {
+        "class": "arch-picker",
+        "id": "platform-architecture"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 26,
+      "tag": "h2",
+      "attributes": {
+        "id": "platform-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 26,
+      "tag": "p",
+      "attributes": {
+        "class": "platform-description",
+        "id": "platform-description"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 27,
+      "tag": "span",
+      "attributes": {
+        "class": "detected-pill",
+        "id": "detected-pill"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 29,
+      "tag": "a",
+      "attributes": {
+        "id": "selected-download",
+        "class": "download-button",
+        "aria-disabled": "true"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 29,
+      "tag": "div",
+      "attributes": {
+        "class": "release-box"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 29,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 29,
+      "tag": "h3",
+      "attributes": {
+        "id": "selected-release-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 29,
+      "tag": "p",
+      "attributes": {
+        "id": "selected-release-meta"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 30,
+      "tag": "a",
+      "attributes": {
+        "id": "checksum-link",
+        "class": "text-link"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 30,
+      "tag": "a",
+      "attributes": {
+        "id": "release-notes-link",
+        "class": "text-link"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 30,
+      "tag": "div",
+      "attributes": {
+        "class": "release-links"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 31,
+      "tag": "p",
+      "attributes": {
+        "class": "status-message",
+        "id": "download-status",
+        "role": "status",
+        "aria-live": "polite"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 32,
+      "tag": "p",
+      "attributes": {
+        "class": "fine-print",
+        "id": "download-statistics",
+        "role": "status"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 36,
+      "tag": "button",
+      "attributes": {
+        "class": "history-more",
+        "id": "history-more"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 36,
+      "tag": "div",
+      "attributes": {
+        "class": "history-heading"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 36,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 36,
+      "tag": "div",
+      "attributes": {
+        "class": "history-list",
+        "id": "release-history",
+        "aria-live": "polite"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 36,
+      "tag": "div",
+      "attributes": {
+        "class": "history-empty"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 36,
+      "tag": "h2",
+      "attributes": {
+        "id": "history-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 36,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 36,
+      "tag": "section",
+      "attributes": {
+        "class": "history-section",
+        "aria-labelledby": "history-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 38,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 38,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 38,
+      "tag": "b",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 38,
+      "tag": "b",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 38,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 38,
+      "tag": "div",
+      "attributes": {
+        "class": "download-community-links"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 38,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 38,
+      "tag": "section",
+      "attributes": {
+        "class": "download-community",
+        "aria-label": "玩家交流群"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 38,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 39,
+      "tag": "div",
+      "attributes": {
+        "class": "support-details"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 40,
+      "tag": "details",
+      "attributes": {
+        "class": "info-details"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 40,
+      "tag": "li",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 40,
+      "tag": "li",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 40,
+      "tag": "li",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 40,
+      "tag": "ol",
+      "attributes": {
+        "class": "steps"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 40,
+      "tag": "p",
+      "attributes": {
+        "class": "fine-print"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 40,
+      "tag": "span",
+      "attributes": {
+        "class": "step-no"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 40,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 40,
+      "tag": "span",
+      "attributes": {
+        "class": "step-no"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 40,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 40,
+      "tag": "span",
+      "attributes": {
+        "class": "step-no"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 40,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 40,
+      "tag": "summary",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 43,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 43,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 43,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 43,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 43,
+      "tag": "footer",
+      "attributes": {
+        "class": "site-footer wrap"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 43,
+      "tag": "nav",
+      "attributes": {
+        "aria-label": "更多信息"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/download.vue",
+      "line": 43,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 36,
+      "tag": "header",
+      "attributes": {
+        "class": "site-header wrap"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 37,
+      "tag": "a",
+      "attributes": {
+        "class": "brand",
+        "aria-label": "Bugg 首页"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 37,
+      "tag": "span",
+      "attributes": {
+        "class": "brand-mark"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 37,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 38,
+      "tag": "a",
+      "attributes": {
+        "data-section-nav": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 38,
+      "tag": "a",
+      "attributes": {
+        "data-section-nav": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 38,
+      "tag": "a",
+      "attributes": {
+        "data-section-nav": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 38,
+      "tag": "a",
+      "attributes": {
+        "data-native-navigation": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 38,
+      "tag": "nav",
+      "attributes": {
+        "class": "main-nav",
+        "aria-label": "网站导航"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 39,
+      "tag": "a",
+      "attributes": {
+        "class": "account-link"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 39,
+      "tag": "a",
+      "attributes": {
+        "class": "button small",
+        "data-platform-cta": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 39,
+      "tag": "div",
+      "attributes": {
+        "class": "header-actions"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 39,
+      "tag": "span",
+      "attributes": {
+        "aria-hidden": "true"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 41,
+      "tag": "main",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 42,
+      "tag": "section",
+      "attributes": {
+        "class": "hero wrap",
+        "id": "home",
+        "aria-labelledby": "hero-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 43,
+      "tag": "a",
+      "attributes": {
+        "class": "button",
+        "data-platform-cta": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 43,
+      "tag": "a",
+      "attributes": {
+        "class": "text-link"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 43,
+      "tag": "br",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 43,
+      "tag": "br",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 43,
+      "tag": "div",
+      "attributes": {
+        "class": "hero-copy"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 43,
+      "tag": "div",
+      "attributes": {
+        "class": "hero-actions"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 43,
+      "tag": "h1",
+      "attributes": {
+        "id": "hero-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 43,
+      "tag": "p",
+      "attributes": {
+        "class": "eyebrow"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 43,
+      "tag": "p",
+      "attributes": {
+        "class": "hero-lead"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 43,
+      "tag": "p",
+      "attributes": {
+        "class": "platform-note",
+        "data-platform-detail": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 43,
+      "tag": "span",
+      "attributes": {
+        "data-platform-label": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 43,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 44,
+      "tag": "div",
+      "attributes": {
+        "class": "preview-stack"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 44,
+      "tag": "figcaption",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 44,
+      "tag": "figure",
+      "attributes": {
+        "class": "hero-preview"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 44,
+      "tag": "img",
+      "attributes": {
+        "class": "preview-back"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 44,
+      "tag": "img",
+      "attributes": {
+        "class": "preview-middle"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 44,
+      "tag": "img",
+      "attributes": {
+        "class": "preview-front"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 44,
+      "tag": "span",
+      "attributes": {
+        "class": "live-dot"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 44,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 46,
+      "tag": "div",
+      "attributes": {
+        "class": "feature-strip wrap"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 46,
+      "tag": "i",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 46,
+      "tag": "i",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 46,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 46,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 46,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 48,
+      "tag": "section",
+      "attributes": {
+        "class": "section wrap",
+        "id": "features",
+        "aria-labelledby": "features-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 49,
+      "tag": "br",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 49,
+      "tag": "div",
+      "attributes": {
+        "class": "section-heading"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 49,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 49,
+      "tag": "h2",
+      "attributes": {
+        "id": "features-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 49,
+      "tag": "p",
+      "attributes": {
+        "class": "eyebrow"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 49,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 50,
+      "tag": "a",
+      "attributes": {
+        "data-native-navigation": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 50,
+      "tag": "a",
+      "attributes": {
+        "data-native-navigation": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 50,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 50,
+      "tag": "article",
+      "attributes": {
+        "class": "feature-card"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 50,
+      "tag": "article",
+      "attributes": {
+        "class": "feature-card"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 50,
+      "tag": "article",
+      "attributes": {
+        "class": "feature-card"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 50,
+      "tag": "div",
+      "attributes": {
+        "class": "feature-grid"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 50,
+      "tag": "h3",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 50,
+      "tag": "h3",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 50,
+      "tag": "h3",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 50,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 50,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 50,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 50,
+      "tag": "span",
+      "attributes": {
+        "class": "feature-icon"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 50,
+      "tag": "span",
+      "attributes": {
+        "class": "feature-icon"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 50,
+      "tag": "span",
+      "attributes": {
+        "class": "feature-icon"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "a",
+      "attributes": {
+        "class": "text-link"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "b",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "b",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "b",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "br",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "div",
+      "attributes": {
+        "class": "wrap multiplayer-grid"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "div",
+      "attributes": {
+        "class": "numbered-steps"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "div",
+      "attributes": {
+        "class": "connection-card"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "div",
+      "attributes": {
+        "class": "connection-topline"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "div",
+      "attributes": {
+        "class": "players"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "div",
+      "attributes": {
+        "class": "connection-line"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "div",
+      "attributes": {
+        "class": "connection-details"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "h2",
+      "attributes": {
+        "id": "multiplayer-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "p",
+      "attributes": {
+        "class": "eyebrow"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "p",
+      "attributes": {
+        "class": "section-lead"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "section",
+      "attributes": {
+        "class": "section multiplayer-section",
+        "id": "multiplayer",
+        "aria-labelledby": "multiplayer-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "small",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "small",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "small",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "span",
+      "attributes": {
+        "class": "live-dot"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "span",
+      "attributes": {
+        "class": "player-avatar"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "span",
+      "attributes": {
+        "class": "player-avatar second"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 53,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "a",
+      "attributes": {
+        "class": "text-link",
+        "data-native-navigation": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "article",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "article",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "article",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "b",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "b",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "b",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "br",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "div",
+      "attributes": {
+        "class": "section-heading"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "div",
+      "attributes": {
+        "class": "performance-grid"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "div",
+      "attributes": {
+        "class": "comparison"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "div",
+      "attributes": {
+        "class": "comparison-row"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "div",
+      "attributes": {
+        "class": "comparison-row"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "div",
+      "attributes": {
+        "class": "comparison-row"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "h2",
+      "attributes": {
+        "id": "performance-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "h3",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "h3",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "h3",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "h3",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "p",
+      "attributes": {
+        "class": "eyebrow"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "p",
+      "attributes": {
+        "class": "fine-print"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "section",
+      "attributes": {
+        "class": "section wrap",
+        "id": "performance",
+        "aria-labelledby": "performance-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "span",
+      "attributes": {
+        "class": "metric-label"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "span",
+      "attributes": {
+        "class": "metric-label"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "span",
+      "attributes": {
+        "class": "metric-label"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 55,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "br",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "button",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "on",
+          "argument": "click",
+          "expression": "copyContact('微信号','junsi223')"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "button",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "on",
+          "argument": "click",
+          "expression": "copyContact('QQ 群号','849362477')"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "button",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "on",
+          "argument": "click",
+          "expression": "copyContact('频道号','pd40037206')"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "div",
+      "attributes": {
+        "class": "community-contacts"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "h2",
+      "attributes": {
+        "id": "community-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "p",
+      "attributes": {
+        "class": "eyebrow"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "p",
+      "attributes": {
+        "class": "copy-status",
+        "role": "status",
+        "aria-live": "polite"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "section",
+      "attributes": {
+        "class": "section community-section wrap",
+        "id": "community",
+        "aria-labelledby": "community-title"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 57,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 59,
+      "tag": "details",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 59,
+      "tag": "details",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 59,
+      "tag": "details",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 59,
+      "tag": "details",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 59,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 59,
+      "tag": "div",
+      "attributes": {
+        "class": "faq-list"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 59,
+      "tag": "h2",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 59,
+      "tag": "p",
+      "attributes": {
+        "class": "eyebrow"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 59,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 59,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 59,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 59,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 59,
+      "tag": "section",
+      "attributes": {
+        "class": "section faq-section wrap",
+        "id": "faq"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 59,
+      "tag": "summary",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 59,
+      "tag": "summary",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 59,
+      "tag": "summary",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 59,
+      "tag": "summary",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 60,
+      "tag": "a",
+      "attributes": {
+        "class": "button",
+        "data-platform-cta": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 60,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 60,
+      "tag": "h2",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 60,
+      "tag": "p",
+      "attributes": {
+        "class": "eyebrow"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 60,
+      "tag": "section",
+      "attributes": {
+        "class": "download-banner wrap"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 60,
+      "tag": "span",
+      "attributes": {
+        "data-platform-label": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 62,
+      "tag": "a",
+      "attributes": {
+        "class": "brand"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 62,
+      "tag": "a",
+      "attributes": {
+        "data-native-navigation": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 62,
+      "tag": "a",
+      "attributes": {
+        "data-native-navigation": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 62,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 62,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 62,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 62,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 62,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 62,
+      "tag": "a",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 62,
+      "tag": "footer",
+      "attributes": {
+        "class": "site-footer wrap"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 62,
+      "tag": "nav",
+      "attributes": {
+        "aria-label": "页脚导航"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 62,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 62,
+      "tag": "span",
+      "attributes": {
+        "class": "brand-mark"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/site-pages/home.vue",
+      "line": 62,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/account.html",
+      "line": 1,
+      "tag": "body",
+      "attributes": {
+        "class": "user-site"
+      },
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/account.html",
+      "line": 1,
+      "tag": "h1",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/account.html",
+      "line": 1,
+      "tag": "head",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/account.html",
+      "line": 1,
+      "tag": "html",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/account.html",
+      "line": 1,
+      "tag": "link",
+      "attributes": {
+        "data-page-style": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/account.html",
+      "line": 1,
+      "tag": "main",
+      "attributes": {
+        "class": "shell"
+      },
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/account.html",
+      "line": 1,
+      "tag": "meta",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/account.html",
+      "line": 1,
+      "tag": "meta",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/account.html",
+      "line": 1,
+      "tag": "meta",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/account.html",
+      "line": 1,
+      "tag": "meta",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/account.html",
+      "line": 1,
+      "tag": "noscript",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/account.html",
+      "line": 1,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/account.html",
+      "line": 1,
+      "tag": "script",
+      "attributes": {
+        "data-cfasync": "false"
+      },
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/account.html",
+      "line": 1,
+      "tag": "title",
+      "attributes": {},
+      "directives": []
+    }
+  ],
+  "selectors": [
+    {
+      "path": "frontend/src/controllers/navigation.js",
+      "line": 2,
+      "operation": "querySelectorAll",
+      "expression": "'[data-section-nav]'"
+    },
+    {
+      "path": "frontend/src/controllers/navigation.js",
+      "line": 4,
+      "operation": "getElementById",
+      "expression": "href.slice(1)"
+    },
+    {
+      "path": "frontend/src/pageSeed.ts",
+      "line": 3,
+      "operation": "getElementById",
+      "expression": "id"
+    },
+    {
+      "path": "frontend/src/pageSeed.ts",
+      "line": 4,
+      "operation": "querySelector",
+      "expression": "selector"
+    },
+    {
+      "path": "frontend/src/pageSeed.ts",
+      "line": 5,
+      "operation": "querySelector",
+      "expression": "selector"
+    },
+    {
+      "path": "frontend/src/pageSeed.ts",
+      "line": 7,
+      "operation": "querySelectorAll",
+      "expression": "'[id]'"
+    },
+    {
+      "path": "frontend/src/pageSeed.ts",
+      "line": 15,
+      "operation": "querySelector",
+      "expression": "'[name=web_port]'"
+    },
+    {
+      "path": "frontend/src/pageSeed.ts",
+      "line": 16,
+      "operation": "querySelector",
+      "expression": "'.management-layout'"
+    },
+    {
+      "path": "frontend/src/pageSeed.ts",
+      "line": 21,
+      "operation": "querySelectorAll",
+      "expression": "'#project-page .detail-content>details'"
+    },
+    {
+      "path": "frontend/src/pageSeed.ts",
+      "line": 22,
+      "operation": "querySelector",
+      "expression": "'#project-page .detail-actions>a'"
+    },
+    {
+      "path": "frontend/src/pageSeed.ts",
+      "line": 29,
+      "operation": "querySelectorAll",
+      "expression": "'nav a'"
+    },
+    {
+      "path": "frontend/src/runtime.ts",
+      "line": 36,
+      "operation": "addEventListener",
+      "expression": "'abort'"
+    },
+    {
+      "path": "frontend/src/runtime.ts",
+      "line": 37,
+      "operation": "addEventListener",
+      "expression": "'abort'"
+    },
+    {
+      "path": "frontend/src/runtime.ts",
+      "line": 50,
+      "operation": "addEventListener",
+      "expression": "'DOMContentLoaded'"
+    },
+    {
+      "path": "frontend/src/runtime.ts",
+      "line": 58,
+      "operation": "addEventListener",
+      "expression": "event"
+    },
+    {
+      "path": "frontend/src/runtime.ts",
+      "line": 78,
+      "operation": "querySelector",
+      "expression": "'[data-vue-page]'"
+    },
+    {
+      "path": "frontend/src/runtime.ts",
+      "line": 93,
+      "operation": "querySelector",
+      "expression": "'main'"
+    },
+    {
+      "path": "frontend/src/runtime.ts",
+      "line": 104,
+      "operation": "addEventListener",
+      "expression": "'buggcraft:before-navigate'"
+    },
+    {
+      "path": "frontend/src/runtime.ts",
+      "line": 106,
+      "operation": "addEventListener",
+      "expression": "'pagehide'"
+    }
+  ]
+}

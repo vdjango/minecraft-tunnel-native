@@ -92,7 +92,7 @@ class Replication:
         return True
 
     def save(self):
-        from .portal import atomic_json
+        from .storage import atomic_json
         atomic_json(self.path, list(self.directory.values()))
         atomic_json(self.shared_path, sorted(self.shared))
 
@@ -136,7 +136,7 @@ class Replication:
         if not old and len(self.name_reservations) >= 1024:
             raise ValueError('注册请求过多，请稍后重试。')
         self.name_reservations[name] = {'account': account, 'until': now + 120}
-        from .portal import atomic_json
+        from .storage import atomic_json
         atomic_json(self.names_path, self.name_reservations)
         return {'reserved': True}
 

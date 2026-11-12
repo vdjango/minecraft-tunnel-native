@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <cstdint>
+#include <functional>
 #include <rtc/rtc.hpp>
 #include <deque>
 #include <mutex>
@@ -22,6 +23,9 @@ class ModTransfers {
     double upload_tokens_=0;
     Clock::time_point upload_refill_=Clock::now();
     size_t serving_cursor_=0;
+    std::function<void()> wakeup_;
+    int wait_ms_=50;
+    uint64_t upload_wait_bytes_=0;
     std::unordered_map<std::string,std::shared_ptr<Transfer>> transfers_;
     std::vector<std::shared_ptr<Transfer>> serving_;
     void bind_peer_channel(const std::shared_ptr<Transfer>&);
@@ -30,6 +34,10 @@ class ModTransfers {
 public:
     ModTransfers();
     ~ModTransfers();
+    // Set before binding channels. Callback may run on RTC threads; no I/O here.
+    void set_wakeup(std::function<void()> callback);
+    // Session thread only, after tick(): bounded deadline, never a fixed delay.
+    int poll_timeout_ms() const { return wait_ms_; }
     void configure(const std::string& directory);
     void set_allowed(bool allowed,uint32_t upload_limit_kib=512);
     Json metadata() const;

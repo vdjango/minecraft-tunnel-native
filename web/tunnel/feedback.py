@@ -64,9 +64,7 @@ class Feedback:
         # previous crash before accepting any new transfer.
         for temporary in self.root.glob('*/*.part*'):
             temporary.unlink(missing_ok=True)
-        self.routes = [web.get('/feedback', self.page), web.get('/feedback/{issue:[0-9a-f]{32}}', self.page),
-                       web.get('/admin/feedback', self.page), web.get('/feedback.js', portal.asset),
-                       web.get('/api/feedback', self.list_issues), web.post('/api/feedback', self.create),
+        self.routes = [web.get('/api/feedback', self.list_issues), web.post('/api/feedback', self.create),
                        web.get('/api/feedback/{issue}', self.detail),
                        web.post('/api/feedback/{issue}/comments', self.comment),
                        web.post('/api/feedback/{issue}/status', self.status),
@@ -343,29 +341,6 @@ class Feedback:
             for task in tasks:task.cancel()
             await asyncio.gather(*tasks,return_exceptions=True)
 
-    async def page(self, request):
-        admin_mode = request.path.startswith('/admin/')
-        authenticated = True
-        try:
-            if admin_mode:
-                self.portal.session(request)
-            else:
-                self.portal.account_api.session(request)
-        except web.HTTPUnauthorized:
-            authenticated = False
-        page = self.portal.support_page('feedback.html', 'feedback' if admin_mode and authenticated else None).text
-        if not admin_mode:
-            page = page.replace('<a class="secondary" href="/admin">管理员登录</a>', '')
-            page = re.sub(r'<a id="feedback-admin-link"[^>]*>.*?</a>', '', page)
-        elif not authenticated:
-            page = page.replace('<div class="management-layout">', '<div>')
-            page = re.sub(r'<nav class="console-nav".*?</nav>', '', page, flags=re.S)
-        if authenticated:
-            page = page.replace('<div id="feedback-content" hidden>', '<div id="feedback-content">')
-        else:
-            page = page.replace('<section id="feedback-login" class="user-card" hidden>',
-                                '<section id="feedback-login" class="user-card">')
-        return web.Response(text=page, content_type='text/html')
 
     async def list_issues(self, request):
         viewer=self.viewer(request)

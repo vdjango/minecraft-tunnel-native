@@ -1,12 +1,12 @@
 <script setup lang="ts">
+import '../styles/download.css';
 defineProps<{seed:Record<string,string>}>();
 </script>
 
 <template>
 <header class="site-header"><nav class="wrap nav" aria-label="网站导航">
-    <a class="brand" href="https://bugg.icu/"><span class="brand-mark">B</span><span class="brand-name"><strong>BUGGCRAFT</strong><small>MINECRAFT JAVA LAUNCHER</small></span></a>
-    <a class="nav-link" href="https://bugg.icu/">返回官网</a><a class="nav-link" href="https://download.bugg.icu/admin/">版本管理</a>
-    <button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="false">浅色主题</button>
+    <a class="brand" href="https://bugg.icu/"><span class="brand-mark">B</span><span class="brand-name"><strong>Bugg</strong></span></a>
+    <a class="nav-link" href="https://bugg.icu/">返回官网 ↗</a>
   </nav></header>
   <main class="wrap">
     <section class="page-intro" aria-labelledby="page-title">
@@ -29,15 +29,16 @@ defineProps<{seed:Record<string,string>}>();
         <div class="release-box"><div><h3 id="selected-release-title">正在检查公开发行文件</h3><p id="selected-release-meta">下载链接会对应上方所选系统。</p></div><a id="selected-download" class="download-button" href="#" aria-disabled="true">正在读取下载列表</a></div>
         <div class="release-links"><a id="checksum-link" class="text-link" href="#" hidden>SHA-256 校验文件 ↓</a><a id="release-notes-link" class="text-link" href="#history-title">查看本地发行说明 ↓</a></div>
         <p class="status-message" id="download-status" role="status" aria-live="polite"></p>
+        <p class="fine-print" id="download-statistics" role="status">下载统计正在读取…</p>
       </section>
       </div>
 
     <section class="history-section" aria-labelledby="history-title"><div class="history-heading"><div><h2 id="history-title">历史版本</h2><p>新版本由发布后台管理，发布后立即出现在这里。</p></div></div><div class="history-list" id="release-history" aria-live="polite"><div class="history-empty">正在读取版本记录…</div></div><button class="history-more" id="history-more" type="button" hidden>显示更多版本</button></section>
 
+    <section class="download-community" aria-label="玩家交流群"><div><strong>下载遇到问题？</strong><p>下载的是 ZIP 压缩包；解压后，Windows 版运行其中的 Buggcraft.exe。添加微信 <b>junsi223</b> 优先联系入群，也可加入 QQ 群 <b>849362477</b>。</p></div><div class="download-community-links"><a href="https://bugg.icu/docs/help/launcher-windows">Windows 无法运行教程 ↗</a><a href="https://bugg.icu/docs/help/launcher-macos">macOS 无法打开教程 ↗</a></div></section>
     <div class="support-details">
       <details class="info-details"><summary>第一次使用？</summary><ol class="steps"><li><span class="step-no">01</span><span>下载当前系统的启动器。</span></li><li><span class="step-no">02</span><span>解压下载的 ZIP：Windows 运行 Buggcraft.exe，macOS 打开 Buggcraft.app，Linux 运行启动程序。</span></li><li><span class="step-no">03</span><span>使用你自己的 Minecraft Java 版账号和游戏文件。</span></li></ol><p class="fine-print">Buggcraft 是 Minecraft Java 版启动器，不包含 Minecraft 游戏本体。Windows 版本可能显示 SmartScreen 提示；请确认下载来源为本官网提供的安装文件。macOS 芯片类型可在上方手动切换。</p></details>
-      <details class="info-details"><summary>发布新版本</summary><p>GitHub Actions 构建完成后，平台自动同步四个平台的安装包并缓存、校验，无需手动上传。后台选择需要审核时，版本先进入待审核；选择无需审核时，校验通过后直接发布。修改设置只影响后续入库版本。</p><a class="text-link" href="https://download.bugg.icu/admin/">打开版本管理后台 ↗</a></details>
     </div>
   </main>
-  <footer class="site-footer wrap"><span>Buggcraft · Minecraft Java 启动器</span><nav aria-label="更多信息"><a href="https://github.com/vdjango/buggcraft">开源代码 ↗</a><a href="https://node.bugg.icu/network">联机节点</a><a href="https://node.bugg.icu/feedback?new=1">问题反馈</a></nav></footer>
+  <footer class="site-footer wrap"><span>Bugg · Minecraft Java 启动器</span><nav aria-label="更多信息"><a href="https://github.com/vdjango/bugg">开源代码 ↗</a><a href="https://node.bugg.icu/account">联机账号</a><a href="https://bugg.icu/docs">玩家教程</a><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">京ICP备2021040327号</a></nav></footer>
 </template>

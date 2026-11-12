@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "modpack.hpp"
+#include "../core/digest.hpp"
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <cmath>
 #include <regex>
 
 namespace bridge {
@@ -14,29 +16,29 @@ constexpr size_t maximum_manifest=512*1024;
 constexpr size_t maximum_downloads=16;
 constexpr size_t maximum_serving=64;
 constexpr size_t maximum_transfer_records=128;
-std::pair<std::string,std::string> digest_file_hashes(const std::filesystem::path& path){
+constexpr size_t file_block=16384;
+constexpr size_t file_quantum=4*file_block;
+// A short rate bucket limits uplink bursts without reducing the configured rate.
+double upload_burst(double rate){return std::clamp(rate*.025,double(file_block),262144.0);}
+std::pair<std::string,std::string> digest_file_hashes(const std::filesystem::path& path, bool with_sha1=true){
     std::ifstream input(path,std::ios::binary);
     if(!input)throw Failure(-32602,"Mod file cannot be opened");
-    auto sha256=std::unique_ptr<EVP_MD_CTX,decltype(&EVP_MD_CTX_free)>(EVP_MD_CTX_new(),EVP_MD_CTX_free);
-    auto sha1=std::unique_ptr<EVP_MD_CTX,decltype(&EVP_MD_CTX_free)>(EVP_MD_CTX_new(),EVP_MD_CTX_free);
-    if(!sha256||EVP_DigestInit_ex(sha256.get(),EVP_sha256(),nullptr)!=1||
-       !sha1||EVP_DigestInit_ex(sha1.get(),EVP_sha1(),nullptr)!=1)throw std::runtime_error("Mod digest unavailable");
-    std::array<char,131072> bytes{};
-    while(input.read(bytes.data(),bytes.size())||input.gcount())
-        if(EVP_DigestUpdate(sha256.get(),bytes.data(),static_cast<size_t>(input.gcount()))!=1||
-           EVP_DigestUpdate(sha1.get(),bytes.data(),static_cast<size_t>(input.gcount()))!=1)throw std::runtime_error("Mod digest failed");
-    if(!input.eof())throw Failure(-32602,"Mod file read failed");
-    auto hex_digest=[](EVP_MD_CTX* context){
-        unsigned char hash[EVP_MAX_MD_SIZE];unsigned count=0;
-        if(EVP_DigestFinal_ex(context,hash,&count)!=1)throw std::runtime_error("Mod digest failed");
-        static constexpr char hex[]="0123456789abcdef";std::string result;
-        for(unsigned i=0;i<count;++i){result+=hex[hash[i]>>4];result+=hex[hash[i]&15];}
-        return result;
-    };
-    return {hex_digest(sha256.get()),hex_digest(sha1.get())};
+    try { return native::stream_digests(input, with_sha1); }
+    catch(const std::ios_base::failure&) { throw Failure(-32602,"Mod file read failed"); }
 }
 std::string digest_file(const std::filesystem::path& path){
-    return digest_file_hashes(path).first;
+    return digest_file_hashes(path, false).first;
+}
+// Both catalogues identify content by sorted hashes, independent of filenames,
+// JSON key order and preview pagination. Keep this wire rule in one place.
+std::string catalog_hash(const Json& catalog){
+    std::vector<std::string> hashes;
+    hashes.reserve(catalog.size());
+    for(const auto& item:catalog)hashes.push_back(item.at("sha256").get<std::string>());
+    std::sort(hashes.begin(),hashes.end());
+    native::Digest digest(EVP_sha256());
+    for(size_t i=0;i<hashes.size();++i){if(i)digest.update("\n");digest.update(hashes[i]);}
+    return digest.final_hex();
 }
 bool safe_name(const std::string& name){
     return !name.empty()&&name.size()<=240&&name.find_first_of("/\\:\r\n\t") == std::string::npos
@@ -56,7 +58,7 @@ struct ModTransfers::Transfer {
     std::filesystem::path target,temporary;
     std::ifstream source;
     std::ofstream output;
-    std::unique_ptr<EVP_MD_CTX,decltype(&EVP_MD_CTX_free)> hash{nullptr,EVP_MD_CTX_free};
+    std::unique_ptr<native::Digest> hash;
     uint64_t size=0,expected_size=0,received=0,acknowledged=0;
     int stage=0;
     bool server=false,manifest=false,header=false,p2p=false,request_sent=false,pending_binary=false,rejected=false;
@@ -73,10 +75,11 @@ struct ModTransfers::Transfer {
 };
 ModTransfers::ModTransfers()=default;
 ModTransfers::~ModTransfers()=default;
+void ModTransfers::set_wakeup(std::function<void()> callback){wakeup_=std::move(callback);}
 void ModTransfers::set_allowed(bool allowed,uint32_t upload_limit_kib){
     if(upload_limit_kib<64||upload_limit_kib>10240)throw Failure(-32602,"Invalid mod upload limit");
     allow_transfers_=allowed;upload_limit_kib_=upload_limit_kib;
-    upload_tokens_=static_cast<double>(upload_limit_kib_)*1024.0;
+    upload_tokens_=upload_burst(static_cast<double>(upload_limit_kib_)*1024.0);
     upload_refill_=Clock::now();
 }
 void ModTransfers::configure(const std::string& directory){
@@ -134,21 +137,7 @@ Json ModTransfers::metadata()const{
            item.at("size").get<uint64_t>()<=2147483647ull)preview.push_back(item);
     }
     Json result{{"mods_count",catalog_.size()},{"mods",std::move(preview)}};
-    {
-        // The launcher identifies a mod set by sorted byte hashes, independent
-        // of filenames, JSON key order, and the preview's pagination limit.
-        std::vector<std::string> hashes;
-        for(const auto& item:catalog_)hashes.push_back(item.at("sha256").get<std::string>());
-        std::sort(hashes.begin(),hashes.end());
-        std::string serialized;
-        for(size_t i=0;i<hashes.size();++i){if(i)serialized+='\n';serialized+=hashes[i];}
-        unsigned char digest[EVP_MAX_MD_SIZE]{};unsigned length=0;
-        if(EVP_Digest(serialized.data(),serialized.size(),digest,&length,EVP_sha256(),nullptr)!=1||length!=32)
-            throw std::runtime_error("Mod manifest digest failed");
-        static constexpr char hex[]="0123456789abcdef";std::string value;value.reserve(64);
-        for(unsigned i=0;i<length;++i){value+=hex[digest[i]>>4];value+=hex[digest[i]&15];}
-        result["mods_hash"]=std::move(value);
-    }
+    result["mods_hash"]=catalog_hash(catalog_);
     Json resource_preview=Json::array();
     for(const auto& item:resource_catalog_){
         if(resource_preview.size()>=8)break;
@@ -157,17 +146,7 @@ Json ModTransfers::metadata()const{
     }
     result["resources_count"]=resource_catalog_.size();
     result["resources"]=std::move(resource_preview);
-    std::vector<std::string> resource_hashes;
-    for(const auto& item:resource_catalog_)resource_hashes.push_back(item.at("sha256").get<std::string>());
-    std::sort(resource_hashes.begin(),resource_hashes.end());
-    std::string resource_serialized;
-    for(size_t i=0;i<resource_hashes.size();++i){if(i)resource_serialized+='\n';resource_serialized+=resource_hashes[i];}
-    unsigned char resource_digest[EVP_MAX_MD_SIZE]{};unsigned resource_length=0;
-    if(EVP_Digest(resource_serialized.data(),resource_serialized.size(),resource_digest,&resource_length,EVP_sha256(),nullptr)!=1||resource_length!=32)
-        throw std::runtime_error("Resource manifest digest failed");
-    static constexpr char resource_hex[]="0123456789abcdef";std::string resource_value;resource_value.reserve(64);
-    for(unsigned i=0;i<resource_length;++i){resource_value+=resource_hex[resource_digest[i]>>4];resource_value+=resource_hex[resource_digest[i]&15];}
-    result["resources_hash"]=std::move(resource_value);
+    result["resources_hash"]=catalog_hash(resource_catalog_);
     return result;
 }
 void ModTransfers::accept(ssh_channel channel){
@@ -177,14 +156,21 @@ void ModTransfers::accept(ssh_channel channel){
 }
 void ModTransfers::bind_peer_channel(const std::shared_ptr<Transfer>& transfer){
     std::weak_ptr<Transfer> weak=transfer;
-    transfer->peer_channel->onMessage([weak](rtc::message_variant value){
+    const auto wake=wakeup_;
+    transfer->peer_channel->onMessage([weak,wake](rtc::message_variant value){
         auto current=weak.lock();if(!current)return;
         const size_t bytes=std::visit([](const auto& item){return item.size();},value);
-        std::lock_guard guard(current->peer_mutex);
-        if(current->peer_input_bytes+bytes>1024*1024){current->peer_overflow=true;return;}
-        current->peer_input_bytes+=bytes;current->peer_input.push_back(std::move(value));
+        bool notify=false;
+        {std::lock_guard guard(current->peer_mutex);
+            notify=current->peer_input.empty();
+            if(current->peer_input_bytes+bytes>1024*1024)current->peer_overflow=true;
+            else{current->peer_input_bytes+=bytes;current->peer_input.push_back(std::move(value));}}
+        if(notify&&wake)wake();
     });
-    transfer->peer_channel->onClosed([weak]{if(auto current=weak.lock())current->peer_closed=true;});
+    transfer->peer_channel->onOpen([wake]{if(wake)wake();});
+    transfer->peer_channel->onClosed([weak,wake]{if(auto current=weak.lock()){current->peer_closed=true;if(wake)wake();}});
+    transfer->peer_channel->setBufferedAmountLowThreshold(65536);
+    transfer->peer_channel->onBufferedAmountLow([wake]{if(wake)wake();});
 }
 void ModTransfers::accept_peer(std::shared_ptr<rtc::DataChannel> channel){
     if(!channel||serving_.size()>=maximum_serving){if(channel)channel->close();return;}
@@ -234,7 +220,7 @@ Json ModTransfers::command(const std::string& method,const Json& params,const st
             throw Failure(-32602,"Invalid resource target");
         t.temporary=t.target;t.temporary+="."+t.id+".part";
         t.output.open(t.temporary,std::ios::binary|std::ios::trunc);if(!t.output)throw Failure(-32602,"Mod destination cannot be written");
-        t.hash.reset(EVP_MD_CTX_new());if(!t.hash||EVP_DigestInit_ex(t.hash.get(),EVP_sha256(),nullptr)!=1)throw std::runtime_error("SHA256 unavailable");
+        t.hash=std::make_unique<native::Digest>(EVP_sha256());
         Json request{{"op","file"},{"sha256",t.digest},{"kind",t.kind}};
         if(item.contains("path"))request["path"]=item.at("path");
         t.pending=request.dump()+"\n";
@@ -291,13 +277,12 @@ void ModTransfers::pump(Transfer& t,Ssh& ssh){
     }
     if(t.input.size()>t.size-t.received)throw Failure(-32602,"Mod response exceeds declared size");
     if(t.manifest){if(t.data.is_null())t.data="";t.data.get_ref<std::string&>()+=t.input;}
-    else{t.output.write(t.input.data(),static_cast<std::streamsize>(t.input.size()));if(!t.output||EVP_DigestUpdate(t.hash.get(),t.input.data(),t.input.size())!=1)throw Failure(-32000,"Mod write failed");}
+    else{t.output.write(t.input.data(),static_cast<std::streamsize>(t.input.size()));if(!t.output)throw Failure(-32000,"Mod write failed");t.hash->update(t.input);}
     t.received+=t.input.size();t.input.clear();
     if(t.received==t.size){
         if(t.manifest){t.data=Json::parse(t.data.get<std::string>());if(!t.data.is_array()||t.data.size()>(t.kind=="resources"?2000:1000))throw Failure(-32602,"Invalid content manifest");}
         else{
-            unsigned char hash[32];unsigned length=0;if(EVP_DigestFinal_ex(t.hash.get(),hash,&length)!=1)throw std::runtime_error("SHA256 failed");
-            static constexpr char hex[]="0123456789abcdef";std::string digest;for(unsigned i=0;i<length;++i){digest+=hex[hash[i]>>4];digest+=hex[hash[i]&15];}
+            const auto digest=t.hash->final_hex();
             if(digest!=t.digest)throw Failure(-32602,"Mod SHA256 mismatch");
             t.output.close();
             if(std::filesystem::exists(t.target)){if(digest_file(t.target)!=t.digest)throw Failure(-32602,"Mod target already exists");std::filesystem::remove(t.temporary);}
@@ -317,8 +302,10 @@ void ModTransfers::pump_peer(Transfer& t,uint64_t* upload_budget){
     if(!t.peer_channel||((t.peer_closed||t.peer_channel->isClosed())&&!queued))
         throw Failure(-32000,"P2P mod data channel disconnected; SSH relay fallback is disabled");
     if(!t.peer_channel->isOpen()&&!queued)return;
+    unsigned messages=0;
     auto receive=[&]()->std::optional<rtc::message_variant>{
         std::lock_guard guard(t.peer_mutex);if(t.peer_input.empty())return std::nullopt;
+        if(messages==4){wait_ms_=0;return std::nullopt;}++messages;
         auto value=std::move(t.peer_input.front());t.peer_input.pop_front();
         t.peer_input_bytes-=std::visit([](const auto& item){return item.size();},value);return value;
     };
@@ -380,12 +367,15 @@ void ModTransfers::pump_peer(Transfer& t,uint64_t* upload_budget){
             if(!amount||amount>t.received-t.acknowledged)throw Failure(-32602,"Invalid mod acknowledgement");
             t.acknowledged+=amount;t.deadline=Clock::now()+std::chrono::seconds(30);
         }
+        size_t sent=0;
         while(t.peer_channel->bufferedAmount()<262144&&t.received-t.acknowledged<262144){
-            if(upload_budget&&!*upload_budget)return;
             if(t.payload_offset>=t.size){if(t.acknowledged==t.received&&t.peer_channel->bufferedAmount()==0){t.state="complete";log("mod_transfer_completed",{{"transfer",t.id},{"manifest",t.manifest},{"bytes",t.received},{"path","p2p"}});}return;}
-            auto amount=static_cast<size_t>(std::min<uint64_t>(16384,t.size-t.payload_offset));
-            if(upload_budget)amount=std::min<uint64_t>(amount,*upload_budget);
-            if(!amount)return;
+            const auto amount=static_cast<size_t>(std::min<uint64_t>({file_block,t.size-t.payload_offset,262144-(t.received-t.acknowledged)}));
+            if(upload_budget&&*upload_budget<amount){
+                if(!upload_wait_bytes_||amount<upload_wait_bytes_)upload_wait_bytes_=amount;
+                return;
+            }
+            if(sent>=file_quantum){wait_ms_=0;return;}
             std::string block;
             if(t.manifest)block=t.manifest_body.substr(static_cast<size_t>(t.payload_offset),amount);
             else{
@@ -394,6 +384,7 @@ void ModTransfers::pump_peer(Transfer& t,uint64_t* upload_budget){
             }
             rtc::binary bytes(block.size());std::memcpy(bytes.data(),block.data(),block.size());
             t.peer_channel->send(std::move(bytes));t.payload_offset+=amount;t.received+=amount;
+            sent+=amount;
             if(upload_budget)*upload_budget-=amount;
         }
         return;
@@ -411,14 +402,13 @@ void ModTransfers::pump_peer(Transfer& t,uint64_t* upload_budget){
         auto bytes=std::get_if<rtc::binary>(&*message);if(!bytes||bytes->empty()||bytes->size()>t.size-t.received)throw Failure(-32602,"Invalid mod data frame");
         const auto* data=reinterpret_cast<const char*>(bytes->data());const auto amount=bytes->size();
         if(t.manifest)t.manifest_body.append(data,amount);
-        else{t.output.write(data,static_cast<std::streamsize>(amount));if(!t.output||EVP_DigestUpdate(t.hash.get(),data,amount)!=1)throw Failure(-32000,"Mod write failed");}
+        else{t.output.write(data,static_cast<std::streamsize>(amount));if(!t.output)throw Failure(-32000,"Mod write failed");t.hash->update(std::string_view(data,amount));}
         t.received+=amount;t.deadline=Clock::now()+std::chrono::seconds(30);
         t.peer_channel->send(Json{{"ack",amount}}.dump());
         if(t.received==t.size){
             if(t.manifest){t.data=Json::parse(t.manifest_body);if(!t.data.is_array()||t.data.size()>(t.kind=="resources"?2000:1000))throw Failure(-32602,"Invalid content manifest");}
             else{
-                unsigned char hash[32];unsigned length=0;if(EVP_DigestFinal_ex(t.hash.get(),hash,&length)!=1)throw std::runtime_error("SHA256 failed");
-                static constexpr char hex[]="0123456789abcdef";std::string digest;for(unsigned i=0;i<length;++i){digest+=hex[hash[i]>>4];digest+=hex[hash[i]&15];}
+                const auto digest=t.hash->final_hex();
                 if(digest!=t.digest)throw Failure(-32602,"Mod SHA256 mismatch");
                 t.output.close();if(std::filesystem::exists(t.target)){if(digest_file(t.target)!=t.digest)throw Failure(-32602,"Mod target already exists");std::filesystem::remove(t.temporary);}else std::filesystem::rename(t.temporary,t.target);
                 t.temporary.clear();
@@ -429,10 +419,11 @@ void ModTransfers::pump_peer(Transfer& t,uint64_t* upload_budget){
     }
 }
 void ModTransfers::tick(Ssh& ssh){
+    wait_ms_=50;upload_wait_bytes_=0;
     for(auto& [id,t]:transfers_)try{if(t->p2p)pump_peer(*t);else pump(*t,ssh);}catch(const std::exception& error){t->state="error";t->error=error.what();free_channel(t->channel);if(t->peer_channel)t->peer_channel->close();log("mod_transfer_failed",{{"transfer",id},{"bytes",t->received},{"path",t->p2p?"p2p":"relay"}});}
     const auto now=Clock::now();
     const auto rate=static_cast<double>(upload_limit_kib_)*1024.0;
-    upload_tokens_=std::min(rate,upload_tokens_+std::chrono::duration<double>(now-upload_refill_).count()*rate);
+    upload_tokens_=std::min(upload_burst(rate),upload_tokens_+std::chrono::duration<double>(now-upload_refill_).count()*rate);
     upload_refill_=now;
     uint64_t budget=static_cast<uint64_t>(upload_tokens_);const auto initial_budget=budget;
     if(!serving_.empty()){
@@ -444,6 +435,10 @@ void ModTransfers::tick(Ssh& ssh){
         serving_cursor_=(start+1)%serving_.size();
     }
     upload_tokens_-=static_cast<double>(initial_budget-budget);
+    if(upload_wait_bytes_){
+        const int refill=static_cast<int>(std::ceil(std::max(0.0,double(upload_wait_bytes_)-upload_tokens_)*1000.0/rate));
+        wait_ms_=std::min(wait_ms_,std::max(1,refill));
+    }
     std::erase_if(serving_,[](const auto& t){return t->state=="complete"||t->state=="error";});
 }
 void ModTransfers::disconnect(){

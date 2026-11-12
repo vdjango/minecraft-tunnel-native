@@ -13,7 +13,7 @@ import ssl
 import time
 from pathlib import Path
 
-from .portal import atomic_json
+from .storage import atomic_json
 
 
 class MailDeliveryError(ValueError):

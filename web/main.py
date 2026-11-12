@@ -1,6 +1,6 @@
 """Production entry point for a native Buggcraft relay node.
 
-Run with ``python src/main.py``; first setup happens in the browser.
+Initialize with scripts/configure_node.py; run with python web/main.py.
 """
 import argparse
 import asyncio
@@ -17,7 +17,7 @@ from tunnel.runtime import configure_logging, default_directory, frozen
 
 async def run(config_path):
     import asyncssh
-    from tunnel.native_relay import RelayServer
+    from tunnel.native_relay import DEFAULT_COMPRESSION, RelayServer
 
     config = configparser.ConfigParser(interpolation=None)
     if not config.read(config_path, encoding="utf-8"):
@@ -35,36 +35,24 @@ async def run(config_path):
         max_client_streams=settings.getint("max_streams_per_client", 8),
         workers=settings.getint('workers', fallback=None),
         buffer_kib=settings.getint('buffer_kib', 512),
-        compression=settings.get('compression', 'auto'),
+        compression=settings.get('compression', DEFAULT_COMPRESSION),
     )
-    portal = federation = journal_context = None
+    portal = None
+    identity_only = config.has_section('identity')
+    managed = config.has_section('control') and config['control'].get('mode') == 'native'
+    if not identity_only and not managed:
+        raise ValueError('Federated node web/login is retired. Configure [control] mode=native with your own control origin, CA, signing key and enrollment credential.')
+    if not config.has_section('web'):
+        raise ValueError('[web] is required for the control browser adapter or node ownership proof endpoint')
     if config.has_section("web"):
-        from tunnel.federation import Federation, identity, validate_profile
-        from tunnel.portal import Portal
-
         web_settings = config["web"]
         state_path = base / web_settings.get("state_file", "node-state.json")
-        state = json.loads(state_path.read_text(encoding="utf-8"))
-        profile = json.loads((base / web_settings.get(
-            "profile_file", "relay-profile.json")).read_text(encoding="utf-8"))
-        # Advertise only the configured public entrance; never infer an origin
-        # address from the bind socket.
-        if settings.get("entry_host"):
-            profile["server_host"] = settings["entry_host"]
-        if settings.get("entry_port"):
-            profile["server_port"] = settings.getint("entry_port")
-        federation = Federation(
-            asyncssh.read_private_key(str(base / settings["host_key"])), profile,
-            network_key=state["network_key"], name=state["name"],
-            blocked=state.get("blocked", []),
-        )
-        seeds = state.get("seeds", [])
-        federation.seeds = {
-            identity(item["server_public_key"]): validate_profile(item) for item in seeds
-        }
-        federation.relay = relay
-        relay.federation = federation
-        portal = Portal(relay, federation, state_path)
+        if managed and not identity_only:
+            from tunnel.service_portal import RelayPortal
+            portal = RelayPortal(relay, asyncssh.read_private_key(str(base / settings['host_key'])),
+                                 state_path, config['control'], base)
+        else:
+            portal, _issuer = account_portal(relay, config, base, state_path)
 
     stopped = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -72,12 +60,8 @@ async def run(config_path):
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, stopped.set)
     try:
-        if not portal:
-            from tunnel.diagnostics import Diagnostics
-            relay.diagnostics = Diagnostics(base / 'logs' / 'players', relay)
-            journal_context = relay.diagnostics.lifecycle(None)
-            await anext(journal_context)
-        await relay.start()
+        if not identity_only:
+            await relay.start()
         if portal:
             tls = None
             if web_settings.get("tls_cert"):
@@ -86,7 +70,6 @@ async def run(config_path):
                 tls.load_cert_chain(base / web_settings["tls_cert"], base / web_settings["tls_key"])
             await portal.start(web_settings.get("host", "127.0.0.1"),
                                web_settings.getint("port", 18443), tls)
-            federation.task = asyncio.create_task(federation.run())
         stop_task = asyncio.create_task(stopped.wait())
         failure_task = asyncio.create_task(relay.wait_failed())
         try:
@@ -98,8 +81,6 @@ async def run(config_path):
             failure_task.cancel()
             await asyncio.gather(stop_task, failure_task, return_exceptions=True)
     finally:
-        if federation:
-            await federation.close()
         # Keep the journal writer alive until relay connection_lost callbacks
         # have recorded the shutdown of every player session.
         try:
@@ -107,18 +88,41 @@ async def run(config_path):
         finally:
             if portal:
                 await portal.close()
-            if journal_context:
-                await journal_context.aclose()
+
+
+def account_portal(relay, config, base, state_path):
+    """Load the persisted local issuer without a federation network runtime."""
+    import asyncssh
+    from tunnel.identity import AccountIssuer
+    settings, web_settings = config['relay'], config['web']
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    profile = json.loads((base / web_settings.get(
+        "profile_file", "relay-profile.json")).read_text(encoding="utf-8"))
+    # Advertise only the configured public entrance; never infer an origin
+    # address from the bind socket.
+    if settings.get("entry_host"):
+        profile["server_host"] = settings["entry_host"]
+    if settings.get("entry_port"):
+        profile["server_port"] = settings.getint("entry_port")
+    federation = AccountIssuer(
+        asyncssh.read_private_key(str(base / settings["host_key"])), profile,
+        network_key=state["network_key"], name=state["name"],
+        blocked=state.get("blocked", []),
+    )
+    federation.relay = relay
+    from tunnel.service_portal import IdentityPortal
+    portal = IdentityPortal(relay, federation, state_path, config['identity'], base)
+    return portal, federation
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run one Buggcraft federation relay node")
+    parser = argparse.ArgumentParser(description="Run a headless managed relay or control-host identity adapter")
     parser.add_argument("--install-service", action="store_true", help="Install or update the native systemd service")
     parser.add_argument("--config", help="Run an existing configuration (never initialize it)")
     parser.add_argument("--directory", default=str(default_directory()), help="Persistent node data directory")
-    parser.add_argument("--web-port", type=int, default=18443, help="First setup HTTPS port")
-    parser.add_argument("--setup-host", default="0.0.0.0", help="First setup bind address")
-    parser.add_argument("--no-browser", action="store_true", help="Do not open the local setup browser")
+    parser.add_argument("--web-port", type=int, default=18443, help=argparse.SUPPRESS)
+    parser.add_argument("--setup-host", default="0.0.0.0", help=argparse.SUPPRESS)
+    parser.add_argument("--no-browser", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     try:
         if not 1 <= args.web_port <= 65535:
@@ -152,12 +156,7 @@ async def serve(args):
     else:
         config_path = Path(args.directory).resolve() / 'server.conf'
         if not config_path.exists():
-            from tunnel.onboarding import first_run
-            options = {}
-            if frozen() and sys.platform == 'win32' and not getattr(args, 'no_browser', False):
-                options['open_browser'] = True
-            config_path = await first_run(args.directory, host=args.setup_host,
-                                         web_port=args.web_port, **options)
+            raise ValueError('Create server.conf with scripts/configure_node.py and your control service enrollment settings. No node web setup is provided.')
     await run(config_path)
 
 

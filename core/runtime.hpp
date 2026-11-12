@@ -1,6 +1,7 @@
 #pragma once
 #include "net.hpp"
 #include "heartbeat.hpp"
+#include "ipc.hpp"
 #include <libssh/libssh.h>
 #include <libssh/server.h>
 #include <openssl/evp.h>
@@ -23,10 +24,6 @@ using Id = uint64_t;
 constexpr size_t max_ipc_frame = 2 * 1024 * 1024;
 constexpr size_t max_control_buffer = 1024 * 1024;
 constexpr size_t io_quantum = 65536;
-
-std::string encode(const char* bytes, size_t length);
-std::string decode(const std::string& text);
-bool read_line(std::string& result);
 
 struct Engine;
 struct Worker;

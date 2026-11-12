@@ -18,5 +18,9 @@ async function api(path, data, timeoutMs = 20000) {
     throw error;
   } finally { clearTimeout(timer); }
 }
-function feedback(id, error) { $(id).textContent = error.message || String(error); }
+function feedback(id, error) {
+  $(id).textContent = error instanceof TypeError || error instanceof ReferenceError || error instanceof SyntaxError
+    ? '页面状态异常，请刷新后重试。若问题仍存在，请在启动器中提交反馈。'
+    : error.message || '操作失败，请稍后重试。';
+}
 if($('logout')) $('logout').onclick=async()=>{try{csrf=(await api('/api/admin')).csrf;await api('/api/logout',{});location.replace('/admin');}catch(e){const status=$('diagnostic-feedback')||$('feedback-message');if(status)status.textContent=e.message;}};

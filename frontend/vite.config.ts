@@ -3,6 +3,7 @@ import vue from '@vitejs/plugin-vue';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
+import {updatePageAssets,prunePageAssets} from './build/page-assets';
 
 const web = resolve(import.meta.dirname, '../web/tunnel/web');
 const pages = JSON.parse(readFileSync(new URL('./pages.json', import.meta.url), 'utf8')) as Record<string, string[]>;
@@ -11,35 +12,15 @@ export default defineConfig({
   plugins: [vue(), {
     name: 'existing-page-controllers',
     writeBundle(_options,bundle) {
-      const shell=readFileSync(resolve(import.meta.dirname,'page-shell.js'),'utf8');
-      const lists=readFileSync(resolve(import.meta.dirname,'list-loading.js'),'utf8');
-      const cssPath=resolve(web,'theme.css');
-      const shellCSS=shell.match(/style\.textContent = `([\s\S]*?)`;/)?.[1]||'';
-      const listCSS=lists.match(/const styles=`([\s\S]*?)`;/)?.[1]||'';
-      writeFileSync(cssPath,readFileSync(cssPath,'utf8').split('/* BUGGCRAFT LOADING STYLES */')[0].trimEnd()+'\n/* BUGGCRAFT LOADING STYLES */\n'+shellCSS.trim()+'\n'+listCSS.trim()+'\n');
-      const themePath=resolve(web,'theme.js');
-      if(existsSync(themePath)){
-        const theme=readFileSync(themePath,'utf8').split('/* BUGGCRAFT PAGE SHELL */')[0].trimEnd();
-        writeFileSync(themePath,theme+'\n/* BUGGCRAFT PAGE SHELL */\n'+shell+'\n'+lists);
-      }
+      prunePageAssets(web,bundle);
 
       for(const name of Object.keys(pages)) {
-        const entry=bundle['vue-page-'+name+'.js'];
-        if(!entry || entry.type!=='chunk')continue;
-        const revision=createHash('sha256').update(entry.code).digest('hex').slice(0,12);
         const html=resolve(web, name+'.html');
+        updatePageAssets(html,name,bundle);
         const previous=readFileSync(html,'utf8');
-        const needle='vue-page-'+name+'.js';
-        const start=previous.indexOf(needle);
-        const end=previous.indexOf('"',start);
-        let updated=start<0||end<0?previous:previous.slice(0,start+needle.length)+'?v='+revision+previous.slice(end);
+        let updated=previous;
         updated=updated.replace(/<script(?![^>]*data-cfasync)/g,'<script data-cfasync="false"');
         updated=updated.replace(/<link(?![^>]*data-shell-styles)(?=[^>]*href="\/theme\.css)/g,'<link data-shell-styles');
-        const dependencies=new Set<string>();
-        const visit=(chunk:typeof entry)=>{for(const dependency of chunk.imports){if(dependencies.has(dependency))continue;dependencies.add(dependency);const item=bundle[dependency];if(item?.type==='chunk')visit(item);}};
-        visit(entry);
-        updated=updated.replace(/<link rel="modulepreload"[^>]*>\s*/g,'');
-        updated=updated.replace('</head>',[...dependencies].map(file=>`<link rel="modulepreload" href="/${file}">`).join('')+'</head>');
         updated=updated.replace(/(src|href)="\/([^"/?]+\.(?:js|css))(?:\?v=[^"]*)?"/g,(match,attribute,file)=>{const path=resolve(web,file);return !file.startsWith('vue-runtime-')&&existsSync(path)?`${attribute}="/${file}?v=${createHash('sha256').update(readFileSync(path)).digest('hex').slice(0,12)}"`:match;});
         if(previous!==updated)writeFileSync(html,updated);
       }
@@ -59,7 +40,7 @@ export default defineConfig({
       const exports = ['accountView', 'loadSessions', 'refresh'].map(key => `if(typeof ${key}==='function') scope.expose('${key}',${key});`).join('\n');
       return `import {mountPage} from '${resolve(import.meta.dirname,'src/runtime.ts').replaceAll('\\','/')}';
         import Page from '@pages/${name}.vue';
-        export function mount(){ mountPage(function(scope, pageViews) {
+        export function mount(){ mountPage(function(scope) {
           const {fetch,setTimeout,clearTimeout,setInterval,clearInterval}=scope;
           ${source}\n${exports}\n
         }, Page); } if(!window.__buggcraftRouteLoading)mount();`;
@@ -71,7 +52,7 @@ export default defineConfig({
     rollupOptions: {
       preserveEntrySignatures: 'exports-only',
       input: Object.fromEntries(Object.keys(pages).map(name => ['page-' + name, 'page:' + name])),
-      output: {entryFileNames:'vue-[name].js', chunkFileNames:'vue-runtime-[hash].js', assetFileNames:'vue-[name][extname]'},
+      output: {entryFileNames:'vue-[name]-[hash].js', chunkFileNames:'vue-runtime-[hash].js', assetFileNames:'vue-[name]-[hash][extname]'},
     },
   },
 });

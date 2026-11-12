@@ -13,7 +13,7 @@ def sign(key, value):
     return encode(r.to_bytes(32, 'big') + s.to_bytes(32, 'big'))
 
 
-def enroll(store, username, *, delegated=False):
+def enroll(store, username, *, delegated=False, return_key=False):
     key = ec.generate_private_key(ec.SECP256R1())
     numbers = key.public_key().public_numbers()
     public = dict(kty='EC', crv='P-256', x=encode(numbers.x.to_bytes(32, 'big')),
@@ -35,4 +35,4 @@ def enroll(store, username, *, delegated=False):
     credential = store.credential(account, (grant, sign(key, grant)))
     if delegate:
         credential += '~' + encode(delegate.private_numbers().private_value.to_bytes(32, 'big'))
-    return account, credential
+    return (account, credential, key) if return_key else (account, credential)

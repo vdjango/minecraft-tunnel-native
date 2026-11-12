@@ -3,12 +3,11 @@ import asyncio
 import base64
 import ipaddress
 import json
-import socket
 import struct
 import unittest
 
 from tests import test_bridge as fixture
-from tests.network_proxy import TcpOnlyRelay
+from tests.network_proxy import TcpOnlyRelay, nonloopback_ipv4
 
 
 class DropUdp(asyncio.DatagramProtocol):
@@ -57,9 +56,7 @@ class PeerStunFallbackTests(unittest.IsolatedAsyncioTestCase):
                 for line in path.read_text(encoding='utf-8').splitlines()]
 
     async def test_relay_without_udp_uses_responsive_topology_stun(self):
-        addresses = socket.gethostbyname_ex(socket.gethostname())[2]
-        local_ip = next((ip for ip in addresses
-                         if not ipaddress.ip_address(ip).is_loopback), None)
+        local_ip = nonloopback_ipv4()
         if local_ip is None:
             self.skipTest('A non-loopback IPv4 interface is required for ICE')
 

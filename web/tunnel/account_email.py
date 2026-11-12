@@ -34,7 +34,7 @@ class EmailAccounts:
         return entry['body']['revision'], hashlib.sha256(canonical(entry)).hexdigest()
 
     def accept(self, entry):
-        from .federation import identity
+        from .identity import identity
         if not isinstance(entry, dict) or set(entry) != {'body', 'signature', 'proof'} or len(canonical(entry)) > 2048:
             raise ValueError('Invalid mailbox association')
         body = entry['body']
@@ -72,11 +72,11 @@ class EmailAccounts:
             self.save()
 
     def save(self):
-        from .portal import atomic_json
+        from .storage import atomic_json
         atomic_json(self.path, list(self.entries.values()))
 
     def snapshot(self):
-        from .federation import identity
+        from .identity import identity
         fed = self.store.federation
         return [entry for _, entry in sorted(self.entries.items())
                 if identity(entry['body']['issuer_key']) not in fed.blocked
@@ -101,13 +101,13 @@ class EmailAccounts:
         self.write('choice', mailbox, account)
 
     def candidates(self, mailbox):
-        from .federation import identity
+        from .identity import identity
         fed = self.store.federation
         entries = [e for e in self.entries.values() if e['body']['mailbox'] == mailbox
                    and identity(e['body']['issuer_key']) not in fed.blocked
                    and hmac.compare_digest(e['proof'], fed.proof(identity(e['body']['issuer_key'])))]
         preferred = next((e['body']['account'] for e in entries if e['body']['kind'] == 'choice'), None)
-        headers = dict(self.store.replication.directory)
+        headers = {} if self.store.local_only else dict(self.store.replication.directory)
         headers.update(self.store.records)
         accounts = {e['body']['account'] for e in entries if e['body']['kind'] == 'link'}
         return [dict(account=a, username=headers[a]['certificate']['username'],

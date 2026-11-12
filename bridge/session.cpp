@@ -83,17 +83,20 @@ Session::Session(Profile profile,std::string selected_role,std::string selected_
     }
 }
 Session::~Session(){stop();}
-Json Session::start(){auto future=ready_.get_future();thread_=std::thread([this]{run();});if(future.wait_for(std::chrono::seconds(30))!=std::future_status::ready){stop();throw Failure(-32021,"Room connection timed out");}return future.get();}
+Json Session::start(){mods_->set_wakeup([weak=weak_from_this()]{if(auto owner=weak.lock())owner->wake_.notify();});auto future=ready_.get_future();thread_=std::thread([this]{run();});if(future.wait_for(std::chrono::seconds(30))!=std::future_status::ready){stop();throw Failure(-32021,"Room connection timed out");}return future.get();}
 void Session::stop(){running_=false;changed_.notify_all();wake_.notify();if(thread_.joinable()&&thread_.get_id()!=std::this_thread::get_id())thread_.join();}
 bool Session::post(std::function<void()> action){std::lock_guard guard(mutex_);if(!running_||commands_.size()>=512)return false;const bool notify=commands_.empty();commands_.push_back(std::move(action));if(notify)wake_.notify();return true;}
-Json Session::status()const{std::lock_guard guard(mutex_);return {{"session",identity},{"role",role},{"room",room},{"state",state_},{"reason",reason_},{"info",room_info_},{"transport",role=="host"?(peer_started_?"auto":"relay"):(direct_?"p2p":"relay")},{"address",role=="client"?Json("127.0.0.1:"+std::to_string(listen_port_.load())):Json(nullptr)}};}
+Json Session::status()const{std::lock_guard guard(mutex_);return {{"session",identity},{"node_name",node_name_},{"role",role},{"room",room},{"state",state_},{"reason",reason_},{"info",room_info_},{"transport",role=="host"?(peer_started_?"auto":"relay"):(direct_?"p2p":"relay")},{"address",role=="client"?Json("127.0.0.1:"+std::to_string(listen_port_.load())):Json(nullptr)}};}
 void Session::become_ready(){
-    if(online_)return;online_=true;{std::lock_guard guard(mutex_);state_="online";reason_.clear();}
+    if(online_)return;online_=true;{std::lock_guard guard(mutex_);state_="online";reason_.clear();node_name_=profile_.name.empty()?profile_.host:profile_.name;}
     auto result=status();if(role=="host")result["invite"]="bugg1-"+secret;if(!ready_sent_){ready_sent_=true;ready_.set_value(result);}
     log("endpoint_online",{{"session",identity},{"role",role},{"transport",direct_?"p2p":"relay"}});
 }
 void Session::setup(){
+    if(reconnect_profile_&&managed_connected_)profile_=reconnect_profile_();
     ssh_=std::make_unique<Ssh>(profile_,role+":"+room,secret,4,member_token_);
+    {std::lock_guard guard(mutex_);node_name_=profile_.name.empty()?profile_.host:profile_.name;}
+    if(reconnect_profile_)managed_connected_=true;
     control_calls_.clear();
     auto initial_request=[this](Json value){
         auto result=ssh_->request(value);control_calls_.push_back(Clock::now());return result;
@@ -234,7 +237,7 @@ void Session::read_controls(){
 }
 void Session::tick(){
     std::deque<std::function<void()>> commands;{std::lock_guard guard(mutex_);commands.swap(commands_);}for(auto& action:commands)action();
-    advance_chat();read_controls();advance_requests();if(mods_)mods_->tick(*ssh_);
+    advance_chat();read_controls();advance_requests();
     if(!ssh_->alive()){stop_reason_="transport-closed";throw std::runtime_error("SSH disconnected");}
     if(!ssh_->heartbeat()){stop_reason_="heartbeat-timeout";log("heartbeat_timeout",{{"session",identity},{"timeout_seconds",20},{"transport",ssh_->diagnostics()}});throw std::runtime_error("SSH heartbeat timed out");}
     advance_presence();
@@ -252,6 +255,8 @@ void Session::tick(){
                       stream->received!=before_received);
     }
     std::erase_if(streams_,[](auto& stream){return stream->dead;});
+    // Service interactive game sockets before each bounded file batch.
+    if(mods_)mods_->tick(*ssh_);
 }
 void Session::run(){
     std::vector<PollFd> descriptors;descriptors.reserve(131);
@@ -269,7 +274,7 @@ void Session::run(){
             if(events)descriptors.push_back({stream->socket,events,0});
             if(stream->channel&&stream->to_socket.free()>=131100&&ssh_channel_poll(stream->channel,0)>0)buffered=true;
         }
-        net_poll(descriptors.data(),descriptors.size(),buffered?0:50);
+        net_poll(descriptors.data(),descriptors.size(),buffered?0:mods_->poll_timeout_ms());
         if(descriptors.front().revents&POLLIN)wake_.drain();
     }}catch(...){
         try{throw;}catch(const Failure& error){if(error.code==-32020)stop_reason_="room-closed";}catch(...){}
@@ -379,6 +384,7 @@ Json Session::mods(const std::string& method,const Json& params){
     Json mod_metadata=Json::object();
     if(method=="mods.configure"){
         configured=std::make_shared<ModTransfers>();
+        configured->set_wakeup([weak=weak_from_this()]{if(auto owner=weak.lock())owner->wake_.notify();});
         configured->configure(params.at("directory").get<std::string>());
         mod_metadata=configured->metadata();
     }

@@ -3,7 +3,6 @@ import {createApp} from 'vue';
 import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import Account from '../src/pages/account.vue';
-import Connect from '../src/pages/connect.vue';
 
 const controller = readFileSync(resolve(process.cwd(), '../web/tunnel/web/node-address.js'), 'utf8');
 let app: ReturnType<typeof createApp>;
@@ -14,7 +13,7 @@ function mount(page: typeof Account) {
   new Function('$', controller)((id:string) => document.getElementById(id));
   return document.getElementById('copy-node-address') as HTMLButtonElement;
 }
-describe.each([Account, Connect])('node address', page => {
+describe.each([Account])('custom service address', page => {
   it('copies the current public origin and exposes no old code controls', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {configurable:true, value:{writeText}});

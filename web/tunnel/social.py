@@ -14,9 +14,61 @@ class Social:
         self.store = store
         self.path = store.path.with_name('friends-signed.json')
         self.edges, self.invitations, self.presence, self.join_requests = {}, {}, {}, {}
+        self.pending, self.sessions = {}, {}
+        self.retry_at, self.retry_failures = {}, {}
         self.version = self.presence_version = ''
         if self.path.exists():
-            self.ingest(json.loads(self.path.read_text(encoding='utf-8')), persist=False)
+            saved = json.loads(self.path.read_text(encoding='utf-8'))
+            # Version 1 stored only the relationship list.
+            entries = saved if isinstance(saved, list) else saved['events']
+            self.ingest(entries, persist=False)
+            if isinstance(saved, dict):
+                for event in saved.get('pending', []):
+                    self.queue(event, persist=False, fresh=False)
+
+    def save(self):
+        """Commit durable relationships, unexpired invitations and outbox together."""
+        from .storage import atomic_json
+        atomic_json(self.path, {'version': 2, 'events': self.snapshot(),
+                               'pending': list(self.pending.values())})
+
+    @staticmethod
+    def expires(event):
+        action = event['action']
+        lifetime = 20 if action['op'] == 'presence' else 120 if action['op'] in (
+            'request_join', 'decline_join') else 300
+        return min(action['at'] + lifetime, event['grant']['e'])
+
+    def queue(self, event, *, persist=True, fresh=True):
+        """Only locally authenticated submissions enter the bounded durable outbox."""
+        self.validate(event, fresh=fresh)
+        if self.expires(event) <= time.time():
+            return
+        event_id = event['action']['id']
+        if event_id not in self.pending and len(self.pending) >= 256:
+            raise ValueError('邀请发送队列已满，请稍后重试。')
+        previous = self.pending.get(event_id)
+        if previous is not None and previous != event:
+            raise ValueError('Conflicting social event ID')
+        self.pending[event_id] = event
+        if persist:
+            try:
+                self.save()
+            except BaseException:
+                if previous is None:
+                    self.pending.pop(event_id, None)
+                raise
+
+    def acknowledge(self, event_id):
+        event = self.pending.pop(event_id, None)
+        if event is not None:
+            try:
+                self.save()
+            except BaseException:
+                self.pending[event_id] = event
+                raise
+        self.retry_at.pop(event_id, None)
+        self.retry_failures.pop(event_id, None)
 
     def validate(self, event, fresh=False):
         if not isinstance(event, dict) or set(event) != {'grant', 'proof', 'action', 'signature'} or len(canonical(event)) > 4096:
@@ -42,7 +94,7 @@ class Social:
                  'request_join': {'room'}, 'accept_join': {'ref', 'room'}, 'decline_join': {'ref', 'room'},
                  'presence': set()}
         op, at = action.get('op'), action.get('at')
-        room_presence = {'room', 'room_role', 'room_title', 'room_state', 'network_profile'}
+        room_presence = {'room', 'room_role', 'room_title', 'room_state', 'network_profile', 'status'}
         if op == 'presence' and set(action) & room_presence:
             extra['presence'] = set(action) & room_presence
         if (op not in extra or set(action) != {'op', 'target', 'at', 'id'} | extra[op] or
@@ -54,9 +106,11 @@ class Social:
         if op == 'presence':
             if action['target'] != actor:
                 raise ValueError('Invalid presence identity')
+            if action.get('status', 'online') not in ('online', 'offline'):
+                raise ValueError('Invalid presence status')
         elif action['target'] == actor or action['target'] not in self.store.replication.directory:
             raise ValueError('找不到这个用户名。')
-        required_fields = extra[op] - {'room_role', 'room_title', 'room_state', 'network_profile'}
+        required_fields = extra[op] - {'room_role', 'room_title', 'room_state', 'network_profile', 'status'}
         if op == 'presence':
             required_fields.discard('room')
         for key in required_fields:
@@ -85,6 +139,17 @@ class Social:
 
     def prune(self):
         now = time.time()
+        old_sessions = len(self.sessions)
+        self.sessions = {key: event for key, event in self.sessions.items() if self.expires(event) > now}
+        if len(self.sessions) != old_sessions:
+            self.presence_version = ''
+        self.presence.clear()
+        for (actor, _), event in self.sessions.items():
+            old = self.presence.get(actor)
+            # One device logging out must not hide another active device.
+            score = lambda value: (value['action'].get('status', 'online') == 'online', self.order(value))
+            if old is None or score(event) > score(old):
+                self.presence[actor] = event
         for collection, lifetime, field in ((self.presence, 20, 'presence_version'),
                                              (self.invitations, 300, 'version'),
                                              (self.join_requests, 120, 'version')):
@@ -106,7 +171,11 @@ class Social:
                 op = action['op']
                 collection = (self.presence if op == 'presence' else self.invitations if op in ('invite', 'accept_join')
                               else self.join_requests if op in ('request_join', 'decline_join') else self.edges)
-                key = actor if op == 'presence' else (action['target'], actor) if op == 'decline_join' else (actor, action['target'])
+                if op == 'presence':
+                    collection = self.sessions
+                    key = (actor, hashlib.sha256(canonical(event['grant']['d'])).hexdigest())
+                else:
+                    key = (action['target'], actor) if op == 'decline_join' else (actor, action['target'])
                 old = collection.get(key)
                 if old == event or (old and self.order(event) <= self.order(old)):
                     continue
@@ -115,26 +184,26 @@ class Social:
                         (op in ('invite', 'accept_join') and action['at'] < time.time() - 300) or
                         (op in ('request_join', 'decline_join') and action['at'] < time.time() - 120)):
                     continue
-                limit = MAX_EDGES if collection is self.edges else 512 if collection is self.presence else 256
+                limit = MAX_EDGES if collection is self.edges else 512 if collection is self.sessions else 256
                 if key not in collection and len(collection) >= limit:
                     continue
                 collection[key] = event
-                if collection is self.presence:
+                if collection is self.sessions:
                     self.presence_version = ''
                 else:
                     self.version = ''
-                changed = changed or collection is self.edges
+                changed = changed or collection is not self.sessions
             except (KeyError, TypeError, ValueError):
                 continue
         if changed and persist:
-            from .portal import atomic_json
-            atomic_json(self.path, list(self.edges.values()))
+            self.save()
+        self.prune()
 
     def snapshot(self, presence=False):
         self.prune()
-        values = (list(self.presence.values()) if presence else
+        values = (list(self.sessions.values()) if presence else
                   list(self.edges.values()) + list(self.invitations.values()) + list(self.join_requests.values()))
-        return sorted(values, key=lambda e: (e['grant']['a'], e['action']['target'], e['action']['op']))
+        return sorted(values, key=lambda e: (e['grant']['a'], e['action']['target'], e['action']['op'], e['action']['id']))
 
     def digest(self, presence=False):
         self.prune()
@@ -171,7 +240,8 @@ class Social:
             item = {'account': other, 'username': self.name(other)}
             if self.friends(account, other):
                 beat = self.presence.get(other)
-                online = bool(beat and beat['action']['at'] > time.time() - 20 and beat['grant']['e'] > time.time())
+                online = bool(beat and beat['action'].get('status', 'online') == 'online')
+                presence_state = 'online' if online else 'offline' if beat else 'unknown'
                 room = None
                 network_profile = None
                 if online and beat['action'].get('room'):
@@ -180,7 +250,7 @@ class Social:
                                 availability=action['room_state'], can_request=action['room_role'] == 'host' and action['room_state'] == 'ready')
                 if online:
                     network_profile = beat['action'].get('network_profile')
-                friends.append(dict(item, online=online, room=room, network_profile=network_profile))
+                friends.append(dict(item, online=online, presenceState=presence_state, room=room, network_profile=network_profile))
             else:
                 outgoing, incoming = self.edges.get((account, other)), self.edges.get((other, account))
                 for event, inbound, opposite in ((incoming, True, outgoing), (outgoing, False, incoming)):
@@ -212,14 +282,28 @@ class Social:
         return {'account': account, 'username': self.name(account), 'friends': friends, 'requests': requests,
                 'networkProfile': own_profile,
                 'invitations': invitations, 'joinRequests': join_requests,
-                'capabilities': {'room_presence': True, 'join_requests': True, 'friend_code': True}}
+                'deliveries': [{'id': key, 'state': 'pending', 'expires': self.expires(event)}
+                               for key, event in self.pending.items() if event['grant']['a'] == account and self.expires(event) > time.time()],
+                'capabilities': {'room_presence': True, 'join_requests': True, 'friend_code': True,
+                                 'presence_state': True, 'reliable_delivery': True}}
 
-    def apply(self, account, event):
-        actor, action = self.validate(event, fresh=True)
+    def apply(self, account, event, *, fresh=True):
+        actor, action = self.validate(event, fresh=fresh)
         self.prune()
         if actor != account:
             raise ValueError('Friend identity does not match authenticated account')
         target, op = action['target'], action['op']
+        if self.expires(event) <= time.time():
+            raise ValueError('操作已过期，请刷新后重试。')
+        collection = self.invitations if op in ('invite', 'accept_join') else self.join_requests if op in (
+            'request_join', 'decline_join') else self.edges
+        key = (target, actor) if op == 'decline_join' else (actor, target)
+        storage_key = key
+        previous = collection.get(key)
+        if op not in ('join', 'presence') and previous and self.order(previous) >= self.order(event):
+            # Acknowledgement may have been lost after commit. Never repeat effects.
+            self.save()
+            return self.state(actor)
         if op == 'accept':
             request = self.edges.get((target, actor))
             current = self.edges.get((actor, target))
@@ -265,4 +349,6 @@ class Social:
                 raise ValueError('好友的房间暂不可用。')
             return {'invite': 'bugg1-' + room.secret}
         self.ingest([event])
+        if op != 'presence' and collection.get(storage_key) != event:
+            raise ValueError('好友事件存储已满，请稍后重试。')
         return self.state(actor)

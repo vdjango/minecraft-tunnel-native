@@ -1,1 +1,0 @@
-<template><footer class="shell product-links" aria-label="Buggcraft 产品服务"><strong>Buggcraft · BUGG启动器</strong><nav aria-label="产品服务"><a href="https://bugg.icu/">官网</a><a href="https://mirror.bugg.icu/">镜像源</a><a href="https://node.bugg.icu/">好友联机</a><a href="https://translate.bugg.icu/">译文库</a></nav></footer></template>

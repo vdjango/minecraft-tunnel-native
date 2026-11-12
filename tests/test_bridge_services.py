@@ -5,14 +5,13 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import ipaddress
-import socket
 import sys
 import time
 import unittest
 from unittest.mock import patch
 
 from tests import test_bridge as fixture
+from tests.network_proxy import nonloopback_ipv4
 ROOT = fixture.ROOT
 LAUNCHER = Path(os.environ.get('BUGGCRAFT_LAUNCHER_SOURCE') or
                 os.environ.get('BUGGCRAFT_LAUNCHER_SDK') or ROOT.parent / 'buggcraft/src/buggcraft')
@@ -161,8 +160,7 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
         from tests.test_peer_stun_fallback import StunResponder, SlowGate
         from tests.network_proxy import TcpOnlyRelay
 
-        local_ip = next((ip for ip in socket.gethostbyname_ex(socket.gethostname())[2]
-                         if not ipaddress.ip_address(ip).is_loopback), None)
+        local_ip = nonloopback_ipv4()
         if local_ip is None:
             self.skipTest('A non-loopback IPv4 interface is required for ICE')
         relay = await TcpOnlyRelay(self.node.port).start(local_ip)
@@ -292,6 +290,113 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
         for item in items:
             self.assertEqual((target / item['name']).read_bytes(), payloads[item['name']])
         self.assertFalse(list(target.glob('*.part')))
+
+    async def test_direct_upload_rate_has_no_second_of_initial_credit(self):
+        directory = self.logs / 'paced-instance'
+        (directory / 'mods').mkdir(parents=True)
+        payload = os.urandom(2 * 1024 * 1024)
+        (directory / 'mods' / 'file.jar').write_bytes(payload)
+        (directory / 'mods' / 'warmup.jar').write_bytes(b'warmup')
+        host, guest, hosted, joined = await self.direct_pair(directory, limit=1024)
+        items = (await self.call(host, 'mods.manifest', dict(session=hosted['session'])))['items']
+        for item in sorted(items, key=lambda item: item['size']):
+            target = self.logs / item['name']
+            start = time.perf_counter()
+            result = await self.fetch_transfer(guest, joined['session'], item, target)
+            elapsed = time.perf_counter() - start
+            self.assertEqual(result['state'], 'complete', result)
+            if item['name'] == 'file.jar':
+                self.assertGreaterEqual(elapsed, 1.75, 'A 1 MiB/s limit must not grant 1 MiB upfront')
+                self.assertEqual(target.read_bytes(), payload)
+
+    async def test_mixed_file_transfer_latency(self):
+        """Real game/file PeerConnections; optional repeatable performance output."""
+        import random
+        loop = asyncio.get_running_loop()
+        debug = loop.get_debug()
+        if os.environ.get('BUGGCRAFT_MIXED_REPORT'):
+            loop.set_debug(os.environ.get('BUGGCRAFT_BRIDGE_SOAK_ASYNCIO_DEBUG') == '1')
+            self.addCleanup(loop.set_debug, debug)
+        directory = self.logs / 'mixed-instance'
+        (directory / 'mods').mkdir(parents=True)
+        generator = random.Random(20261110)
+        file_mib = int(os.environ.get('BUGGCRAFT_MIXED_FILE_MIB', '4'))
+        self.assertTrue(1 <= file_mib <= 64)
+        payloads = {f'file-{i}.jar': generator.randbytes(file_mib * 1024 * 1024) for i in range(4)}
+        payloads['warmup.jar'] = b'warmup'
+        for name, payload in payloads.items():
+            (directory / 'mods' / name).write_bytes(payload)
+        host, guest, hosted, joined = await self.direct_pair(directory, limit=10240)
+        items = (await self.call(host, 'mods.manifest', dict(session=hosted['session'])))['items']
+        target = self.logs / 'mixed-downloads'
+        target.mkdir()
+        warmup = next(item for item in items if item['name'] == 'warmup.jar')
+        warmed = await self.fetch_transfer(guest, joined['session'], warmup, target / 'warmup.jar')
+        self.assertEqual(warmed['state'], 'complete', warmed)
+        await self.call(guest, 'mods.cancel', dict(session=joined['session'], transfer=warmed['transfer']))
+        port = int(joined['address'].rsplit(':', 1)[1])
+        reader, writer = await asyncio.open_connection('127.0.0.1', port)
+        writer.write(fixture.GAME_HANDSHAKE)
+        await writer.drain()
+        self.assertEqual(await reader.readexactly(len(fixture.GAME_HANDSHAKE)), fixture.GAME_HANDSHAKE)
+        samples = []
+        finished = asyncio.Event()
+
+        async def probe():
+            while not finished.is_set():
+                payload = len(samples).to_bytes(8, 'big') * 8
+                start = time.perf_counter()
+                writer.write(payload)
+                await writer.drain()
+                self.assertEqual(await asyncio.wait_for(reader.readexactly(len(payload)), 5), payload)
+                samples.append((time.perf_counter() - start) * 1000)
+                await asyncio.sleep(.01)
+
+        probe_task = asyncio.create_task(probe())
+        started = time.perf_counter()
+        states = []
+        try:
+            for item in items:
+                if item['name'] != 'warmup.jar':
+                    states.append(await self.call(guest, 'mods.fetch', dict(
+                        session=joined['session'], item=item, target=str(target / item['name']))))
+            async with asyncio.timeout(45):
+                while any(state['state'] not in ('complete', 'error') for state in states):
+                    await asyncio.sleep(.02)
+                    for index, state in enumerate(states):
+                        if state['state'] not in ('complete', 'error'):
+                            states[index] = await self.call(guest, 'mods.status', dict(
+                                session=joined['session'], transfer=state['transfer']))
+            elapsed = time.perf_counter() - started
+        finally:
+            finished.set()
+            try:
+                await probe_task
+            finally:
+                writer.write_eof()
+                self.assertEqual(await asyncio.wait_for(reader.read(), 5), b'')
+                writer.close()
+                await writer.wait_closed()
+        for state in states:
+            self.assertEqual(state['state'], 'complete', state)
+            self.assertEqual(state['path'], 'p2p', state)
+        for name, payload in payloads.items():
+            self.assertEqual(hashlib.sha256((target / name).read_bytes()).digest(),
+                             hashlib.sha256(payload).digest())
+        self.assertFalse(list(target.glob('*.part')))
+        self.assertGreater(len(samples), 5)
+        ordered = sorted(samples)
+        report = dict(passed=True, path='local-NIC-p2p', files=4, bytes=4 * file_mib * 1024 * 1024,
+                      seconds=elapsed, mib_per_second=4 * file_mib / elapsed, probes=len(samples),
+                      asyncio_debug=loop.get_debug(),
+                      p50_ms=ordered[int((len(ordered) - 1) * .50)],
+                      p95_ms=ordered[int((len(ordered) - 1) * .95)],
+                      p99_ms=ordered[int((len(ordered) - 1) * .99)], max_ms=max(samples),
+                      stalls_over_100_ms=sum(value > 100 for value in samples),
+                      sha256_verified=True, eof_verified=True)
+        if output := os.environ.get('BUGGCRAFT_MIXED_REPORT'):
+            Path(output).write_text(json.dumps(report, indent=2), encoding='utf-8')
+        print('MIXED_TRANSFER_RESULT ' + json.dumps(report), flush=True)
 
     async def test_mod_download_limit_and_cancel_release_all_sixteen_slots(self):
         directory = self.logs / 'bounded-instance'

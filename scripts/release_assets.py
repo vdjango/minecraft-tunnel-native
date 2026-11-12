@@ -17,6 +17,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 PLATFORMS = {
     "ubuntu-24.04": "linux-x64",
+    "ubuntu-24.04-arm": "linux-arm64",
     "windows-2022": "windows-x64",
     "macos-15": "macos-arm64",
     "macos-15-intel": "macos-x64",
@@ -90,7 +91,9 @@ def verify_assets(directory: Path, version: str) -> None:
     required = [f"buggcraft-native-{version}-{platform}" + (".zip" if platform == "windows-x64" else ".tar.gz")
                 for platform in PLATFORMS.values()]
     deb_version = version.replace("-rc.", "~rc.").replace("-beta.", "~beta.").replace("-alpha.", "~alpha.")
-    required.append(f"buggcraft-node_{deb_version}_amd64.deb")
+    required.extend(f"buggcraft-node_{deb_version}_{arch}.deb" for arch in ('amd64', 'arm64'))
+    required.append(f"buggcraft-node-{version}-windows-x64-setup.exe")
+    required.extend(f"buggcraft-node-{version}-macos-{arch}.pkg" for arch in ('arm64', 'x64'))
     for name in required:
         asset = directory / name
         checksum = directory / (name + ".sha256")

@@ -326,6 +326,9 @@ class RoomPeer(asyncssh.SSHServer):
 
     def connection_lost(self, exc):
         self.relay.peers.discard(self)
+        managed = getattr(self.relay, 'managed_control', None)
+        if managed:
+            managed.disconnected(self)
         for stream in tuple(self.streams):
             stream.close()
         if self.relay.diagnostics:
@@ -385,9 +388,17 @@ class RoomPeer(asyncssh.SSHServer):
             if role not in ("host", "client", "directory"):
                 return self.reject_auth('invalid-role')
             self.diagnostic_role = role
+            managed = getattr(self.relay, 'managed_control', None)
             context = AUTHENTICATION_FAILURE.set(None)
             try:
-                self.account = self.relay.account_authenticate(token)
+                if managed:
+                    # Managed relays have no independent player or directory login.
+                    # Only the control service can issue credentials for a room allocation.
+                    if role not in ('host', 'client'):
+                        return self.reject_auth('control-login-required')
+                    self.account = managed.player(token)['sub']
+                else:
+                    self.account = self.relay.account_authenticate(token)
                 import inspect
                 if inspect.isawaitable(self.account):
                     self.account = await self.account
@@ -433,6 +444,8 @@ class RoomPeer(asyncssh.SSHServer):
                 return self.reject_auth('host-exists' if existing else 'node-capacity')
             self.role, self.room = role, claimed_room
             self.secret = secret
+            if managed:
+                self.account = await managed.admit(self, token, credentials.get('allocation_ticket'), role, claimed_room)
             return True
         except (ValueError, TypeError, KeyError, UnicodeError):
             return self.reject_auth('malformed-credentials')
