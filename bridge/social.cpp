@@ -14,11 +14,14 @@ namespace bridge {
 namespace {
 double social_timestamp() {
     static std::mutex clock_mutex;
-    static double previous = 0;
+    static int64_t previous = 0;
     std::lock_guard<std::mutex> guard(clock_mutex);
-    double current = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
-    previous = std::max(current, previous + 0.001);
-    return previous;
+    const auto current = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    previous = std::max<int64_t>(current, previous + 1);
+    // Sub-millisecond doubles can have different shortest JSON encodings in
+    // nlohmann and Python, invalidating an otherwise correct device signature.
+    return static_cast<double>(previous) / 1000.0;
 }
 std::string decode(std::string value){
     if(value.empty()||value.size()>8192||value.size()%4==1)throw Failure(-32602,"Invalid personal credential");

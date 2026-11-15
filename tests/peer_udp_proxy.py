@@ -1,6 +1,9 @@
 """Test-only UDP fault injection; signalling and SSH remain untouched."""
 import asyncio
+import ctypes
 import ipaddress
+import os
+import socket
 from unittest.mock import patch
 
 from tunnel.peer_signal import PeerSignalSession
@@ -36,8 +39,27 @@ class PeerUdpProxy:
 
         loop = asyncio.get_running_loop()
         for index in range(2):
-            transport, _ = await loop.create_datagram_endpoint(
-                lambda index=index: Leg(index), local_addr=('0.0.0.0', 0))
+            endpoint = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                # ICE retries close the old port. An ICMP response must not
+                # permanently stop Proactor's receive loop in this fault proxy.
+                if os.name == 'nt':
+                    ioctl = ctypes.windll.ws2_32.WSAIoctl
+                    ioctl.argtypes = [ctypes.c_size_t, ctypes.c_ulong, ctypes.c_void_p,
+                                      ctypes.c_ulong, ctypes.c_void_p, ctypes.c_ulong,
+                                      ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+                    enabled, returned = ctypes.c_ulong(0), ctypes.c_ulong()
+                    if ioctl(endpoint.fileno(), 0x9800000C, ctypes.byref(enabled),
+                             ctypes.sizeof(enabled), None, 0, ctypes.byref(returned),
+                             None, None):
+                        raise ctypes.WinError(ctypes.windll.ws2_32.WSAGetLastError())
+                endpoint.bind(('0.0.0.0', 0))
+                endpoint.setblocking(False)
+                transport, _ = await loop.create_datagram_endpoint(
+                    lambda index=index: Leg(index), sock=endpoint)
+            except BaseException:
+                endpoint.close()
+                raise
             self.transports.append(transport)
         original = PeerSignalSession.send
         def send(session, value):

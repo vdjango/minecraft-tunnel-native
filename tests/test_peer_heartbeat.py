@@ -1,6 +1,7 @@
 """Real native peer heartbeats, isolated UDP loss, relay and direct recovery."""
 import asyncio
 import json
+import socket
 import sys
 import time
 import unittest
@@ -17,6 +18,29 @@ class PeerHeartbeatTests(unittest.IsolatedAsyncioTestCase):
     add = fixture.BridgeTests.add
     exchange = fixture.BridgeTests.exchange
     wait_direct = fixture.BridgeTests.wait_direct
+
+    async def test_udp_fault_proxy_survives_closed_destination(self):
+        proxy = await PeerUdpProxy().start()
+        self.addAsyncCleanup(proxy.close)
+        loop = asyncio.get_running_loop()
+        sockets = [socket.socket(socket.AF_INET, socket.SOCK_DGRAM) for _ in range(3)]
+        for endpoint in sockets:
+            self.addCleanup(endpoint.close)
+            endpoint.bind(('127.0.0.1', 0))
+            endpoint.setblocking(False)
+        sender, old, replacement = sockets
+        proxy.addresses = [sender.getsockname(), old.getsockname()]
+        destination = ('127.0.0.1', proxy.transports[0].get_extra_info('sockname')[1])
+        old.close()
+        await loop.sock_sendto(sender, b'closed-destination', destination)
+        await asyncio.sleep(.1)
+        proxy.addresses[1] = replacement.getsockname()
+        await loop.sock_sendto(sender, b'new-destination', destination)
+        received, reply = await asyncio.wait_for(loop.sock_recvfrom(replacement, 256), 2)
+        self.assertEqual(received, b'new-destination')
+        await loop.sock_sendto(replacement, b'return-after-replacement', reply)
+        returned, _ = await asyncio.wait_for(loop.sock_recvfrom(sender, 256), 2)
+        self.assertEqual(returned, b'return-after-replacement')
 
     def rows(self, session):
         return [json.loads(line) for path in self.logs.rglob(session+'.jsonl')

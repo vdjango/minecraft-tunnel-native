@@ -530,6 +530,10 @@ class BridgeServicesTests(unittest.IsolatedAsyncioTestCase):
         events = federation.accounts.social.snapshot()
         self.assertTrue(any(event['grant']['a'] == account and event['action']['target'] == target
                             for event in events), events)
+        action = next(event['action'] for event in events
+                      if event['grant']['a'] == account and event['action']['target'] == target)
+        self.assertEqual(action['at'], round(action['at'], 3),
+                         'Signed timestamps must serialize identically across native and Python peers')
 
     async def test_control_budget_preserves_requests_and_continuous_game_data(self):
         host, guest, hosted, joined = await self.pair()

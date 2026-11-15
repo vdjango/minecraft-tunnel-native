@@ -45,7 +45,7 @@
     "bridge/session.hpp": "511e8f037f656bb99a790c2efd7e197154c6d721cc2a9fc0b817a8605c6eee08",
     "bridge/session_chat.cpp": "7bca7b84066195912f6ca723d7f6eaf01cc3ca2ffff763d2059c64f24cb30392",
     "bridge/session_presence.cpp": "a9677f1d228fbbf03cf8c166ed3b49e7d3d12e6fe9d16718ff8099158be1b22d",
-    "bridge/social.cpp": "3777759102d6129fd3f4387f4a8fb1c26c4dfd464f8a50c9974d0c7c065fb210",
+    "bridge/social.cpp": "ddcf4f4292011272151c5d633fa777989fc9da0fe964c2cbc09bad6e471f6b15",
     "bridge/social.hpp": "988f083c1f20227fb82e0f7109b7241ece5ffe73a0f812c5030575902fefdbda",
     "bridge/ssh.cpp": "3f0dbfd22987ab897ac64ea1e597a966d7adfe851d07fe9cafa788fbd0ff9ad0",
     "bridge/ssh.hpp": "af186191234bcb2d457c6a77bf8091446ef01a2eb47feaaaca7b433509697e28",

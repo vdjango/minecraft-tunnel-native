@@ -3309,25 +3309,25 @@
     },
     {
       "path": "bridge/social.cpp",
-      "line": 23,
+      "line": 26,
       "kind": "definition",
       "symbol": "bridge::<anonymous>::decode(std::string value)"
     },
     {
       "path": "bridge/social.cpp",
-      "line": 28,
+      "line": 31,
       "kind": "definition",
       "symbol": "bridge::<anonymous>::encode(const std::string& bytes)"
     },
     {
       "path": "bridge/social.cpp",
-      "line": 30,
+      "line": 33,
       "kind": "definition",
       "symbol": "bridge::sign_delegated_message(const Profile& profile,const std::string& bytes)"
     },
     {
       "path": "bridge/social.cpp",
-      "line": 56,
+      "line": 59,
       "kind": "definition",
       "symbol": "bridge::social_event(const Profile& profile,const Json& params)"
     },
