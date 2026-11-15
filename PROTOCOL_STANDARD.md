@@ -44,3 +44,7 @@ JSON-RPC 的完整能力以运行时 `bridge.initialize` 响应为准。接入�
 - 在线总数覆盖存活联邦节点的桥会话，`game_players`、容量和路径分布仍属本节点；详情允许部分失败。
 - 缓存备用入口不等于房间状态复制。全部候选失败会停止重试，现有 Minecraft TCP 不能跨节点迁移。
 - 后台入口隐藏不替代鉴权，Minecraft 握手检查不构成完整包过滤或官方二进制认证。
+
+## 2026-11-14 managed launcher feedback
+
+The managed account path of feedback.submit uses the authenticated control service, with an explicit matching origin and an 8 MiB diagnostics ZIP limit. Legacy SSH uploads retain their existing 20 MiB streaming path. See [launcher protocol](docs/60-Launcher-usability-20261114.md).

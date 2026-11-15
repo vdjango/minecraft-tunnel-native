@@ -30,6 +30,7 @@ struct Stream {
     bool sent_eof=false, socket_eof=false, dead=false;
     bool opening=false;
     bool handshake_validated=false;
+    bool connection_counted=false;
     int relay_port=25565;
     size_t inflight=0;
     uint64_t sent=0, received=0, sampled_sent=0,sampled_received=0;

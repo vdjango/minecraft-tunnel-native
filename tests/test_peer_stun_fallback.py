@@ -43,6 +43,26 @@ class PeerStunFallbackTests(unittest.IsolatedAsyncioTestCase):
     wait_direct = fixture.BridgeTests.wait_direct
     exchange = fixture.BridgeTests.exchange
 
+    async def test_network_reference_uses_same_socket_and_retains_no_addresses(self):
+        local_ip = nonloopback_ipv4()
+        if local_ip is None:
+            self.skipTest('A non-loopback IPv4 interface is required for STUN')
+        first = await TcpOnlyRelay(self.node.port).start(local_ip, StunResponder)
+        second = await TcpOnlyRelay(self.node.port).start(local_ip, StunResponder)
+        self.addAsyncCleanup(first.close)
+        self.addAsyncCleanup(second.close)
+        self.profile = dict(self.profile, server_host=local_ip, server_port=first.port)
+        process = await self.process()
+        node = await self.add_with_stun_alternative(process, second.port)
+        result = await self.call(process, 'network.inspect', {'node': node, 'refresh': True})
+        # Two ports on one server IP cannot establish destination-independent
+        # mapping. Keep the weaker reachability evidence for the player UI.
+        self.assertEqual(result['type'], 'udp-reachable')
+        self.assertGreater(result['observed_at'], 0)
+        self.assertEqual(set(result), {'type', 'observed_at', 'direct_successes', 'relay_successes', 'persisted'})
+        self.assertNotIn('198.51.100.23', json.dumps(result))
+        self.assertTrue(result['persisted'])
+
     async def add_with_stun_alternative(self, process, stun_port):
         code = 'buggnode1-' + base64.urlsafe_b64encode(
             json.dumps(self.profile).encode()).decode().rstrip('=')

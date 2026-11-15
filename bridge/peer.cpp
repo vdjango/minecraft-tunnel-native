@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "session.hpp"
+#include "network_profile.hpp"
 #include <algorithm>
 #include <array>
 #include <openssl/rand.h>
@@ -34,9 +35,7 @@ bool stun_responds(const Profile& profile){
     if(received<=0)return false;
     for(size_t i=0;i<descriptors.size();++i)if(descriptors[i].revents&POLLIN){
         std::array<unsigned char,2048> response{};auto count=::recv(sockets[i],reinterpret_cast<char*>(response.data()),static_cast<int>(response.size()),0);
-        if(count<20||response[0]!=1||response[1]!=1||response[4]!=0x21||response[5]!=0x12||response[6]!=0xa4||response[7]!=0x42||
-           !std::equal(request.begin()+8,request.end(),response.begin()+8))continue;
-        const auto body=static_cast<size_t>((response[2]<<8)|response[3]);if(body%4==0&&body+20<=static_cast<size_t>(count))return true;
+        if(count>0&&stun_response_matches({response.data(),static_cast<size_t>(count)},request))return true;
     }
     return false;
 }

@@ -97,7 +97,9 @@ Json https_json(const std::string& origin,const std::string& path,const Json& re
     // Validate origin through the existing access-code issuer policy.
     auto encoded=native::encoding::base64_encode(origin,true);
     const auto issuer=issuer_url(encoded);
-    if(path.empty()||path[0]!='/'||path.find_first_of("\r\n?#")!=std::string::npos||request.dump().size()>65536||token.find_first_of("\r\n")!=std::string::npos)
+    const bool feedback = path == "/v1/feedback/submit" && !token.empty();
+    const auto body = request.dump();
+    if(path.empty()||path[0]!='/'||path.find_first_of("\r\n?#")!=std::string::npos||body.size()>(feedback ? 12u*1024u*1024u : 65536u)||token.find_first_of("\r\n")!=std::string::npos)
         throw Failure(-32602,"Invalid HTTPS operation");
     static std::once_flag curl_init;
     static CURLcode init_result = CURLE_FAILED_INIT;
@@ -107,7 +109,6 @@ Json https_json(const std::string& origin,const std::string& path,const Json& re
     CurlPtr handle(curl_easy_init(), curl_easy_cleanup);
     if (!handle) throw std::bad_alloc();
     std::string response;
-    const auto body = request.dump();
     curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, "Content-Type: application/json");
     if (!headers) throw std::bad_alloc();
@@ -122,7 +123,7 @@ Json https_json(const std::string& origin,const std::string& path,const Json& re
     set_option(handle.get(), CURLOPT_PROTOCOLS_STR, "https");
     set_option(handle.get(), CURLOPT_FOLLOWLOCATION, 0L);
     set_option(handle.get(), CURLOPT_CONNECTTIMEOUT_MS, 5000L);
-    set_option(handle.get(), CURLOPT_TIMEOUT_MS, 10000L);
+    set_option(handle.get(), CURLOPT_TIMEOUT_MS, feedback ? 30000L : 10000L);
     set_option(handle.get(), CURLOPT_SSL_VERIFYPEER, 1L);
     set_option(handle.get(), CURLOPT_SSL_VERIFYHOST, 2L);
     curl_blob ca{const_cast<char*>(ca_pem.data()),ca_pem.size(),CURL_BLOB_COPY};
@@ -139,7 +140,7 @@ Json https_json(const std::string& origin,const std::string& path,const Json& re
     const auto result = curl_easy_perform(handle.get());
     long status = 0;
     curl_easy_getinfo(handle.get(), CURLINFO_RESPONSE_CODE, &status);
-    if (result != CURLE_OK) throw Failure(-32032, "HTTPS control connection failed");
+    if (result != CURLE_OK) throw Failure(-32032, "HTTPS " + path + " failed: " + curl_easy_strerror(result));
     try {
         auto value=Json::parse(response);
         if(status!=200)throw Failure(-32032,"Control operation rejected: "+value.value("error",Json::object()).value("code",std::string("unavailable")));

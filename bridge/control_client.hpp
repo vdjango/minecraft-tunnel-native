@@ -18,6 +18,7 @@ class ControlClient {
   std::map<std::string, Json> listings_;
   Json route_rows_ = Json::array();
   std::string preferred_node_;
+  std::vector<Profile> network_endpoints_;
   Clock::time_point routes_checked_{};
   Json call(const std::string &, const Json &, bool authenticated = true);
   Profile endpoint(const Json &);
@@ -32,6 +33,10 @@ public:
                    bool host);
   Profile reconnect(const std::string &room);
   Json social(const Json &);
+  Json inspect_network(bool refresh = false);
+  // RPC worker, original identity/renewal; origin must match the caller's intended
+  // feedback destination. Never returns a bearer token to the caller.
+  Json feedback(const Json &, const std::string &expected_origin);
   Json lookup(const Json &);
   Json rooms(const std::string &query = {});
   Json resolve(const std::string &room);

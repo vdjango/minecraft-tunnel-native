@@ -8,6 +8,7 @@
 #include "journal.hpp"
 #include "feedback.hpp"
 #include "control_client.hpp"
+#include "network_profile.hpp"
 #include <iostream>
 namespace bridge {
 struct Node{Profile identity,profile;std::vector<Profile> alternatives;std::unique_ptr<RouteSelector> routes;std::shared_ptr<ControlClient> control;};
@@ -32,13 +33,15 @@ class Rpc {
     }
 
   public:
-    ~Rpc(){for(auto& [id,s]:sessions_)s->stop();}
+    ~Rpc(){for(auto& [id,s]:sessions_)s->stop();network_profile();}
     Json dispatch(const std::string& method,const Json& p){
         if(method=="bridge.diagnostics"){auto value=journal().snapshot();value["native_version"]=BUGGCRAFT_VERSION;return value;}
-        if(method=="feedback.submit"){auto& n=node(p);return submit_feedback(n.profile,p);}
-        if(method=="bridge.initialize"){if(p.value("protocol",Json(1))!=1)throw Failure(-32602,"Unsupported bridge protocol version");
+        if(method=="network.inspect"){auto& n=node(p);if(n.control)return n.control->inspect_network(p.value("refresh",false));
+            auto endpoints=n.alternatives;endpoints.insert(endpoints.begin(),n.profile);return network_profile(endpoints,p.value("refresh",false));}
+        if(method=="feedback.submit"){auto& n=node(p);return submit_feedback(n.profile,p,n.control.get());}
+        if(method=="bridge.initialize"){if(p.value("protocol",Json(1))!=1)throw Failure(-32602,"Unsupported bridge protocol version");network_profile();
             return {{"protocol",1},{"name","buggcraft-bridge"},{"jsonrpc","2.0"},{"build",{{"protocol",1},{"implementation","cpp"},{"version",BUGGCRAFT_VERSION},{"signed",false}}},{"transports",{"auto","relay"}},{"mixed_rooms",true},
-                {"methods",{"bridge.diagnostics","node.add","node.remove","node.request","social.operate","node.routes","node.select","node.selected","node.failed","bridge.events","game.status","game.discover","game.announce","room.list","room.resolve","room.host","room.join","room.close","room.request","room.retarget","room.configure","mods.manifest","mods.fetch","mods.status","mods.cancel","mods.configure","feedback.submit","chat.poll","chat.send","session.events","session.list"}},{"limits",{{"request_bytes",8192},{"nodes",16},{"sessions",8}}}};}
+                {"methods",{"network.inspect","bridge.diagnostics","node.add","node.remove","node.request","social.operate","node.routes","node.select","node.selected","node.failed","bridge.events","game.status","game.discover","game.announce","room.list","room.resolve","room.host","room.join","room.close","room.request","room.retarget","room.configure","mods.manifest","mods.fetch","mods.status","mods.cancel","mods.configure","feedback.submit","chat.poll","chat.send","session.events","session.list"}},{"limits",{{"request_bytes",8192},{"nodes",16},{"sessions",8}}}};}
         if(method=="node.add"){if(nodes_.size()>=16)throw Failure(-32010,"Node limit reached");Node value;
             if(p.contains("profile"))value.profile=Profile::from_json(p.at("profile"));
             else {if(!p.contains("code")||!p["code"].is_string())throw Failure(-32602,"code must be a string");value.profile=Profile::decode(p["code"].get<std::string>());}

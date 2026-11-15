@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "feedback.hpp"
+#include "control_client.hpp"
+#include "../core/encoding.hpp"
 #include "../core/net.hpp"
 #include "../core/digest.hpp"
 #include <openssl/evp.h>
@@ -60,7 +62,7 @@ Json response_line(Ssh& ssh, ssh_channel channel,
 }
 }
 
-Json submit_feedback(const Profile& profile, const Json& params) {
+Json submit_feedback(const Profile& profile, const Json& params, ControlClient* control) {
     // Check consent before touching the archive or opening a node connection.
     if (!params.is_object() || params.value("consent", false) != true)
         throw Failure(-32602, "Explicit diagnostics upload consent is required");
@@ -73,6 +75,28 @@ Json submit_feedback(const Profile& profile, const Json& params) {
         throw Failure(-32602, "Feedback archive must be a regular ZIP file");
     const auto size = std::filesystem::file_size(path, error);
     if (error || size == 0 || size > max_archive) throw Failure(-32602, "Feedback archive must be between 1 byte and 20 MiB");
+    if (control) {
+        if (size > 8u * 1024u * 1024u)
+            throw Failure(-32602, "Feedback archive exceeds 8 MiB; export it for manual submission");
+        std::ifstream input(path, std::ios::binary);
+        std::string bytes(static_cast<size_t>(size), '\0');
+        if (!input.read(bytes.data(), static_cast<std::streamsize>(size)) || input.peek() != EOF)
+            throw Failure(-32000, "Feedback archive changed while reading");
+        if (!bytes.starts_with("PK\x03\x04"))
+            throw Failure(-32602, "Invalid feedback ZIP");
+        native::Digest digest(EVP_sha256());
+        digest.update(bytes);
+        const auto checksum = digest.final_hex();
+        auto body = metadata;
+        body["consent"] = true;
+        body["archive"] = native::encoding::base64_encode(bytes);
+        body["sha256"] = checksum;
+        const auto result = control->feedback(body, params.value("origin", std::string{}));
+        if (!result.value("accepted", false) || result.value("id", std::string{}) != metadata.value("id", std::string{}) ||
+            result.value("sha256", std::string{}) != checksum)
+            throw Failure(-32000, "Feedback service returned an invalid receipt");
+        return result;
+    }
     Ssh connection(profile, "directory:rooms", {}, 5);
     auto channel = connection.subsystem("buggcraft-feedback-upload-v1");
     try {

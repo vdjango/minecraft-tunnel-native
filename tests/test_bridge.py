@@ -144,6 +144,7 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_relay_auto_fallback_compression_and_half_close(self):
         process = await self.process(); node = await self.add(process)
+        before = await self.call(process, 'network.inspect', {'node': node})
         hosted = await self.call(process,'room.host',{'node':node,'game_port':self.port,'transport':'relay'})
         joined = await self.call(process,'room.join',{'node':node,'invite':hosted['invite']})
         self.assertEqual(joined['transport'],'relay')
@@ -154,6 +155,9 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.open_connection('127.0.0.1',int(joined['address'].rsplit(':',1)[1]))
         await self.call(process,'room.close',{'session':hosted['session']})
         self.assertNotIn(hosted['room'],self.node.rooms)
+        after = await self.call(process, 'network.inspect', {'node': node})
+        self.assertGreaterEqual(after['relay_successes'], before['relay_successes'] + 4)
+        self.assertEqual(after['direct_successes'], before['direct_successes'])
 
     async def test_node_compression_off_forces_raw_bridge_forwarding_and_eof(self):
         self.node.compression = 'off'

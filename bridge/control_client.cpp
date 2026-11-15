@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "control_client.hpp"
 #include "../core/encoding.hpp"
+#include "network_profile.hpp"
 #include "profile_exchange.hpp"
 #include "social.hpp"
 #include <algorithm>
@@ -99,7 +100,18 @@ Profile ControlClient::discovery() {
           .at("candidates");
   if (candidates.empty())
     throw Failure(-32022, "No managed node is ready");
+  network_endpoints_.clear();
+  for (const auto &candidate : candidates) {
+    if (network_endpoints_.size() == 3)
+      break;
+    network_endpoints_.push_back(endpoint(candidate));
+  }
   return endpoint(candidates[0]);
+}
+Json ControlClient::feedback(const Json &body, const std::string &expected_origin) {
+  if (metadata_.value("origin", std::string{}) != expected_origin)
+    throw Failure(-32031, "Sign in at the feedback service before submitting");
+  return call("feedback/submit", body);
 }
 Json ControlClient::probe_candidates(const Json &candidates,
                                      bool preferred_only) {
@@ -293,14 +305,21 @@ void ControlClient::publish(const std::string &room, const Json &info) {
         {"room", listing}});
   listings_[room] = std::move(listing);
 }
+Json ControlClient::inspect_network(bool refresh) {
+  std::lock_guard guard(mutex_);
+  return network_profile(network_endpoints_, refresh);
+}
 Json ControlClient::social(const Json &params) {
   std::lock_guard guard(mutex_);
   auto op = params.at("operation").get<std::string>();
   auto fields = params.value("fields", Json::object());
-  if (op == "presence")
-    call("presence/refresh",
-         {{"session_id", presence_}, {"sequence", ++sequence_}});
-  else if (op == "offline")
+  if (op == "presence") {
+    auto profile = network_profile();
+    profile.erase("persisted");
+    call("presence/refresh", {{"session_id", presence_},
+                              {"sequence", ++sequence_},
+                              {"network_profile", profile}});
+  } else if (op == "offline")
     call("presence/close",
          {{"session_id", presence_}, {"sequence", ++sequence_}});
   else if (op == "join") {

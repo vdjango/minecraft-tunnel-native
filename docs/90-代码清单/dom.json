@@ -2788,6 +2788,741 @@
       "directives": []
     },
     {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 15,
+      "tag": "NodeHeader",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 16,
+      "tag": "main",
+      "attributes": {
+        "class": "shell feedback-main"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 17,
+      "tag": "button",
+      "attributes": {
+        "class": "secondary"
+      },
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "connected"
+        },
+        {
+          "name": "on",
+          "argument": "click",
+          "expression": "logout"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 17,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 17,
+      "tag": "h1",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 17,
+      "tag": "header",
+      "attributes": {
+        "class": "feedback-heading"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 17,
+      "tag": "p",
+      "attributes": {
+        "class": "intro-label"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 17,
+      "tag": "p",
+      "attributes": {
+        "class": "feedback-muted"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 18,
+      "tag": "p",
+      "attributes": {
+        "class": "feedback-error",
+        "role": "alert"
+      },
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "error"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 19,
+      "tag": "section",
+      "attributes": {
+        "class": "feedback-login"
+      },
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "!connected"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 20,
+      "tag": "h2",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 20,
+      "tag": "p",
+      "attributes": {
+        "class": "feedback-muted"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 21,
+      "tag": "button",
+      "attributes": {
+        "class": "primary wide"
+      },
+      "directives": [
+        {
+          "name": "bind",
+          "argument": "disabled",
+          "expression": "busy"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 21,
+      "tag": "form",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "on",
+          "argument": "submit",
+          "expression": "model.login"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 21,
+      "tag": "input",
+      "attributes": {
+        "id": "feedback-key"
+      },
+      "directives": [
+        {
+          "name": "model",
+          "argument": "",
+          "expression": "keyInput"
+        },
+        {
+          "name": "bind",
+          "argument": "disabled",
+          "expression": "busy"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 21,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 22,
+      "tag": "small",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 24,
+      "tag": "template",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "else",
+          "argument": "",
+          "expression": ""
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 25,
+      "tag": "button",
+      "attributes": {
+        "class": "secondary"
+      },
+      "directives": [
+        {
+          "name": "bind",
+          "argument": "disabled",
+          "expression": "busy"
+        },
+        {
+          "name": "on",
+          "argument": "click",
+          "expression": "model.refresh"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 25,
+      "tag": "div",
+      "attributes": {
+        "class": "feedback-toolbar"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 25,
+      "tag": "input",
+      "attributes": {
+        "aria-label": "筛选当前页反馈"
+      },
+      "directives": [
+        {
+          "name": "model",
+          "argument": "",
+          "expression": "filter"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 26,
+      "tag": "div",
+      "attributes": {
+        "class": "feedback-workspace"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 27,
+      "tag": "p",
+      "attributes": {
+        "class": "feedback-muted"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 27,
+      "tag": "section",
+      "attributes": {
+        "class": "feedback-list",
+        "aria-label": "反馈列表"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 28,
+      "tag": "p",
+      "attributes": {
+        "class": "feedback-empty"
+      },
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "!visibleItems.length"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 29,
+      "tag": "button",
+      "attributes": {
+        "class": "feedback-row"
+      },
+      "directives": [
+        {
+          "name": "for",
+          "argument": "",
+          "expression": "item in visibleItems"
+        },
+        {
+          "name": "bind",
+          "argument": "key",
+          "expression": "item.id"
+        },
+        {
+          "name": "bind",
+          "argument": "class",
+          "expression": "{selected:detail?.id===item.id}"
+        },
+        {
+          "name": "bind",
+          "argument": "disabled",
+          "expression": "busy"
+        },
+        {
+          "name": "on",
+          "argument": "click",
+          "expression": "model.open(item)"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 29,
+      "tag": "span",
+      "attributes": {
+        "class": "feedback-row-heading"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 29,
+      "tag": "span",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 29,
+      "tag": "span",
+      "attributes": {
+        "class": "feedback-muted"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 29,
+      "tag": "strong",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 29,
+      "tag": "time",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 30,
+      "tag": "button",
+      "attributes": {
+        "class": "secondary"
+      },
+      "directives": [
+        {
+          "name": "bind",
+          "argument": "disabled",
+          "expression": "busy||history.length<2"
+        },
+        {
+          "name": "on",
+          "argument": "click",
+          "expression": "model.page(false)"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 30,
+      "tag": "button",
+      "attributes": {
+        "class": "secondary"
+      },
+      "directives": [
+        {
+          "name": "bind",
+          "argument": "disabled",
+          "expression": "busy||!cursor"
+        },
+        {
+          "name": "on",
+          "argument": "click",
+          "expression": "model.page(true)"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 30,
+      "tag": "nav",
+      "attributes": {
+        "class": "feedback-pagination",
+        "aria-label": "反馈分页"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 32,
+      "tag": "section",
+      "attributes": {
+        "class": "feedback-detail",
+        "aria-label": "反馈详情"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 33,
+      "tag": "p",
+      "attributes": {
+        "class": "feedback-empty"
+      },
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "!detail"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 34,
+      "tag": "div",
+      "attributes": {
+        "class": "feedback-detail-heading"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 34,
+      "tag": "h2",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 34,
+      "tag": "p",
+      "attributes": {
+        "class": "feedback-id"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 34,
+      "tag": "span",
+      "attributes": {
+        "class": "feedback-muted"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 34,
+      "tag": "template",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "else",
+          "argument": "",
+          "expression": ""
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 35,
+      "tag": "h3",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 35,
+      "tag": "h3",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 35,
+      "tag": "p",
+      "attributes": {
+        "class": "feedback-text"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 35,
+      "tag": "p",
+      "attributes": {
+        "class": "feedback-text"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 36,
+      "tag": "dd",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 36,
+      "tag": "dd",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 36,
+      "tag": "dd",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 36,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 36,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 36,
+      "tag": "div",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 36,
+      "tag": "dl",
+      "attributes": {
+        "class": "feedback-meta"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 36,
+      "tag": "dt",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 36,
+      "tag": "dt",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 36,
+      "tag": "dt",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 37,
+      "tag": "button",
+      "attributes": {
+        "class": "primary"
+      },
+      "directives": [
+        {
+          "name": "bind",
+          "argument": "disabled",
+          "expression": "busy||!detail.has_archive"
+        },
+        {
+          "name": "on",
+          "argument": "click",
+          "expression": "model.archive(false)"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 37,
+      "tag": "button",
+      "attributes": {
+        "class": "secondary"
+      },
+      "directives": [
+        {
+          "name": "bind",
+          "argument": "disabled",
+          "expression": "busy||!detail.has_archive"
+        },
+        {
+          "name": "on",
+          "argument": "click",
+          "expression": "model.archive(true)"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 37,
+      "tag": "div",
+      "attributes": {
+        "class": "feedback-actions"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 38,
+      "tag": "p",
+      "attributes": {
+        "class": "feedback-muted"
+      },
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "!detail.has_archive"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 39,
+      "tag": "label",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 39,
+      "tag": "option",
+      "attributes": {},
+      "directives": [
+        {
+          "name": "for",
+          "argument": "",
+          "expression": "(_,name) in files"
+        },
+        {
+          "name": "bind",
+          "argument": "key",
+          "expression": "name"
+        },
+        {
+          "name": "bind",
+          "argument": "value",
+          "expression": "name"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 39,
+      "tag": "p",
+      "attributes": {
+        "class": "feedback-muted"
+      },
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 39,
+      "tag": "pre",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 39,
+      "tag": "section",
+      "attributes": {
+        "class": "feedback-preview"
+      },
+      "directives": [
+        {
+          "name": "if",
+          "argument": "",
+          "expression": "previewReady"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 39,
+      "tag": "select",
+      "attributes": {
+        "aria-label": "日志文件"
+      },
+      "directives": [
+        {
+          "name": "model",
+          "argument": "",
+          "expression": "selectedFile"
+        }
+      ]
+    },
+    {
+      "path": "frontend/src/pages/feedback.vue",
+      "line": 43,
+      "tag": "p",
+      "attributes": {
+        "class": "feedback-privacy"
+      },
+      "directives": []
+    },
+    {
       "path": "frontend/src/site-pages/download.vue",
       "line": 7,
       "tag": "header",
@@ -5172,6 +5907,13 @@
       "path": "web/tunnel/web/account.html",
       "line": 1,
       "tag": "link",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/account.html",
+      "line": 1,
+      "tag": "link",
       "attributes": {
         "data-page-style": ""
       },
@@ -5239,6 +5981,126 @@
     },
     {
       "path": "web/tunnel/web/account.html",
+      "line": 1,
+      "tag": "title",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/feedback.html",
+      "line": 1,
+      "tag": "body",
+      "attributes": {
+        "class": "feedback-page"
+      },
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/feedback.html",
+      "line": 1,
+      "tag": "h1",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/feedback.html",
+      "line": 1,
+      "tag": "head",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/feedback.html",
+      "line": 1,
+      "tag": "html",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/feedback.html",
+      "line": 1,
+      "tag": "link",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/feedback.html",
+      "line": 1,
+      "tag": "link",
+      "attributes": {
+        "data-page-style": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/feedback.html",
+      "line": 1,
+      "tag": "link",
+      "attributes": {
+        "data-page-style": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/feedback.html",
+      "line": 1,
+      "tag": "main",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/feedback.html",
+      "line": 1,
+      "tag": "meta",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/feedback.html",
+      "line": 1,
+      "tag": "meta",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/feedback.html",
+      "line": 1,
+      "tag": "meta",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/feedback.html",
+      "line": 1,
+      "tag": "meta",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/feedback.html",
+      "line": 1,
+      "tag": "noscript",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/feedback.html",
+      "line": 1,
+      "tag": "p",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/feedback.html",
+      "line": 1,
+      "tag": "script",
+      "attributes": {
+        "data-cfasync": "false"
+      },
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/feedback.html",
       "line": 1,
       "tag": "title",
       "attributes": {},
