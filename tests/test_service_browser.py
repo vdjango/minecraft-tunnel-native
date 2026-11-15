@@ -26,9 +26,10 @@ class ServiceBrowserTests(ServiceFixture, unittest.IsolatedAsyncioTestCase):
         self.context = await self.browser.new_context(ignore_https_errors=True, viewport={'width':390,'height':844})
         self.addAsyncCleanup(self.context.close)
         self.page = await self.context.new_page()
-        self.errors, self.downloads = [], []
+        self.errors, self.downloads, self.missing_resources = [], [], []
         self.page.on('pageerror', lambda e:self.errors.append(str(e)))
         self.page.on('download', lambda d:self.downloads.append(d.suggested_filename))
+        self.page.on('response', lambda r:self.missing_resources.append(r.url) if r.status==404 else None)
         self.base = str(self.server.make_url('')).rstrip('/')
         self.authority.identity_authority.authorize = AsyncMock()
         self.authority.identity_authority.revoke = AsyncMock()
@@ -44,6 +45,7 @@ class ServiceBrowserTests(ServiceFixture, unittest.IsolatedAsyncioTestCase):
         await page.locator('#register-confirm').fill('a-long-test-password')
         await page.locator('#account-register button[type=submit]').click()
         await expect(page.locator('#welcome-name')).to_have_text('minimal_user')
+        self.assertEqual(self.missing_resources, [])
         self.assertEqual(self.downloads,[])
 
         self.assertEqual(len(self.authority.account_api.store.records),1)
@@ -116,6 +118,7 @@ class ServiceBrowserTests(ServiceFixture, unittest.IsolatedAsyncioTestCase):
         await page.locator('#register-confirm').fill('mail-test-long-password')
         await page.locator('#account-register button[type=submit]').click()
         await expect(page.locator('#welcome-name')).to_have_text('mail_user')
+        self.assertEqual(self.missing_resources, [])
         await page.locator('#account-logout').click()
         await expect(page.locator('#account-login')).to_be_visible()
         await page.locator('#account-id').fill('user@example.com')

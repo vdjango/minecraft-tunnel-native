@@ -13,7 +13,7 @@ function accountView(view='overview') {
   }
   $('account-feedback').textContent='';
   if(view==='devices')loadLauncherDevices();
-  if(view==='overview')loadMemories();
+  if(view==='overview' && accountFeatures.activity!==false)loadMemories();
 }
 function memoryDuration(seconds){
   if(seconds<60)return seconds>0?'不到 1 分钟':'还没有记录';
@@ -75,6 +75,9 @@ async function loadMemories(){
 }
 async function refresh() {
   const s=await api('/api/status');$('show-register').hidden=!s.registration_open;emailRequired=!!s.email_verification;
+  accountFeatures=s.account_features||{};
+  $('show-recovery').hidden=accountFeatures.recovery===false;
+  if(accountFeatures.activity===false){$('memory-status').textContent='当前身份服务未提供连接记录。';$('memory-calendar-note').textContent='当前身份服务未提供连接记录。';}
   $('email-registration-fields').hidden=!emailRequired;$('register-email').required=emailRequired;$('register-email-code').required=emailRequired;
   if(!s.registration_open && location.pathname==='/register'){accountEntry();$('account-feedback').textContent='此服务暂未开放注册，已有账号仍可登录。';}
 }

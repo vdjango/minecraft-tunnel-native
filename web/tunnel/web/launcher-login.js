@@ -80,6 +80,7 @@ async function loadLauncherDevices() {
 }
 function formatDeviceTime(seconds){return seconds?new Intl.DateTimeFormat('zh-CN',{dateStyle:'medium',timeStyle:'short'}).format(new Date(seconds*1000)):'暂无记录';}
 async function loadBrowserSessions(){
+  if(accountFeatures.browser_sessions===false){$('browser-session-list').textContent='当前身份服务未提供浏览器会话管理。';return;}
   const {sessions}=await api('/api/account/sessions');
   $('browser-session-list').replaceChildren(...sessions.map(session=>{
     const row=document.createElement('div'),text=document.createElement('span'),title=document.createElement('strong'),detail=document.createElement('small');row.className='peer-row';

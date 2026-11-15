@@ -9453,31 +9453,31 @@
     },
     {
       "path": "web/tunnel/service_portal.py",
-      "line": 53,
+      "line": 55,
       "kind": "AsyncFunctionDef",
       "symbol": "IdentityPortal.close"
     },
     {
       "path": "web/tunnel/service_portal.py",
-      "line": 60,
+      "line": 62,
       "kind": "ClassDef",
       "symbol": "RelayPortal"
     },
     {
       "path": "web/tunnel/service_portal.py",
-      "line": 61,
+      "line": 63,
       "kind": "FunctionDef",
       "symbol": "RelayPortal.__init__"
     },
     {
       "path": "web/tunnel/service_portal.py",
-      "line": 73,
+      "line": 75,
       "kind": "FunctionDef",
       "symbol": "RelayPortal.public_state"
     },
     {
       "path": "web/tunnel/service_portal.py",
-      "line": 77,
+      "line": 79,
       "kind": "AsyncFunctionDef",
       "symbol": "RelayPortal.control_lifecycle"
     },

@@ -5,6 +5,7 @@ let emailLogin = null, emailSelection = null, bindEmailTicket = null;
 const emailRetry = new Map();
 let returnView = null;
 let authenticatedAccount = '';
+let accountFeatures = {};
 const requestedLauncher=new URLSearchParams(location.search).get('launcher')||'';
 const accountLauncherRequest=/^[0-9a-f]{32}$/.test(requestedLauncher)?requestedLauncher:'';
 const requestedAccountNext=new URLSearchParams(location.search).get('next')||'';
@@ -166,6 +167,9 @@ async function sealVault(password,account,revision,value) {
   return {salt:bytes64(salt),iv:bytes64(iv),ciphertext:bytes64(ciphertext),iterations:600000};
 }
 async function passwordCheck(password,username){
+  // Older identity adapters accept an encrypted box, without native password proofs.
+  // Keep their existing form validation; native services retain their policy endpoint.
+  if(accountFeatures.password_policy===false)return {};
   const policy=await api('/api/account/policy');
   const normalized=password.toLowerCase(),length=Array.from(password).length;
   if(length<policy.minimum_length||length>policy.maximum_length)throw new Error('密码需要 6–256 个字符。');

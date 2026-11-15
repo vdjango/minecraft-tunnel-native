@@ -37,7 +37,7 @@ class IdentityPortal(ServicePortal):
         for path in ('/', '/login', '/register', '/account', '/account/access',
                      '/account/devices', '/account/email', '/launcher-login'):
             self.app.router.add_get(path, self.account_page)
-        self.app.router.add_get('/{asset:vue-page-account-[A-Za-z0-9_-]+\\.js|vue-runtime-[A-Za-z0-9_-]+\\.js|vue-[A-Za-z0-9_-]+\\.css}', self.asset)
+        self.app.router.add_get('/{asset:vue-page-account-[A-Za-z0-9_-]+\\.js|vue-runtime-[A-Za-z0-9_-]+\\.js|vue-[A-Za-z0-9_-]+\\.(?:css|webp)}', self.asset)
         self.app.add_routes(self.account_api.routes)
 
     async def account_page(self, request):
@@ -48,7 +48,9 @@ class IdentityPortal(ServicePortal):
     def public_state(self):
         return {'role': 'control', 'launcher_login': 1,
                 'registration_open': self.state.get('registration_open', False),
-                'email_verification': self.account_api.mail.required}
+                'email_verification': self.account_api.mail.required,
+                'account_features': {'password_policy': False, 'recovery': False,
+                                     'browser_sessions': False, 'activity': False}}
 
     async def close(self):
         try:

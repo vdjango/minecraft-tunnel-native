@@ -170,12 +170,12 @@
     "web/tunnel/room_logs.py": "78137f259c7199cd169fb8ec13343bbd436e118e62f8fb2ec56f26df08a91ec7",
     "web/tunnel/runtime.py": "064ff2bd7f32a328e34104c50589c3dffb772724f16a015cc891dff1a9dd5464",
     "web/tunnel/service.py": "dedf9251cf1f01d21a82da6bcae88c859a442a346fed5f562dea1dfd854afd87",
-    "web/tunnel/service_portal.py": "97cc5470bb5ca8fda60b86fbb816dada115e3f766a19d7125949f760f4841f91",
+    "web/tunnel/service_portal.py": "290a90621deaafb433a338e7bd8084df929aa52b98628b25e2fb65aad85fe12f",
     "web/tunnel/social.py": "bd59c7dba9dda91153569ef9db5014d0a7d2bfc7b32e602f6f2c29cda76f4646",
     "web/tunnel/social_delivery.py": "afffa33a6c649c72e72d4b7471cea6e5f4dcaab46f64466e49f4bc0f339711f7",
     "web/tunnel/storage.py": "0a9e6b3ec906b861db21136197363bbf9eda9498edcc5066e8d3cdd47eb223df",
     "web/tunnel/stun.py": "e81fc3ae01e92ff2a592fe84cbd89ccb858336aff1dfd34ce0a8a58207e30244",
-    "web/tunnel/web/account.html": "6a4a1a76c1f205df762f9015937c5edb5f8ae0901bdfcfa181cf778ddd765663",
+    "web/tunnel/web/account.html": "f8ca4803b61ba1d6d48ade27a633dd77433bd068e04e0ec9abdaab58d046aaab",
     "web/tunnel/web/feedback.html": "4ff5fb45c65de07031569b8039e91d48d54e2256013398bc57b3be23468a37c0"
   }
 }

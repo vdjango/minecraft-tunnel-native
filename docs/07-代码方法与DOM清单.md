@@ -33,6 +33,8 @@
 | 编号文档门禁 | `scripts/check_docs.py` | 校验本地链接、导航引用、编号、生成清单与发布说明路径；不访问公网，不读取历史实测归档 |
 
 2026-11-15：`check_docs.py::main` 在独立仓库 CI 接受 `--repository-only`，仅排除不随 Git checkout 提供的相邻工作区链接，并明确打印未检查数量；仓库内缺失链接仍失败。工作区默认调用保持全量链接检查。前端构建继续复用 `frontend/build/page-assets.ts`；补交此前被 `build*/` 规则误排除的源码，不另建资产清理器。
+
+2026-11-15：旧 `IdentityPortal::public_state` 在现有状态接口声明 `account_features`，网页原 `refresh/passwordCheck/accountView/loadBrowserSessions` 消费真实服务能力；新版原生控制未声明限制时继续走现有密码策略、找回、会话和记录接口。旧身份服务保持原加密注册与挑战登录，不在 Python 复制原生账号策略。沿原静态资产路由补齐构建后的 WebP；原浏览器回归增加 404 请求检查。
 | 多玩家转发与加密对照 | `scripts/benchmark_forwarding.py`、`scripts/bridge_soak.py` | 复用三玩家真实桥/节点夹具、字节校验/EOF 和 CPU 掩码；区分旧版、新字节 SIMD 与 OpenSSL 加速，记录实际协商 cipher |
 | 游戏/文件混合负载 | `scripts/bridge_soak.py --scenario mixed` | 复用 BridgeServicesTests 的真实节点/桥/P2P 夹具；文件 SHA-256、游戏回声/EOF、RTT 分位数及进程资源，默认四个 16 MiB 文件 |
 
