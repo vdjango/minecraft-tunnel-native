@@ -231,7 +231,7 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
         store = center.federation.accounts
         self.users = [enroll(store, name, delegated=True) for name in ('alice', 'bob')]
         event = self.event(0, 'request', self.users[1][0])
-        with patch('tunnel.portal.atomic_json', side_effect=OSError('disk full')):
+        with patch('tunnel.storage.atomic_json', side_effect=OSError('disk full')):
             with self.assertRaises(OSError):
                 await submit(center.federation, self.users[0][0], event)
         self.assertFalse(store.social.pending)
