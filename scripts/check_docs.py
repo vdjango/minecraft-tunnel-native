@@ -1,4 +1,5 @@
 """Validate numbered documentation, local Markdown links and generated inventory paths."""
+import argparse
 from pathlib import Path
 import re
 import sys
@@ -9,7 +10,12 @@ LINK = re.compile(r'!?\[[^\]\n]*\]\((<[^>]+>|[^\s)]+)(?:\s+"[^"]*")?\)')
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--repository-only', action='store_true',
+                        help='Check repository paths only when sibling workspace repositories are absent')
+    args = parser.parse_args()
     errors = []
+    external = 0
     documents = sorted((ROOT / 'docs').rglob('*.md'))
     sources = documents + [ROOT / name for name in ('README.md', 'AGENTS.md', 'PROTOCOL_STANDARD.md',
                                                   '.agents/skills/multiplayer-native/SKILL.md')]
@@ -22,6 +28,9 @@ def main():
             if not target or re.match(r'[a-zA-Z][\w+.-]*:', target) or target.startswith('/'):
                 continue
             destination = (path.parent / target).resolve()
+            if args.repository_only and not destination.is_relative_to(ROOT):
+                external += 1
+                continue
             if not destination.exists():
                 errors.append(f'{path.relative_to(ROOT)}: missing {target}')
             referenced.add(destination)
@@ -44,7 +53,8 @@ def main():
     if errors:
         print('\n'.join(errors))
         return 1
-    print(f'OK {len(documents)} numbered documents; local links, navigation and release paths valid')
+    print(f'OK {len(documents)} numbered documents; local links, navigation and release paths valid'
+          + (f'; {external} external workspace links not checked' if external else ''))
     return 0
 
 
