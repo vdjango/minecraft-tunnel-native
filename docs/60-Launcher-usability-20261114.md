@@ -13,7 +13,7 @@ Windows MinGW 原生构建及安装证据为 `validation-artifacts/usability-202
 `usability-20261114-network-test.log` 验证同一服务器 IP 的多个端口只返回 UDP 可达观测，快照不保留公网地址；`usability-20261114-relay-test.log` 使用当前原生桥、真实本地 SSH/TCP 节点验证转发、完整数据、半关闭及成功计数。反馈端到端证据在控制服务的 `validation-artifacts/usability-20261114-real-bridge.log`，验证当前 Windows 桥经 HTTPS 正式身份提交且附件字节一致。
 # 2026-11-15 源码交付补充
 
-启动器 v2.0.1 固定使用提交 `6dbcc223ebc46df326cbac10dd3c83380ded1b67` 的原生桥；本轮将同一桥修复合入节点主分支。补交已实现的反馈管理前端与既有 `page-assets.ts`，修正 CI 测试依赖安装顺序，并为独立 checkout 使用明确的仓库内文档检查模式。没有更改转发节点的服务角色。
+启动器 v2.0.1 最终固定使用提交 `f4480e00b6168cbdd8eef49040201e8cc734f25f` 的原生桥；本轮将同一桥修复合入节点主分支。补交已实现的反馈管理前端与既有 `page-assets.ts`，修正 CI 测试依赖安装顺序，并为独立 checkout 使用明确的仓库内文档检查模式。没有更改转发节点的服务角色。
 
 本地与失败阶段对应的 29 项构建工具/网络代理/时钟/容量检查完成，27 项通过、2 项平台跳过；前端 19 项测试及完整生产构建通过，源码清单和仓库内文档检查通过。GitHub 多平台构建另按实际运行结果记录，不将代码提交当作线上节点升级。
 
@@ -22,3 +22,13 @@ Windows MinGW 原生构建及安装证据为 `validation-artifacts/usability-202
 正式发布检查又暴露两个 Windows 边界。`social_timestamp` 原来直接签署高精度浮点秒值；使用同版本 nlohmann JSON 对 20000 个实际时间戳量级的值检查，发现 6 个值在 Python 重新序列化后字节不同，导致签名拒绝。复用原时间戳所有者，以整数毫秒维护单调递增序列，仍以协议要求的秒值发送；签名、密钥验证和权限均沿用原实现。原真实社交回归增加毫秒精度断言，CLI/C ABI 共用此修复。
 
 `PeerUdpProxy` 是测试专用的故障代理。ICE 关闭旧 UDP 端口时，Windows ICMP 会让 Python Proactor 的接收循环停在 `error_received`，导致所有后续重试都被测试代理单向丢弃。新增旧端口关闭、替换端口后双向回传的回归，已在修复前复现超时；代理自己创建并拥有 UDP socket，在 Windows 关闭此 ICMP 重置行为，再把 socket 交给原 asyncio transport 管理。保留真实丢包、心跳、中转、直连恢复与其他玩家断言，没有延长生产或测试超时。
+
+## 2026-11-16 正式节点交付
+
+正式版本 [v0.3.12](https://github.com/vdjango/minecraft-tunnel-native/releases/tag/v0.3.12) 对应上述提交。[最终 CI](https://github.com/vdjango/minecraft-tunnel-native/actions/runs/43733908477) 的网页、Windows、Linux x64/ARM64、macOS x64/ARM64 及发布任务全部成功。此前失败不作为最终验收依据，也没有跳过失败用例。
+
+上海节点已切换 `/opt/buggcraft-node/releases/native-0.3.12-f4480e0-20261116`；服务处于 ready，中继原生核心为 0.3.12。生产配置和节点身份文件摘要保持一致，保留原版本和 `/var/backups/buggcraft-node-0.3.12-f4480e0-20261116-final` 回退备份。未在服务器编译；复用现有服务角色打包方法，控制主机和节点分别保留各自职责。
+
+GitHub Linux 正式资产摘要 `c438a183f879429e0eee2907e3680b885c0f20b80e29e4fe4d1fcc04b08aa96c` 与实际部署所用 CI 归档一致；运行核心摘要 `091f382268e48ec1a4a74ef0e1bbe88c6b5d8df66aacdedee7c1af3752b051de`。Windows 启动器 CI 编译的内置桥通过直接公网访问 `node.bugg.icu`，完成 Minecraft 握手、262161 字节一致回传及完整 EOF，随后撤销临时设备并删除服务端私有夹具。
+
+原始证据位于 `validation-artifacts/release-0.3.12-f4480e0-20261116/` 的 `github-verification.json`、`activation.json`、`public-payload.json`。CLI/SDK 签名、旧 UDP 端口替换和真实丢包恢复的 Windows 直接回归分别见 `validation-artifacts/windows-final-signature-and-recovery.log`、`windows-final-library-signature.log`；最终多平台 CI 是独立的正式构建验证。这里没有把本次中继验证称作新的跨网络 P2P 性能报告。
