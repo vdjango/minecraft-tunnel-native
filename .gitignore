@@ -1,4 +1,6 @@
 build*/
+!frontend/build/
+!frontend/build/page-assets.ts
 .deps/
 data/
 __pycache__/

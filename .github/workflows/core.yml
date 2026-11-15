@@ -28,7 +28,7 @@ jobs:
         run: |
           python -m pip install -r requirements-dev.txt
           python scripts/update_code_inventory.py --check
-          python scripts/check_docs.py
+          python scripts/check_docs.py --repository-only
       - run: python -m pip install playwright==1.64.0
       - run: python -m playwright install --with-deps chromium
       - name: Verify legacy uptime compatibility
@@ -71,6 +71,7 @@ jobs:
         shell: bash
         run: |
           python scripts/release_assets.py version --github-output "$GITHUB_OUTPUT"
+          python -m pip install -r requirements.txt
           python -m unittest tests.test_build_tools tests.test_release_assets tests.test_network_proxy tests.test_clock_sync tests.test_capacity_budget -v
       - name: Ubuntu build dependencies
         if: runner.os == 'Linux'
@@ -113,7 +114,6 @@ jobs:
         run: |
           cmake --install build --config Release --prefix package 2>&1 | Tee-Object -FilePath install-runtime.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - run: python -m pip install -r requirements.txt
       - name: Windows protocol checks
         if: runner.os == 'Windows'
         shell: pwsh
