@@ -6482,85 +6482,91 @@
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 38,
+      "line": 39,
       "kind": "FunctionDef",
       "symbol": "AccountAPI.blocked"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 41,
+      "line": 42,
       "kind": "FunctionDef",
       "symbol": "AccountAPI.allowed"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 46,
+      "line": 47,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.authenticate"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 49,
+      "line": 50,
+      "kind": "AsyncFunctionDef",
+      "symbol": "AccountAPI.password_policy"
+    },
+    {
+      "path": "web/tunnel/accounts_web.py",
+      "line": 56,
       "kind": "FunctionDef",
       "symbol": "AccountAPI.session"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 59,
+      "line": 66,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.enroll"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 68,
+      "line": 75,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.register"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 74,
+      "line": 81,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI._register"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 99,
+      "line": 106,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.email_code"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 128,
+      "line": 135,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.email_challenge"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 146,
+      "line": 153,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.email_accounts"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 161,
+      "line": 168,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.challenge"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 172,
+      "line": 179,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.login"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 197,
+      "line": 204,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.me"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 205,
+      "line": 212,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.logout"
     },

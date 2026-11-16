@@ -40,9 +40,9 @@ class WebsiteBrowserTests(unittest.TestCase):
             for width in (390,768,1280,1920):
                 page.set_viewport_size(dict(width=width,height=900))
                 self.assertTrue(page.evaluate('document.documentElement.scrollWidth<=innerWidth'),width)
-                self.assertEqual(page.locator('body').evaluate('(el)=>getComputedStyle(el).backgroundColor'),'rgb(253, 252, 249)')
+                self.assertEqual(page.locator('body').evaluate('(el)=>getComputedStyle(el).backgroundColor'),'rgb(243, 246, 249)')
                 page.screenshot(path=str(artifacts/f'home-{width}.png'),full_page=True)
-            self.assertTrue(page.locator('.hero-preview img').evaluate('(el)=>el.complete&&el.naturalWidth>0'))
+            self.assertTrue(page.locator('.hero-preview img').evaluate_all('(images)=>images.length>0&&images.every(el=>el.complete&&el.naturalWidth>0)'))
             self.assertEqual(page.locator('a[href*="node.bugg.icu/network"],a[href*="node.bugg.icu/feedback"]').count(),0)
             page.get_by_text('普通玩家需要部署节点吗？',exact=True).click()
             expect(page.locator('.faq-list details[open]')).to_contain_text('通常不需要')
