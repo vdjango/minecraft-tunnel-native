@@ -97,7 +97,7 @@
     "scripts/build_native.py": "da70335a49fb1f246f77b2b15a39e6d3424b71dfdff7bd900d246a694351f930",
     "scripts/build_node_bundle.py": "916d5c586a5e7a7e4c8d8a96dd5ff347dd69bf7fe4b5e16397ec1cea964f918a",
     "scripts/check_compatibility.py": "da95d7e23967eaf3d4ed957d2dea3a5be4e1c3b8ef9383e5c6b2c4fc9be1a530",
-    "scripts/check_docs.py": "e395d80b207681959d5cd95dc824ab02a99a3c8c58cde8cfa02081e793b42080",
+    "scripts/check_docs.py": "9cca865074a30f06900acf43409611fae8e88ff46200fd642f8d18cf9f9416eb",
     "scripts/check_web_browser.py": "2c4ef186ba2eb3c099969ea660ae9b639d4fd2cb2372ef54e1ea831b17f9873a",
     "scripts/collect_validation.py": "11eb61b14e2f7a83ac1ac90924b9f8262a394bf2b9374754e1217d676f245bbf",
     "scripts/configure_node.py": "d83760ea43460af302ad214e99ec4796af0b77e4043fe72518acd94fce1beeb5",

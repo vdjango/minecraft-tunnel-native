@@ -28,7 +28,7 @@ jobs:
         run: |
           python -m pip install -r requirements-dev.txt
           python scripts/update_code_inventory.py --check
-          python scripts/check_docs.py
+          python scripts/check_docs.py --repository-only
       - run: python -m pip install playwright==1.64.0
       - run: python -m playwright install --with-deps chromium
       - name: Verify legacy uptime compatibility

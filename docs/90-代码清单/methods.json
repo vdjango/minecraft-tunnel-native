@@ -5276,7 +5276,7 @@
     },
     {
       "path": "scripts/check_docs.py",
-      "line": 11,
+      "line": 12,
       "kind": "FunctionDef",
       "symbol": "main"
     },

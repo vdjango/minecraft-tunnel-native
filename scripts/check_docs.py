@@ -1,5 +1,6 @@
 """Validate numbered documentation, local Markdown links and generated inventory paths."""
 from pathlib import Path
+import argparse
 import re
 import sys
 from urllib.parse import unquote
@@ -9,6 +10,10 @@ LINK = re.compile(r'!?\[[^\]\n]*\]\((<[^>]+>|[^\s)]+)(?:\s+"[^"]*")?\)')
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--repository-only', action='store_true',
+                        help='Validate a standalone checkout; report external workspace references separately')
+    args = parser.parse_args()
     errors = []
     documents = sorted((ROOT / 'docs').rglob('*.md'))
     sources = documents + [ROOT / name for name in ('README.md', 'AGENTS.md', 'PROTOCOL_STANDARD.md',
@@ -22,6 +27,9 @@ def main():
             if not target or re.match(r'[a-zA-Z][\w+.-]*:', target) or target.startswith('/'):
                 continue
             destination = (path.parent / target).resolve()
+            if args.repository_only and not destination.is_relative_to(ROOT):
+                print(f'WORKSPACE reference outside this checkout: {path.relative_to(ROOT)} -> {target}')
+                continue
             if not destination.exists():
                 errors.append(f'{path.relative_to(ROOT)}: missing {target}')
             referenced.add(destination)
