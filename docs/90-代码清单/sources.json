@@ -9,8 +9,8 @@
     "bridge/cli.hpp": "e785cc322146bd030c67f15e294be8ee200106e5349631d5429cbfb12dac9997",
     "bridge/codec.cpp": "d43c6771d3cfd5c6dc5c1dddbf14570674523a26df47a182bd327c2af05df661",
     "bridge/codec.hpp": "4f07bab53e8f52c8323daa2978d735f60780ee10b92ee428921424c1609e5960",
-    "bridge/control_client.cpp": "2bcfb0ae882c880d6d42f3d0ff830342f2e792eb4444805680cf02943a501643",
-    "bridge/control_client.hpp": "b134d213929e99f1274f0bb78677767d297a02812be0c01ea221dfe71c4a8503",
+    "bridge/control_client.cpp": "d2e1ef2b1d4e271834411dae8953d1248644f560c3b5abd20fcdf79e42bac6f7",
+    "bridge/control_client.hpp": "61a125e29501e262d4af911325e31258721a9e76212072472c86c49b59d4f93d",
     "bridge/feedback.cpp": "32f7fd0e3234bdf5e402f347b89af9d65b23a3522c90c65334332af89199349e",
     "bridge/feedback.hpp": "20835d4316c059ea37c443aaaac26424ace4d6a14be58941228a50b967c2412b",
     "bridge/game_chat.cpp": "e121286ec02a9078a521ed6af022c3acf062b462c4a83cde19bcbc2494679c38",
@@ -29,7 +29,7 @@
     "bridge/peer.cpp": "bbc9a98d9a0cd1be569138f3c9acbaa73f5a13fb6fa67bdd47101d038f2ef674",
     "bridge/peer_health.cpp": "ffb38d2adaf8a21758127d6957fc676ba9d7f5af9258178a6141e21cc3d899f9",
     "bridge/peer_heartbeat.hpp": "62002f5980c39d3921f9a784f0761efdbd8a01c31071d7519a25c3fe3b77355f",
-    "bridge/profile_exchange.cpp": "06dd2e8d24423e760debe77e2d3eb7adc57e5077a5606e4d0b6274ee157b117d",
+    "bridge/profile_exchange.cpp": "32d04d5acfe44f8d95019925b79ee499d7feda0713043537ce0b533c9dcd91a6",
     "bridge/profile_exchange.hpp": "526cf3a14c3c8ee1721f8d7e01ef340c281a0dd5fb51e797ecfe7ee89bb884ca",
     "bridge/progress.hpp": "48986c88302028c8a23af302e2a3334f72b9b4bb56bfa68fc624c6823376520d",
     "bridge/route_score.hpp": "49271295fa03a282b660794fa92f310655359a120077a726fddfc415a7c921db",
@@ -37,7 +37,7 @@
     "bridge/route_selector.hpp": "82c48b9a335074272c4e4a856a832bfb1e61e2759f8020474a417e20dad22dcb",
     "bridge/routing.cpp": "ce2633cc6a4a3b9385c05cce4bceaa9f7fdb88b36d9c1108314a7217e9a73fcb",
     "bridge/routing.hpp": "437c6ade4075fb502ab1604b978af61364e817a3409274f120d7e17798c21f6d",
-    "bridge/rpc.cpp": "9b544ad3221a3542d0435c0a3c6194c41eba01f034cf88942b6f2f9a97c752f5",
+    "bridge/rpc.cpp": "debf72d2f5f7c74de5ad25f016b0fc44344635b85ef7959ea0ee08878b655798",
     "bridge/rpc.hpp": "c9da3e8d9685de236aa9959d6f85b19b46fb39090785361c8308b4b4efa7450d",
     "bridge/runtime.cpp": "5884e91d7ed6928e2109f12942930ef7a47e5d21c0516e4fcfff01b488249d4a",
     "bridge/runtime.hpp": "4364d1bd2546f230d8e0fb0e2b2da9cacd6155859627be80d27b263f13cc2cb0",
@@ -71,7 +71,6 @@
     "core/worker.cpp": "6c57ef24f6c5f30f0f9159f9b1de31025b05625571462864e9fc9d205c0fe574",
     "frontend/src/NodeHeader.vue": "40db00a5595866b01e4b1df1490adb3f512199b5e4f80de722661555c383e437",
     "frontend/src/controllers/navigation.js": "5d7fddc6a36d93efe61f9ae5d39c1899610546351a75c7ff64e9f65630b9c1ce",
-    "frontend/src/feedback.ts": "9ccbd0aa43979da9385c2dc99f1edfae34f1ff4b4237d3a4bf00547aed35b7da",
     "frontend/src/help/App.vue": "1f9b36336eb2cbc0c9923d7bb8de92fdf10c5ca064bb9f80e5b92894dcd9af90",
     "frontend/src/help/Article.vue": "eb2b4a6c5c5416319ee14f317266a0570609f50d2fd74051d9cf0924149da7f1",
     "frontend/src/help/Home.vue": "96c893ddf01d8fdce3e828010611ea6088ad0c9c77fcba3697047265987997fe",
@@ -81,7 +80,6 @@
     "frontend/src/help/server.ts": "04529076d51abfda86083670175f6c88e0e04e9e5d32a244466f068ecbba6952",
     "frontend/src/pageSeed.ts": "a132cf492898f0b2f94911a76a44cfaf28dd8e70f6d762a0525a70d15a141c49",
     "frontend/src/pages/account.vue": "d880c774af717f389c0f6a3abc87a4a647c32339c120d33c311f2da7fb18f7fb",
-    "frontend/src/pages/feedback.vue": "36d7dffd20d6b967d1cedfc904c00f4d7744666ac0a5d79c8d38ea98885b8609",
     "frontend/src/prerender.ts": "7c754a5fdb47115420057f06150ecb28796ae67c8414867f96d9b19867552cda",
     "frontend/src/runtime.ts": "aa308b98ce483da7398d6c033bc55d4b946b41c44c2431f654647b0ab04a2098",
     "frontend/src/site-pages/download.vue": "ecdbf33ab1ee63726ffa1b1ba13a62beb21acfe90b2726a0b8d861c2a29053ca",
@@ -175,7 +173,6 @@
     "web/tunnel/social_delivery.py": "afffa33a6c649c72e72d4b7471cea6e5f4dcaab46f64466e49f4bc0f339711f7",
     "web/tunnel/storage.py": "0a9e6b3ec906b861db21136197363bbf9eda9498edcc5066e8d3cdd47eb223df",
     "web/tunnel/stun.py": "e81fc3ae01e92ff2a592fe84cbd89ccb858336aff1dfd34ce0a8a58207e30244",
-    "web/tunnel/web/account.html": "0d4acab01719bf9a4f7fae46e6bfa42d18231593eaee04a84d86bbde010bdda1",
-    "web/tunnel/web/feedback.html": "a234afab8d98271154216ae913362468d12edc6f19286b75cbecc9f78f806191"
+    "web/tunnel/web/account.html": "1bbef33c80e1e9914731197c9fe762e468f279704559511e1f64c2fe48495d8e"
   }
 }
