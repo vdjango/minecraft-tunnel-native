@@ -25,7 +25,8 @@ class ControlClient {
   Json probe_candidates(const Json &, bool preferred_only);
 
 public:
-  explicit ControlClient(const Profile &);
+  explicit ControlClient(const Profile &, const Json &startup = Json::object(),
+                         const std::string &usage_origin = {});
   Profile discovery();
   Json routes(bool refresh = false);
   Json select_route(int index);
@@ -34,8 +35,8 @@ public:
   Profile reconnect(const std::string &room);
   Json social(const Json &);
   Json inspect_network(bool refresh = false);
-  // RPC worker, original identity/renewal; origin must match the caller's intended
-  // feedback destination. Never returns a bearer token to the caller.
+  // RPC worker, original identity/renewal; origin must match the caller's
+  // intended feedback destination. Never returns a bearer token to the caller.
   Json feedback(const Json &, const std::string &expected_origin);
   Json lookup(const Json &);
   Json rooms(const std::string &query = {});
