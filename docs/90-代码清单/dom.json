@@ -5240,6 +5240,16 @@
     {
       "path": "web/tunnel/web/account.html",
       "line": 1,
+      "tag": "script",
+      "attributes": {
+        "data-cfasync": "false",
+        "data-usage-script": ""
+      },
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/account.html",
+      "line": 1,
       "tag": "title",
       "attributes": {},
       "directives": []

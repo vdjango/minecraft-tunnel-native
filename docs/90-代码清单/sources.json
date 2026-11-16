@@ -173,6 +173,6 @@
     "web/tunnel/social_delivery.py": "afffa33a6c649c72e72d4b7471cea6e5f4dcaab46f64466e49f4bc0f339711f7",
     "web/tunnel/storage.py": "0a9e6b3ec906b861db21136197363bbf9eda9498edcc5066e8d3cdd47eb223df",
     "web/tunnel/stun.py": "e81fc3ae01e92ff2a592fe84cbd89ccb858336aff1dfd34ce0a8a58207e30244",
-    "web/tunnel/web/account.html": "1bbef33c80e1e9914731197c9fe762e468f279704559511e1f64c2fe48495d8e"
+    "web/tunnel/web/account.html": "702f1644efe5102f182d6bcd9ee71b42418995c8fc9257456bdfe17c56f1b56b"
   }
 }
