@@ -143,6 +143,10 @@ class NativeTests(unittest.IsolatedAsyncioTestCase):
             process.stdin.write('{"op":"ping"}\n')
             await asyncio.wait_for(entered.wait(), 3)
             await asyncio.wait_for(connection.wait_closed(), 16)
+            for _ in range(100):
+                if hasattr(peer, 'disconnect_reason'):
+                    break
+                await asyncio.sleep(.01)
             self.assertEqual(peer.disconnect_reason, 'control-rpc-timeout')
             # SSH keepalive responses still arrive while the Python handler waits.
             self.assertLess(peer.transport_diagnostic['rx_age_ms'], 10000)
