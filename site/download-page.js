@@ -3,8 +3,8 @@
       const releasesUrl = new URL('release-history.json', location.href).href;
       const managedReleasesUrl = 'https://download.bugg.icu/api/launcher/releases';
       const platforms = {
-        windows: { title:'Windows', description:'Windows 10 / 11 · x64 · 解压 ZIP 后运行 Buggcraft.exe', assetNames:['Buggcraft-windows-x64.zip'], checksum:'SHA256SUMS-downloads.txt', fallback:/windows.*\.zip$/i },
-        mac: { title:'macOS', description:'选择你的芯片类型，下载对应的 Buggcraft.app 压缩包。', checksums:{ arm64:'SHA256SUMS-macos-arm64.txt', x86_64:'SHA256SUMS-macos-x86_64.txt' }, fallback:null },
+        windows: { title:'Windows', description:'Windows 10 / 11 · x64 · 解压 ZIP 后运行 bugg.exe', assetNames:['Bugg-native-windows-x64.zip','Buggcraft-windows-x64.zip'], checksum:'SHA256SUMS-downloads.txt', fallback:/windows.*\.zip$/i },
+        mac: { title:'macOS', description:'选择你的芯片类型，下载对应的 Bugg.app 压缩包。', checksums:{ arm64:'SHA256SUMS-macos-arm64.txt', x86_64:'SHA256SUMS-macos-x86_64.txt' }, fallback:null },
         linux: { title:'Linux', description:'选择处理器架构，下载对应的 ZIP 压缩包。', checksums:{ arm64:'SHA256SUMS-downloads.txt', x86_64:'SHA256SUMS-downloads.txt' } }
       };
       const archNames = { arm64:'Buggcraft-macos-arm64.zip', x86_64:'Buggcraft-macos-x86_64.zip' };
@@ -43,8 +43,8 @@
         return fallback ? list.find(item => fallback.test(item.name)) || null : null;
       }
       function platformAsset(release, platform, arch) {
-        if (platform === 'mac') return asset(release, archNames[arch], new RegExp(`macos[-_].*${arch}.*\\.zip$`,'i'));
-        if (platform === 'linux') return asset(release, linuxArchNames[arch]);
+        if (platform === 'mac') return asset(release, [`Bugg-native-macos-${arch}.zip`,archNames[arch]], new RegExp(`macos[-_].*${arch}.*\\.zip$`,'i'));
+        if (platform === 'linux') return asset(release, [`Bugg-native-linux-${arch}.zip`,linuxArchNames[arch]]);
         const config = platforms[platform];
         return asset(release, config.assetNames, config.fallback);
       }
@@ -114,17 +114,17 @@
         const label=selectedPlatform==='mac' ? `下载 ${selectedArch==='arm64'?'Apple Silicon':'Intel'} 版 ZIP` : `下载 ${config.title}${selectedPlatform==='linux'?' '+selectedArch:''} 版 ZIP`;
         setLink(button,file.browser_download_url,label+' ↓','暂无可下载版本');
         const checksumName=config.checksums?config.checksums[selectedArch]:config.checksum;
-        const sum=release.assets.find(item=>item.name===checksumName);
+        const sum=!file.name.startsWith('Bugg-native-') && release.assets.find(item=>item.name===checksumName);
         checksum.hidden=!sum;
         if(sum){checksum.href=sum.browser_download_url;checksum.textContent='SHA-256 校验文件 ↗';}
         notes.href='#history-title'; notes.textContent='查看本地发行说明 ↓';
       }
       function historyFileLabel(name) {
         if(name==='Buggcraft-windows-x64.zip' || name==='Buggcraft.exe' || /windows.*\.(exe|zip)$/i.test(name)) return 'Windows';
-        if(name===archNames.arm64) return 'macOS · Apple Silicon';
-        if(name===archNames.x86_64) return 'macOS · Intel';
-        if(name==='Buggcraft-linux-arm64.zip' || name==='Buggcraft-linux-arm64') return 'Linux · ARM64';
-        if(name==='Buggcraft-linux-x86_64.zip' || name==='Buggcraft' || /^Buggcraft-linux/i.test(name)) return 'Linux · x86_64';
+        if(name===archNames.arm64 || name==='Bugg-native-macos-arm64.zip') return 'macOS · Apple Silicon';
+        if(name===archNames.x86_64 || name==='Bugg-native-macos-x86_64.zip') return 'macOS · Intel';
+        if(name==='Bugg-native-linux-arm64.zip' || name==='Buggcraft-linux-arm64.zip' || name==='Buggcraft-linux-arm64') return 'Linux · ARM64';
+        if(name==='Bugg-native-linux-x86_64.zip' || name==='Buggcraft-linux-x86_64.zip' || name==='Buggcraft' || /^Buggcraft-linux/i.test(name)) return 'Linux · x86_64';
         return null;
       }
       function renderHistory() {

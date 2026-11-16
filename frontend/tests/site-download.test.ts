@@ -29,6 +29,20 @@ beforeEach(()=>{
 afterEach(()=>{document.body.replaceChildren();vi.unstubAllGlobals();});
 
 describe('website ZIP downloads',()=>{
+  it('prefers the original native ZIP for all five platforms without duplicate history links',async()=>{
+    const native=['windows-x64','macos-arm64','macos-x86_64','linux-arm64','linux-x86_64'].map(platform=>`Bugg-native-${platform}.zip`);
+    await load([release('2.0.3',[...packages,...native,'SHA256SUMS-downloads.txt'])]);
+    expect(href()).toMatch(/\/Bugg-native-windows-x64\.zip$/);
+    expect((document.querySelector('#checksum-link') as HTMLElement).hidden).toBe(true);
+    for(const platform of ['mac','linux']){
+      click(`[data-platform="${platform}"]`);
+      for(const arch of ['arm64','x86_64']){
+        click(`[data-arch="${arch}"]`);
+        expect(href()).toMatch(new RegExp(`/Bugg-native-${platform==='mac'?'macos':platform}-${arch}\\.zip$`));
+      }
+    }
+    expect([...document.querySelectorAll<HTMLAnchorElement>('.history-download')].map(link=>link.href.split('/').at(-1)).sort()).toEqual([...native].sort());
+  });
   it('offers the Windows ZIP instead of the binary and links to its checksum',async()=>{
     await load();
     expect(href()).toMatch(/\/Buggcraft-windows-x64\.zip$/);
