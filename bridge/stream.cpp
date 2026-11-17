@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "session.hpp"
+#include "server_list_icon.hpp"
 #include "../include/buggcraft/minecraft_handshake.hpp"
 namespace bridge {
 Stream::~Stream(){
@@ -45,13 +46,31 @@ void Session::pump(Stream& stream){
         if(!stream.data->isOpen())return;
         if(!stream.local_eof&&stream.inflight<262144&&stream.data->bufferedAmount()<262144){
             const int count=recv(stream.socket,buffer,static_cast<int>(std::min<size_t>(16384,262144-stream.inflight)),0);
-            if(count>0){std::array<std::byte,16385> frame;frame[0]=std::byte{'D'};std::memcpy(frame.data()+1,buffer,static_cast<size_t>(count));stream.data->send(frame.data(),static_cast<size_t>(count)+1);stream.inflight+=static_cast<size_t>(count);stream.sent+=static_cast<size_t>(count);}
+            if(count>0){
+                std::string decorated;std::string_view payload(buffer,static_cast<size_t>(count));
+                if(role=="host"&&stream.server_list.active){decorated=stream.server_list.feed(payload,settings_,server_list_icon);payload=decorated;}
+                while(!payload.empty()){
+                    const auto size=std::min<size_t>(16384,payload.size());
+                    std::array<std::byte,16385> frame;frame[0]=std::byte{'D'};std::memcpy(frame.data()+1,payload.data(),size);
+                    stream.data->send(frame.data(),size+1);stream.inflight+=size;payload.remove_prefix(size);
+                }
+                stream.sent+=static_cast<size_t>(count);
+            }
             else if(count==0)stream.local_eof=true;else if(!would_block()){stream.dead=true;return;}
         }
     }else{
         // SSH CLOSE can arrive while decoded bytes are still queued for the
         // game socket. Drain them through EOF before releasing the stream.
-        if(!stream.local_eof&&stream.to_wire.free()>=65600){int count=recv(stream.socket,buffer,sizeof(buffer),0);if(count>0){std::string_view bytes(buffer,static_cast<size_t>(count));if(stream.codec){stream.codec->encode(bytes,stream.encoded_block);copy_into(stream.to_wire,stream.encoded_block);}else copy_into(stream.to_wire,bytes);stream.sent+=static_cast<size_t>(count);}else if(count==0)stream.local_eof=true;else if(!would_block()){stream.dead=true;return;}}
+        if(!stream.local_eof&&stream.to_wire.free()>=65600){int count=recv(stream.socket,buffer,sizeof(buffer),0);if(count>0){
+            std::string decorated;std::string_view bytes(buffer,static_cast<size_t>(count));
+            if(role=="host"&&stream.server_list.active){decorated=stream.server_list.feed(bytes,settings_,server_list_icon);bytes=decorated;}
+            while(!bytes.empty()){
+                const auto part=bytes.substr(0,65536);
+                if(stream.codec){stream.codec->encode(part,stream.encoded_block);copy_into(stream.to_wire,stream.encoded_block);}else copy_into(stream.to_wire,part);
+                bytes.remove_prefix(part.size());
+            }
+            stream.sent+=static_cast<size_t>(count);
+        }else if(count==0)stream.local_eof=true;else if(!would_block()){stream.dead=true;return;}}
         if(stream.to_wire.size()){int count=ssh_channel_write(stream.channel,stream.to_wire.read_ptr(),static_cast<uint32_t>(stream.to_wire.readable()));if(count>0)stream.to_wire.consumed(static_cast<size_t>(count));else if(count==SSH_ERROR){stream.dead=true;return;}}
         if(stream.codec){while(stream.to_socket.free()>=65536&&stream.codec->next(stream.decoded_block))copy_into(stream.to_socket,stream.decoded_block);}
         // A full payload frame also carries its length header. With exactly
@@ -74,6 +93,9 @@ void Session::pump(Stream& stream){
             stream.dead=true;log("stream_rejected",{{"session",identity},{"player",stream.player},{"stream",stream.trace},{"reason","minecraft-handshake"}});return;
         }
         if(state==buggcraft::HandshakeState::partial)return;
+        game::Cursor handshake{std::string_view(stream.to_socket.read_ptr(),stream.to_socket.readable())};
+        const auto length=handshake.integer();
+        stream.server_list.active=handshake.data[handshake.offset+length-1]=='\x01';
         stream.handshake_validated=true;
     }
     if(stream.to_socket.size()){int count=net_send(stream.socket,stream.to_socket.read_ptr(),static_cast<int>(std::min<size_t>(65536,stream.to_socket.readable())));if(count>0){stream.to_socket.consumed(static_cast<size_t>(count));stream.received+=static_cast<size_t>(count);if(stream.data){std::array<std::byte,5> ack{std::byte{'A'}};auto amount=htonl(static_cast<uint32_t>(count));std::memcpy(ack.data()+1,&amount,4);stream.data->send(ack.data(),ack.size());}}else if(count<0&&!would_block()){stream.dead=true;return;}}

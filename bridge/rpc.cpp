@@ -46,7 +46,7 @@ class Rpc {
             if(p.contains("profile"))value.profile=Profile::from_json(p.at("profile"));
             else {if(!p.contains("code")||!p["code"].is_string())throw Failure(-32602,"code must be a string");value.profile=Profile::decode(p["code"].get<std::string>());}
             if(!value.profile.control.empty()){
-                value.identity=value.profile;value.control=std::make_shared<ControlClient>(value.identity);
+                value.identity=value.profile;value.control=std::make_shared<ControlClient>(value.identity,p.value("usage",Json::object()),p.value("usage_origin",std::string{}));
                 value.profile=value.control->discovery();value.routes=std::make_unique<RouteSelector>(value.profile,std::vector<Profile>{});
                 auto handle=random_id(12);Json result{{"node",handle},{"name",value.profile.name},{"identity","account"},{"managed",true}};
                 nodes_.emplace(handle,std::move(value));return result;

@@ -311,167 +311,167 @@
       "path": "bridge/control_client.cpp",
       "line": 52,
       "kind": "definition",
-      "symbol": "bridge::ControlClient::ControlClient(const Profile &identity)"
+      "symbol": "bridge::ControlClient::ControlClient(const Profile &identity, const Json &startup, const std::string &usage_origin)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 78,
+      "line": 89,
       "kind": "definition",
       "symbol": "bridge::ControlClient::endpoint(const Json &item)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 94,
+      "line": 105,
       "kind": "definition",
       "symbol": "bridge::ControlClient::discovery()"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 95,
+      "line": 106,
       "kind": "declaration",
       "symbol": "bridge::ControlClient::discovery()::guard(mutex_)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 111,
+      "line": 122,
       "kind": "definition",
       "symbol": "bridge::ControlClient::feedback(const Json &body, const std::string &expected_origin)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 116,
+      "line": 128,
       "kind": "definition",
       "symbol": "bridge::ControlClient::probe_candidates(const Json &candidates, bool preferred_only)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 156,
+      "line": 168,
       "kind": "definition",
       "symbol": "bridge::ControlClient::routes(bool refresh)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 157,
+      "line": 169,
       "kind": "declaration",
       "symbol": "bridge::ControlClient::routes(bool refresh)::guard(mutex_)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 184,
+      "line": 196,
       "kind": "definition",
       "symbol": "bridge::ControlClient::select_route(int index)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 185,
+      "line": 197,
       "kind": "declaration",
       "symbol": "bridge::ControlClient::select_route(int index)::guard(mutex_)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 195,
+      "line": 207,
       "kind": "definition",
       "symbol": "bridge::ControlClient::allocate(const std::string &room, const std::string &secret, bool host)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 197,
+      "line": 209,
       "kind": "declaration",
       "symbol": "bridge::ControlClient::allocate(const std::string &room, const std::string &secret, bool host)::guard(mutex_)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 229,
+      "line": 241,
       "kind": "definition",
       "symbol": "bridge::ControlClient::release(const std::string &room)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 230,
+      "line": 242,
       "kind": "declaration",
       "symbol": "bridge::ControlClient::release(const std::string &room)::guard(mutex_)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 240,
+      "line": 252,
       "kind": "definition",
       "symbol": "bridge::ControlClient::lookup(const Json &request)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 241,
+      "line": 253,
       "kind": "declaration",
       "symbol": "bridge::ControlClient::lookup(const Json &request)::guard(mutex_)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 252,
+      "line": 264,
       "kind": "definition",
       "symbol": "bridge::ControlClient::rooms(const std::string &query)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 253,
+      "line": 265,
       "kind": "declaration",
       "symbol": "bridge::ControlClient::rooms(const std::string &query)::guard(mutex_)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 276,
+      "line": 288,
       "kind": "definition",
       "symbol": "bridge::ControlClient::resolve(const std::string &room)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 277,
+      "line": 289,
       "kind": "declaration",
       "symbol": "bridge::ControlClient::resolve(const std::string &room)::guard(mutex_)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 280,
+      "line": 292,
       "kind": "definition",
       "symbol": "bridge::ControlClient::publish(const std::string &room, const Json &info)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 281,
+      "line": 293,
       "kind": "declaration",
       "symbol": "bridge::ControlClient::publish(const std::string &room, const Json &info)::guard(mutex_)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 308,
+      "line": 320,
       "kind": "definition",
       "symbol": "bridge::ControlClient::inspect_network(bool refresh)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 309,
+      "line": 321,
       "kind": "declaration",
       "symbol": "bridge::ControlClient::inspect_network(bool refresh)::guard(mutex_)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 312,
+      "line": 324,
       "kind": "definition",
       "symbol": "bridge::ControlClient::social(const Json &params)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 313,
+      "line": 325,
       "kind": "declaration",
       "symbol": "bridge::ControlClient::social(const Json &params)::guard(mutex_)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 367,
+      "line": 379,
       "kind": "definition",
       "symbol": "bridge::ControlClient::reconnect(const std::string &room)"
     },
     {
       "path": "bridge/control_client.cpp",
-      "line": 368,
+      "line": 380,
       "kind": "declaration",
       "symbol": "bridge::ControlClient::reconnect(const std::string &room)::guard(mutex_)"
     },
@@ -497,83 +497,83 @@
       "path": "bridge/control_client.hpp",
       "line": 28,
       "kind": "declaration",
-      "symbol": "bridge::ControlClient::ControlClient(const Profile &)"
-    },
-    {
-      "path": "bridge/control_client.hpp",
-      "line": 29,
-      "kind": "declaration",
-      "symbol": "bridge::ControlClient::discovery()"
+      "symbol": "bridge::ControlClient::ControlClient(const Profile &, const Json &startup = Json::object(), const std::string &usage_origin = {})"
     },
     {
       "path": "bridge/control_client.hpp",
       "line": 30,
       "kind": "declaration",
-      "symbol": "bridge::ControlClient::routes(bool refresh = false)"
+      "symbol": "bridge::ControlClient::discovery()"
     },
     {
       "path": "bridge/control_client.hpp",
       "line": 31,
       "kind": "declaration",
-      "symbol": "bridge::ControlClient::select_route(int index)"
+      "symbol": "bridge::ControlClient::routes(bool refresh = false)"
     },
     {
       "path": "bridge/control_client.hpp",
       "line": 32,
       "kind": "declaration",
-      "symbol": "bridge::ControlClient::allocate(const std::string &room, const std::string &secret, bool host)"
+      "symbol": "bridge::ControlClient::select_route(int index)"
     },
     {
       "path": "bridge/control_client.hpp",
-      "line": 34,
+      "line": 33,
       "kind": "declaration",
-      "symbol": "bridge::ControlClient::reconnect(const std::string &room)"
+      "symbol": "bridge::ControlClient::allocate(const std::string &room, const std::string &secret, bool host)"
     },
     {
       "path": "bridge/control_client.hpp",
       "line": 35,
       "kind": "declaration",
-      "symbol": "bridge::ControlClient::social(const Json &)"
+      "symbol": "bridge::ControlClient::reconnect(const std::string &room)"
     },
     {
       "path": "bridge/control_client.hpp",
       "line": 36,
       "kind": "declaration",
-      "symbol": "bridge::ControlClient::inspect_network(bool refresh = false)"
+      "symbol": "bridge::ControlClient::social(const Json &)"
     },
     {
       "path": "bridge/control_client.hpp",
-      "line": 39,
+      "line": 37,
       "kind": "declaration",
-      "symbol": "bridge::ControlClient::feedback(const Json &, const std::string &expected_origin)"
+      "symbol": "bridge::ControlClient::inspect_network(bool refresh = false)"
     },
     {
       "path": "bridge/control_client.hpp",
       "line": 40,
       "kind": "declaration",
-      "symbol": "bridge::ControlClient::lookup(const Json &)"
+      "symbol": "bridge::ControlClient::feedback(const Json &, const std::string &expected_origin)"
     },
     {
       "path": "bridge/control_client.hpp",
       "line": 41,
       "kind": "declaration",
-      "symbol": "bridge::ControlClient::rooms(const std::string &query = {})"
+      "symbol": "bridge::ControlClient::lookup(const Json &)"
     },
     {
       "path": "bridge/control_client.hpp",
       "line": 42,
       "kind": "declaration",
+      "symbol": "bridge::ControlClient::rooms(const std::string &query = {})"
+    },
+    {
+      "path": "bridge/control_client.hpp",
+      "line": 43,
+      "kind": "declaration",
       "symbol": "bridge::ControlClient::resolve(const std::string &room)"
     },
     {
       "path": "bridge/control_client.hpp",
-      "line": 46,
+      "line": 47,
       "kind": "declaration",
       "symbol": "bridge::ControlClient::publish(const std::string &room, const Json &info)"
     },
     {
       "path": "bridge/control_client.hpp",
-      "line": 47,
+      "line": 48,
       "kind": "declaration",
       "symbol": "bridge::ControlClient::release(const std::string &room)"
     },
@@ -1407,31 +1407,31 @@
     },
     {
       "path": "bridge/local_game.cpp",
-      "line": 83,
+      "line": 92,
       "kind": "definition",
       "symbol": "bridge::game_status(int port,int timeout_ms)"
     },
     {
       "path": "bridge/local_game.cpp",
-      "line": 100,
+      "line": 109,
       "kind": "definition",
       "symbol": "bridge::discover_worlds(const std::set<int>& excluded,int duration_ms)"
     },
     {
       "path": "bridge/local_game.cpp",
-      "line": 103,
+      "line": 112,
       "kind": "declaration",
       "symbol": "bridge::discover_worlds(const std::set<int>& excluded,int duration_ms)::packet(buffer,static_cast<size_t>(count))"
     },
     {
       "path": "bridge/local_game.cpp",
-      "line": 104,
+      "line": 113,
       "kind": "lambda",
-      "symbol": "bridge::discover_worlds(const std::set<int>& excluded,int duration_ms)::<lambda@104>"
+      "symbol": "bridge::discover_worlds(const std::set<int>& excluded,int duration_ms)::<lambda@113>"
     },
     {
       "path": "bridge/local_game.cpp",
-      "line": 106,
+      "line": 115,
       "kind": "definition",
       "symbol": "bridge::announce_world(int port,const std::string& title)"
     },
@@ -2175,51 +2175,51 @@
     },
     {
       "path": "bridge/profile_exchange.cpp",
-      "line": 22,
+      "line": 26,
       "kind": "definition",
-      "symbol": "bridge::<anonymous>::append_response(char* data, size_t size, size_t count, void* target)"
+      "symbol": "bridge::<anonymous>::append_response(char *data, size_t size, size_t count, void *target)"
     },
     {
       "path": "bridge/profile_exchange.cpp",
-      "line": 35,
+      "line": 41,
       "kind": "definition",
-      "symbol": "bridge::<anonymous>::issuer_url(const std::string& encoded)"
+      "symbol": "bridge::<anonymous>::issuer_url(const std::string &encoded)"
     },
     {
       "path": "bridge/profile_exchange.cpp",
-      "line": 37,
+      "line": 45,
       "kind": "lambda",
-      "symbol": "bridge::<anonymous>::issuer_url(const std::string& encoded)::<lambda@37>"
+      "symbol": "bridge::<anonymous>::issuer_url(const std::string &encoded)::<lambda@45>"
     },
     {
       "path": "bridge/profile_exchange.cpp",
-      "line": 64,
+      "line": 88,
       "kind": "definition",
-      "symbol": "bridge::<anonymous>::set_option(CURL* handle, CURLoption option, Value value)"
+      "symbol": "bridge::<anonymous>::set_option(CURL *handle, CURLoption option, Value value)"
     },
     {
       "path": "bridge/profile_exchange.cpp",
-      "line": 70,
+      "line": 94,
       "kind": "definition",
-      "symbol": "bridge::redeem_profile_code(const std::string& code)"
+      "symbol": "bridge::redeem_profile_code(const std::string &code)"
     },
     {
       "path": "bridge/profile_exchange.cpp",
-      "line": 95,
+      "line": 129,
       "kind": "definition",
-      "symbol": "bridge::https_json(const std::string& origin,const std::string& path,const Json& request, const std::string& token,const std::string& ca_pem)"
+      "symbol": "bridge::https_json(const std::string &origin, const std::string &path, const Json &request, const std::string &token, const std::string &ca_pem)"
     },
     {
       "path": "bridge/profile_exchange.cpp",
-      "line": 106,
+      "line": 145,
       "kind": "lambda",
-      "symbol": "bridge::https_json(const std::string& origin,const std::string& path,const Json& request, const std::string& token,const std::string& ca_pem)::<lambda@106>"
+      "symbol": "bridge::https_json(const std::string &origin, const std::string &path, const Json &request, const std::string &token, const std::string &ca_pem)::<lambda@145>"
     },
     {
       "path": "bridge/profile_exchange.cpp",
-      "line": 109,
+      "line": 151,
       "kind": "declaration",
-      "symbol": "bridge::https_json(const std::string& origin,const std::string& path,const Json& request, const std::string& token,const std::string& ca_pem)::handle(curl_easy_init(), curl_easy_cleanup)"
+      "symbol": "bridge::https_json(const std::string &origin, const std::string &path, const Json &request, const std::string &token, const std::string &ca_pem)::handle(curl_easy_init(), curl_easy_cleanup)"
     },
     {
       "path": "bridge/profile_exchange.hpp",
@@ -2582,6 +2582,12 @@
       "symbol": "bridge::release_runtime() noexcept"
     },
     {
+      "path": "bridge/server_list.hpp",
+      "line": 12,
+      "kind": "definition",
+      "symbol": "bridge::ServerListStatus::feed(std::string_view bytes, const Json &settings, const std::string &icon)"
+    },
+    {
       "path": "bridge/session.cpp",
       "line": 9,
       "kind": "definition",
@@ -2925,307 +2931,307 @@
     },
     {
       "path": "bridge/session.hpp",
-      "line": 41,
+      "line": 43,
       "kind": "declaration",
       "symbol": "bridge::Stream::~Stream()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 136,
+      "line": 138,
       "kind": "declaration",
       "symbol": "bridge::Session::control_ready(bool background)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 137,
+      "line": 139,
       "kind": "declaration",
       "symbol": "bridge::Session::run()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 138,
+      "line": 140,
       "kind": "declaration",
       "symbol": "bridge::Session::setup()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 139,
+      "line": 141,
       "kind": "declaration",
       "symbol": "bridge::Session::setup_with_fallback()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 140,
+      "line": 142,
       "kind": "declaration",
       "symbol": "bridge::Session::next_route()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 141,
+      "line": 143,
       "kind": "declaration",
       "symbol": "bridge::Session::tick()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 142,
+      "line": 144,
       "kind": "declaration",
       "symbol": "bridge::Session::start_peer()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 143,
+      "line": 145,
       "kind": "declaration",
       "symbol": "bridge::Session::start_client_peer()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 144,
+      "line": 146,
       "kind": "declaration",
       "symbol": "bridge::Session::start_file_peer()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 145,
+      "line": 147,
       "kind": "declaration",
       "symbol": "bridge::Session::advance_peers()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 146,
+      "line": 148,
       "kind": "declaration",
       "symbol": "bridge::Session::watch_peer(const std::shared_ptr<rtc::PeerConnection>&,const std::shared_ptr<rtc::DataChannel>&,std::string player)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 147,
+      "line": 149,
       "kind": "declaration",
       "symbol": "bridge::Session::fail_peer(const std::shared_ptr<rtc::PeerConnection>&,const std::string& reason,const std::string& player={})"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 148,
+      "line": 150,
       "kind": "declaration",
       "symbol": "bridge::Session::receive_signal(const Json&)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 149,
+      "line": 151,
       "kind": "declaration",
       "symbol": "bridge::Session::create_peer(const std::string& key,bool client,std::string player={},std::string attempt={},bool files=false)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 150,
+      "line": 152,
       "kind": "declaration",
       "symbol": "bridge::Session::add_data(const std::shared_ptr<rtc::DataChannel>&,NetSocket socket=invalid_socket,std::string player={},std::shared_ptr<rtc::PeerConnection> peer={})"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 151,
+      "line": 153,
       "kind": "declaration",
       "symbol": "bridge::Session::accept_game()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 152,
+      "line": 154,
       "kind": "declaration",
       "symbol": "bridge::Session::accept_forward()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 153,
+      "line": 155,
       "kind": "declaration",
       "symbol": "bridge::Session::pump(Stream&)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 154,
+      "line": 156,
       "kind": "declaration",
       "symbol": "bridge::Session::sample_stream(Stream&, bool upload_moved, bool download_moved)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 155,
+      "line": 157,
       "kind": "declaration",
       "symbol": "bridge::Session::read_controls()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 156,
+      "line": 158,
       "kind": "declaration",
       "symbol": "bridge::Session::advance_chat()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 157,
+      "line": 159,
       "kind": "declaration",
       "symbol": "bridge::Session::start_game_chat()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 158,
+      "line": 160,
       "kind": "declaration",
       "symbol": "bridge::Session::publish_game_chat_status(std::string status)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 159,
+      "line": 161,
       "kind": "declaration",
       "symbol": "bridge::Session::advance_requests()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 160,
+      "line": 162,
       "kind": "declaration",
       "symbol": "bridge::Session::advance_presence()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 161,
+      "line": 163,
       "kind": "declaration",
       "symbol": "bridge::Session::flush(ssh_channel channel,std::string& value)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 162,
+      "line": 164,
       "kind": "declaration",
       "symbol": "bridge::Session::signal(Json value)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 163,
+      "line": 165,
       "kind": "declaration",
       "symbol": "bridge::Session::become_ready()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 164,
+      "line": 166,
       "kind": "declaration",
       "symbol": "bridge::Session::cleanup()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 165,
+      "line": 167,
       "kind": "declaration",
       "symbol": "bridge::Session::monitor()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 166,
+      "line": 168,
       "kind": "declaration",
       "symbol": "bridge::Session::event(Json value)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 169,
+      "line": 171,
       "kind": "declaration",
       "symbol": "bridge::Session::Session(Profile profile,std::string role,std::string secret,std::string policy,int game_port,Json settings,std::string compression, std::vector<Profile> alternatives={},int listen_port=0,bool announce=true,std::string game_directory={},std::string chat_name={},bool game_chat_enabled=false,std::string game_chat_name={},std::string ice_family=\"auto\")"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 171,
+      "line": 173,
       "kind": "declaration",
       "symbol": "bridge::Session::~Session()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 172,
+      "line": 174,
       "kind": "declaration",
       "symbol": "bridge::Session::start()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 174,
+      "line": 176,
       "kind": "definition",
       "symbol": "bridge::Session::set_reconnector(std::function<Profile()> callback)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 175,
+      "line": 177,
       "kind": "declaration",
       "symbol": "bridge::Session::stop()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 176,
+      "line": 178,
       "kind": "declaration",
       "symbol": "bridge::Session::post(std::function<void()>)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 177,
+      "line": 179,
       "kind": "declaration",
       "symbol": "bridge::Session::status() const"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 178,
+      "line": 180,
       "kind": "declaration",
       "symbol": "bridge::Session::request(Json value)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 179,
+      "line": 181,
       "kind": "declaration",
       "symbol": "bridge::Session::chat(Json value)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 180,
+      "line": 182,
       "kind": "declaration",
       "symbol": "bridge::Session::events()"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 181,
+      "line": 183,
       "kind": "declaration",
       "symbol": "bridge::Session::retarget(int port,Json game)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 182,
+      "line": 184,
       "kind": "declaration",
       "symbol": "bridge::Session::configure(Json settings)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 183,
+      "line": 185,
       "kind": "declaration",
       "symbol": "bridge::Session::mods(const std::string& method,const Json& params)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 185,
+      "line": 187,
       "kind": "declaration",
       "symbol": "bridge::copy_into(Ring& ring,std::string_view data)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 186,
+      "line": 188,
       "kind": "declaration",
       "symbol": "bridge::connect_game(int port,bool& connecting)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 187,
+      "line": 189,
       "kind": "declaration",
       "symbol": "bridge::half_close(NetSocket socket)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 188,
+      "line": 190,
       "kind": "declaration",
       "symbol": "bridge::validate_sdp(const std::string& sdp)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 189,
+      "line": 191,
       "kind": "declaration",
       "symbol": "bridge::candidate_counts(const std::string& sdp)"
     },
     {
       "path": "bridge/session.hpp",
-      "line": 190,
+      "line": 192,
       "kind": "declaration",
       "symbol": "bridge::candidate_details(const std::string& description)"
     },
@@ -3621,37 +3627,43 @@
     },
     {
       "path": "bridge/stream.cpp",
-      "line": 5,
+      "line": 6,
       "kind": "definition",
       "symbol": "bridge::Stream::~Stream()"
     },
     {
       "path": "bridge/stream.cpp",
-      "line": 10,
+      "line": 11,
       "kind": "definition",
       "symbol": "bridge::copy_into(Ring& ring,std::string_view data)"
     },
     {
       "path": "bridge/stream.cpp",
-      "line": 11,
+      "line": 12,
       "kind": "definition",
       "symbol": "bridge::half_close(NetSocket socket)"
     },
     {
       "path": "bridge/stream.cpp",
-      "line": 18,
+      "line": 19,
       "kind": "definition",
       "symbol": "bridge::connect_game(int port,bool& connecting)"
     },
     {
       "path": "bridge/stream.cpp",
-      "line": 29,
+      "line": 30,
       "kind": "definition",
       "symbol": "bridge::Session::pump(Stream& stream)"
     },
     {
       "path": "bridge/stream.cpp",
-      "line": 54,
+      "line": 50,
+      "kind": "declaration",
+      "symbol": "bridge::Session::pump(Stream& stream)::payload(buffer,static_cast<size_t>(count))"
+    },
+    {
+      "path": "bridge/stream.cpp",
+      "line": 65,
       "kind": "declaration",
       "symbol": "bridge::Session::pump(Stream& stream)::bytes(buffer,static_cast<size_t>(count))"
     },
@@ -6615,85 +6627,91 @@
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 38,
+      "line": 39,
       "kind": "FunctionDef",
       "symbol": "AccountAPI.blocked"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 41,
+      "line": 42,
       "kind": "FunctionDef",
       "symbol": "AccountAPI.allowed"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 46,
+      "line": 47,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.authenticate"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 49,
+      "line": 50,
+      "kind": "AsyncFunctionDef",
+      "symbol": "AccountAPI.password_policy"
+    },
+    {
+      "path": "web/tunnel/accounts_web.py",
+      "line": 56,
       "kind": "FunctionDef",
       "symbol": "AccountAPI.session"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 59,
+      "line": 66,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.enroll"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 68,
+      "line": 75,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.register"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 74,
+      "line": 81,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI._register"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 99,
+      "line": 106,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.email_code"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 128,
+      "line": 135,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.email_challenge"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 146,
+      "line": 153,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.email_accounts"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 161,
+      "line": 168,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.challenge"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 172,
+      "line": 179,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.login"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 197,
+      "line": 204,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.me"
     },
     {
       "path": "web/tunnel/accounts_web.py",
-      "line": 205,
+      "line": 212,
       "kind": "AsyncFunctionDef",
       "symbol": "AccountAPI.logout"
     },

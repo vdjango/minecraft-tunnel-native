@@ -23,6 +23,7 @@ class AccountAPI:
         from .launcher_devices import LauncherDevices
         self.store.launcher_devices = LauncherDevices(self)
         self.routes = [
+            web.get('/api/account/policy', self.password_policy),
             web.post('/api/account/enroll', self.enroll),
             web.post('/api/account/register', self.register),
             web.post('/api/account/email-code', self.email_code),
@@ -45,6 +46,12 @@ class AccountAPI:
 
     async def authenticate(self, token):
         return self.store.authenticate(token, self.blocked)
+
+    async def password_policy(self, request):
+        # Compatibility surface for the shared account page. Passwords remain
+        # browser-held; the production native control owns account enforcement.
+        return web.json_response(dict(minimum_length=6, maximum_length=256,
+                                      blocked_passwords=['123456', '12345678', 'password', 'minecraft']))
 
     def session(self, request, write=False):
         now = time.monotonic()

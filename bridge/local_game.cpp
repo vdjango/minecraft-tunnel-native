@@ -78,7 +78,16 @@ static Json modern_status(int port,int timeout_ms){
     auto size=read_integer(socket.fd,deadline);if(size<2||size>1048576)throw Failure(-32000,"Invalid game status size");auto bytes=read_exact(socket.fd,size,deadline);if(bytes[0]!=0)throw Failure(-32000,"Invalid game status packet");size_t offset=1;uint32_t length=0;bool complete=false;for(unsigned i=0;i<5&&offset<bytes.size();++i){auto b=static_cast<unsigned char>(bytes[offset++]);length|=uint32_t(b&127)<<(7*i);if(!(b&128)){complete=true;break;}}
     if(!complete||offset+length!=bytes.size())throw Failure(-32000,"Invalid game status string");auto status=Json::parse(bytes.substr(offset));auto version=status.value("version",Json::object());if(!version.is_object())throw Failure(-32000,"Invalid game version");
     Json latency=nullptr;try{auto nonce=Clock::now().time_since_epoch().count();std::string ping("\x09\x01",2);ping.append(reinterpret_cast<char*>(&nonce),8);auto started=Clock::now();auto pong_deadline=std::min(deadline,started+std::chrono::milliseconds(500));write_all(socket.fd,ping,pong_deadline);if(read_integer(socket.fd,pong_deadline)==9&&read_exact(socket.fd,9,pong_deadline)==ping.substr(1))latency=std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now()-started).count();}catch(...){}
-    return {{"port",port},{"version",version.value("name","").substr(0,64)},{"protocol",version.value("protocol",Json(nullptr))},{"players",status.value("players",Json::object())},{"latency_ms",latency}};
+    // This is control metadata, not the server-list payload. Keep icons, player
+    // samples and full mod/channel lists on the original game status stream;
+    // echoing them into room.host/retarget can exceed the 8 KiB RPC limit.
+    Json players=Json::object();
+    if(status.contains("players")&&status["players"].is_object())
+        for(const auto* key:{"online","max"})
+            if(status["players"].contains(key)&&status["players"][key].is_number_integer())
+                players[key]=status["players"][key];
+    Json result{{"port",port},{"version",version.value("name","").substr(0,64)},{"protocol",version.value("protocol",Json(nullptr))},{"players",std::move(players)},{"latency_ms",latency}};
+    return result;
 }
 Json game_status(int port,int timeout_ms){
     if(port<1||port>65535||timeout_ms<100||timeout_ms>10000)throw Failure(-32602,"Invalid game probe");

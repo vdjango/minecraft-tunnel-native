@@ -7,6 +7,7 @@
 #include "modpack.hpp"
 #include "game_chat.hpp"
 #include "peer_heartbeat.hpp"
+#include "server_list.hpp"
 #include <rtc/rtc.hpp>
 #include <atomic>
 #include <deque>
@@ -30,6 +31,7 @@ struct Stream {
     bool sent_eof=false, socket_eof=false, dead=false;
     bool opening=false;
     bool handshake_validated=false;
+    ServerListStatus server_list;
     bool connection_counted=false;
     int relay_port=25565;
     size_t inflight=0;

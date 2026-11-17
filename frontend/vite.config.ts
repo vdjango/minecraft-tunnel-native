@@ -3,7 +3,7 @@ import vue from '@vitejs/plugin-vue';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
-import {updatePageAssets,prunePageAssets} from './build/page-assets';
+import {updatePageAssets,prunePageAssets} from './page-assets';
 
 const web = resolve(import.meta.dirname, '../web/tunnel/web');
 const pages = JSON.parse(readFileSync(new URL('./pages.json', import.meta.url), 'utf8')) as Record<string, string[]>;

@@ -269,7 +269,7 @@ jobs:
           else
             options+=(--generate-notes)
           fi
-          if [[ "$RELEASE_TAG" == *-* ]]; then options+=(--prerelease); fi
+          options+=(--prerelease --latest=false)
           if draft=$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null); then
             if [[ "$draft" != true ]]; then
               echo 'Release already published; refusing to overwrite its assets.' >&2

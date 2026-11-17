@@ -42,7 +42,7 @@
 
 2026-11-12：ManagedControl::renew_allocations 仍是预留续约的唯一适配入口，renew_loop 与原 run 分别持有续约/心跳，复用原 ControlConnection 的 CA 校验、有界连接及 close。批量规则唯一归独立 C++ 控制的 placement_lease；节点只轮转 ID、适配返回结果，旧控制回退仍调用同一个 call。原 Session、桥、SDK 和游戏字节路径不新增一套租期规则。
 
-受管模式新增所有者：`managed_control.py::ControlConnection` 统一有界 HTTPS、严格 CA 与关闭；`IdentityAuthority` 仅控制主机批准/撤销，`ManagedControl` 仅节点入网/proof/验票/租期。复用 Federation 已加载的主机密钥，不能假设 RelayServer.host_key 已经是密钥对象。`ControlClient` 归桥，CLI/C ABI 同用，调度规则只在中心；其 resolve/social/allocate/reconnect/release 调用中心，Session 回调只在所属恢复线程更新同一分配。`profile_exchange::https_json` 是接入码与受管接口唯一 HTTPS 机制，设备签名复用 `social::sign_delegated_message`，hex 解码复用 `encoding::unhex`。接口/失败/资源契约见 [12](12-统一控制与稳定性.md)。
+受管模式新增所有者：`managed_control.py::ControlConnection` 统一有界 HTTPS、严格 CA 与关闭；`IdentityAuthority` 仅控制主机批准/撤销，`ManagedControl` 仅节点入网/proof/验票/租期。复用 Federation 已加载的主机密钥，不能假设 RelayServer.host_key 已经是密钥对象。`ControlClient` 归桥，CLI/C ABI 同用，调度规则只在中心；其 resolve/social/allocate/reconnect/release 调用中心，Session 回调只在所属恢复线程更新同一分配。`profile_exchange::https_json` 是接入码与受管接口唯一 HTTPS 机制；每个调用线程持有最多四条缓存连接，线程退出释放。每次重置请求选项但复用 TLS/keep-alive；连接失败最多尝试三次、单次连接三秒、共享原请求总期限，仅在零 HTTP 请求字节且无响应时重试，不重放已经发出的 POST，不重试证书错误。设备签名复用 `social::sign_delegated_message`，hex 解码复用 `encoding::unhex`。接口/失败/资源契约见 [12](12-统一控制与稳定性.md)。
 
 - [methods.json](90-代码清单/methods.json)：`core/`、`bridge/`、`include/`、`bindings/`、`web/`、`scripts/` 的 Python/C/C++ 方法、类/声明/实现/匿名回调，以及 `frontend/src/` 的 JS/TS/Vue 函数。
 - [dom.json](90-代码清单/dom.json)：Vue 模板元素、属性、指令，以及 `web/tunnel/web/*.html` 服务端壳；附前端 AST 中的 ID/选择器/事件引用。

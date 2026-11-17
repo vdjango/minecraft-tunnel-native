@@ -1,5 +1,7 @@
 # 联机节点、SDK 与原生桥协作约束
 
+发布默认只生成 GitHub Prerelease 测试版，除非用户明确更改策略。既有正式附件保留，不重写已发布文件。
+
 本目录是 `minecraft-tunnel-native`，当前仍残留 Python 业务控制面，已有 C++ SSH/STUN 数据面、原生桥与 C ABI SDK；Vue 账号网页属于统一服务，节点网页已退出产品角色但源码清理仍需核验。用户已要求运行服务原生 C++ 化，遗留状态不能当作继续采用 Python 运行方案的授权。不是 Qt 启动器；不把启动器的窗口、QML 或迁移规则搬到这里。用户当次明确要求优先。
 
 同时读取工作区 [交付 Skill](../.agents/skills/bugg-delivery/SKILL.md) 与 [交付清单](../docs/Bugg交付清单.json)，按其唯一验收契约区分官网、账号网页、节点、包和 README；未通过本地/线上相应证据不得宣称完成。

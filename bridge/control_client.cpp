@@ -49,7 +49,8 @@ Json ControlClient::call(const std::string &operation, const Json &body,
                                   : std::string{},
                     metadata_.value("ca_pem", std::string{}));
 }
-ControlClient::ControlClient(const Profile &identity)
+ControlClient::ControlClient(const Profile &identity, const Json &startup,
+                             const std::string &usage_origin)
     : identity_(identity), metadata_(identity.control) {
   if (metadata_.value("protocol", 0) != 1)
     throw Failure(-32602, "Unsupported managed protocol");
@@ -74,6 +75,16 @@ ControlClient::ControlClient(const Profile &identity)
     throw Failure(-32030, "Control account mismatch");
   presence_ = call("presence/open", {{"idempotency_key", random_id(12)}})
                   .at("session_id");
+  if (!startup.empty() && !usage_origin.empty() &&
+      metadata_.value("origin", std::string{}) == usage_origin) {
+    // The process event is stable across reconnects; failure must not reject
+    // login.
+    try {
+      call("usage/launcher/account", startup);
+    } catch (const std::exception &) {
+      log("launcher_usage_unavailable");
+    }
+  }
 }
 Profile ControlClient::endpoint(const Json &item) {
   Profile profile = identity_;
@@ -108,7 +119,8 @@ Profile ControlClient::discovery() {
   }
   return endpoint(candidates[0]);
 }
-Json ControlClient::feedback(const Json &body, const std::string &expected_origin) {
+Json ControlClient::feedback(const Json &body,
+                             const std::string &expected_origin) {
   if (metadata_.value("origin", std::string{}) != expected_origin)
     throw Failure(-32031, "Sign in at the feedback service before submitting");
   return call("feedback/submit", body);

@@ -55,6 +55,14 @@ class LatencyMeasurementTests(unittest.IsolatedAsyncioTestCase):
                 await asyncio.sleep(.05)
 
     async def test_host_game_ping_traverses_relay_and_includes_game_response_delay(self):
+        # A real world's icon alone can exceed the control RPC's 8 KiB limit.
+        # Probe/control metadata must stay compact while the game stream keeps
+        # the complete server status, including loader extension fields.
+        original = dict(version=dict(name='test', protocol=774),
+                        players=dict(online=1, max=10, sample=[]),
+                        favicon='data:image/png;base64,' + 'A' * 14400,
+                        forgeData=dict(mods=[dict(modId='example', modmarker='1.0')]),
+                        description=dict(text='Original world'))
         async def frame(reader):
             size = shift = 0
             while True:
@@ -76,8 +84,7 @@ class LatencyMeasurementTests(unittest.IsolatedAsyncioTestCase):
             try:
                 await frame(reader)  # Minecraft status handshake, through the real tunnel.
                 self.assertEqual(await frame(reader), b'\x00')
-                status = json.dumps(dict(version=dict(name='test', protocol=774),
-                                         players=dict(online=1, max=10))).encode()
+                status = json.dumps(original).encode()
                 payload = b'\x00' + integer(len(status)) + status
                 writer.write(integer(len(payload)) + payload)
                 await writer.drain()
@@ -97,9 +104,37 @@ class LatencyMeasurementTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(server.close)
         host, guest = await self.process(), await self.process()
         hn, gn = await self.add(host), await self.add(guest)
+        port = server.sockets[0].getsockname()[1]
+        world = await self.call(host, 'game.status', dict(port=port))
+        self.assertLess(len(json.dumps(world).encode()), 1024)
+        self.assertEqual(world['players'], dict(online=1, max=10))
+        for key in ('favicon', 'description', 'forgeData', 'modinfo'):
+            self.assertNotIn(key, world)
         hosted = await self.call(host, 'room.host', dict(node=hn,
-            game_port=server.sockets[0].getsockname()[1], transport='relay'))
+            game_port=port, transport='relay', settings=dict(game=world)))
+        await self.call(host, 'room.retarget', dict(session=hosted['session'], port=port, game=world))
         joined = await self.call(guest, 'room.join', dict(node=gn, invite=hosted['invite'], transport='relay'))
+        reader, writer = await asyncio.open_connection('127.0.0.1', int(joined['address'].rsplit(':', 1)[1]))
+        try:
+            handshake = b'\x00' + integer(774) + b'\x09localhost' + port.to_bytes(2, 'big') + b'\x01'
+            writer.write(integer(len(handshake)) + handshake + b'\x01\x00')
+            await writer.drain()
+            status_packet = await asyncio.wait_for(frame(reader), 10)
+            self.assertEqual(status_packet[0], 0)
+            offset = 1
+            while status_packet[offset] & 128:
+                offset += 1
+            response = json.loads(status_packet[offset + 1:])
+            self.assertEqual(response['favicon'], original['favicon'])
+            self.assertEqual(response['forgeData'], original['forgeData'])
+            self.assertEqual(response['players']['online'], 1)
+            ping = b'\x01abcdefgh'
+            writer.write(integer(len(ping)) + ping)
+            await writer.drain()
+            self.assertEqual(await asyncio.wait_for(frame(reader), 10), ping)
+        finally:
+            writer.close()
+            await writer.wait_closed()
         async with asyncio.timeout(10):
             while True:
                 events = (await self.call(guest, 'session.events', dict(session=joined['session'])))['events']
