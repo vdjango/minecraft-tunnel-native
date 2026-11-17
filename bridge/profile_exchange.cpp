@@ -146,9 +146,12 @@ Json https_json(const std::string &origin, const std::string &path,
   if (init_result != CURLE_OK)
     throw Failure(-32032, "Access code exchange unavailable");
   using CurlPtr = std::unique_ptr<CURL, decltype(&curl_easy_cleanup)>;
-  CurlPtr handle(curl_easy_init(), curl_easy_cleanup);
+  // Each RPC/session worker owns its connection cache until that thread exits.
+  // Reset request options without discarding verified TLS/keep-alive sessions.
+  thread_local CurlPtr handle(curl_easy_init(), curl_easy_cleanup);
   if (!handle)
     throw std::bad_alloc();
+  curl_easy_reset(handle.get());
   std::string response;
   curl_slist *headers = nullptr;
   headers = curl_slist_append(headers, "Content-Type: application/json");
@@ -171,12 +174,11 @@ Json https_json(const std::string &origin, const std::string &path,
   const auto endpoint = issuer + path;
   set_option(handle.get(), CURLOPT_URL, endpoint.c_str());
   set_option(handle.get(), CURLOPT_PROTOCOLS_STR, "https");
+  set_option(handle.get(), CURLOPT_MAXCONNECTS, 4L);
   set_option(handle.get(), CURLOPT_FOLLOWLOCATION, 0L);
-  set_option(handle.get(), CURLOPT_CONNECTTIMEOUT_MS, 5000L);
-  set_option(handle.get(), CURLOPT_TIMEOUT_MS,
-             feedback                               ? 30000L
-             : path == "/v1/usage/launcher/account" ? 5000L
-                                                    : 10000L);
+  const long timeout_ms = feedback                               ? 30000L
+                          : path == "/v1/usage/launcher/account" ? 5000L
+                                                                 : 10000L;
   set_option(handle.get(), CURLOPT_SSL_VERIFYPEER, 1L);
   set_option(handle.get(), CURLOPT_SSL_VERIFYHOST, 2L);
   curl_blob ca{const_cast<char *>(ca_pem.data()), ca_pem.size(),
@@ -194,12 +196,46 @@ Json https_json(const std::string &origin, const std::string &path,
              static_cast<long>(body.size()));
   set_option(handle.get(), CURLOPT_WRITEFUNCTION, append_response);
   set_option(handle.get(), CURLOPT_WRITEDATA, &response);
-  const auto result = curl_easy_perform(handle.get());
+  const auto deadline = Clock::now() + std::chrono::milliseconds(timeout_ms);
+  CURLcode result = CURLE_OK;
+  long request_bytes = 0;
+  for (int attempt = 0; attempt != 3; ++attempt) {
+    const auto remaining =
+        std::chrono::duration_cast<std::chrono::milliseconds>(deadline -
+                                                              Clock::now())
+            .count();
+    if (remaining <= 0)
+      break;
+    set_option(handle.get(), CURLOPT_TIMEOUT_MS, static_cast<long>(remaining));
+    set_option(handle.get(), CURLOPT_CONNECTTIMEOUT_MS,
+               std::min(3000L, static_cast<long>(remaining)));
+    result = curl_easy_perform(handle.get());
+    curl_easy_getinfo(handle.get(), CURLINFO_REQUEST_SIZE, &request_bytes);
+    const bool transient =
+        result == CURLE_COULDNT_RESOLVE_HOST ||
+        result == CURLE_COULDNT_CONNECT || result == CURLE_SSL_CONNECT_ERROR ||
+        result == CURLE_OPERATION_TIMEDOUT || result == CURLE_SEND_ERROR ||
+        result == CURLE_RECV_ERROR;
+    // A POST may have committed once any HTTP bytes were sent. Never replay
+    // that operation, nor retry certificate, protocol or response failures.
+    if (!transient || request_bytes != 0 || !response.empty())
+      break;
+  }
   long status = 0;
   curl_easy_getinfo(handle.get(), CURLINFO_RESPONSE_CODE, &status);
-  if (result != CURLE_OK)
+  if (result != CURLE_OK) {
+    double dns = 0, connected = 0;
+    curl_easy_getinfo(handle.get(), CURLINFO_NAMELOOKUP_TIME, &dns);
+    curl_easy_getinfo(handle.get(), CURLINFO_CONNECT_TIME, &connected);
+    const auto phase = request_bytes != 0 ? "response"
+                       : connected != 0   ? "tls"
+                       : dns != 0         ? "connect"
+                                          : "dns";
     throw Failure(-32032,
-                  "HTTPS " + path + " failed: " + curl_easy_strerror(result));
+                  "HTTPS " + path + " failed: " + curl_easy_strerror(result) +
+                      " (curl=" + std::to_string(static_cast<int>(result)) +
+                      ", phase=" + phase + ")");
+  }
   try {
     auto value = Json::parse(response);
     if (status != 200)

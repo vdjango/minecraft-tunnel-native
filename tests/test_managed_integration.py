@@ -1,5 +1,7 @@
 """Real private control binary + native relay + native bridge, using an isolated database."""
 import asyncio
+import base64
+import hashlib
 import importlib.util
 import json
 import os
@@ -93,6 +95,12 @@ class ManagedIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def test_control_login_friend_invitation_native_payload_and_eof(self):
         a,host,hn = await self.user('managed_host')
         b,guest,gn = await self.user('managed_guest')
+        code = base64.b32encode(hashlib.sha256(('buggcraft-friend-v1:' + b).encode()).digest()).decode()[:12]
+        formatted = '-'.join(code[i:i + 4] for i in range(0, 12, 4))
+        for query in ('managed_guest', 'MANAGED_GUEST', b, formatted, formatted.lower(), code):
+            found = await self.call(host, 'node.request', dict(node=hn,
+                request=dict(op='account_lookup', query=query)))
+            self.assertEqual([item['account'] for item in found['players']], [b])
         await self.call(host,'social.operate',dict(node=hn,operation='request',target=b))
         state = await self.call(guest,'node.request',dict(node=gn,request={'op':'social'}))
         self.assertEqual(state['requests'][0]['account'],a)
