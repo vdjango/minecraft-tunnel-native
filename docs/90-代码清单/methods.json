@@ -2183,41 +2183,47 @@
       "path": "bridge/profile_exchange.cpp",
       "line": 41,
       "kind": "definition",
+      "symbol": "bridge::<anonymous>::request_ready(void *target, char *, char *, int, int)"
+    },
+    {
+      "path": "bridge/profile_exchange.cpp",
+      "line": 46,
+      "kind": "definition",
       "symbol": "bridge::<anonymous>::issuer_url(const std::string &encoded)"
     },
     {
       "path": "bridge/profile_exchange.cpp",
-      "line": 45,
+      "line": 50,
       "kind": "lambda",
-      "symbol": "bridge::<anonymous>::issuer_url(const std::string &encoded)::<lambda@45>"
+      "symbol": "bridge::<anonymous>::issuer_url(const std::string &encoded)::<lambda@50>"
     },
     {
       "path": "bridge/profile_exchange.cpp",
-      "line": 88,
+      "line": 93,
       "kind": "definition",
       "symbol": "bridge::<anonymous>::set_option(CURL *handle, CURLoption option, Value value)"
     },
     {
       "path": "bridge/profile_exchange.cpp",
-      "line": 94,
+      "line": 99,
       "kind": "definition",
       "symbol": "bridge::redeem_profile_code(const std::string &code)"
     },
     {
       "path": "bridge/profile_exchange.cpp",
-      "line": 129,
+      "line": 134,
       "kind": "definition",
       "symbol": "bridge::https_json(const std::string &origin, const std::string &path, const Json &request, const std::string &token, const std::string &ca_pem)"
     },
     {
       "path": "bridge/profile_exchange.cpp",
-      "line": 145,
+      "line": 150,
       "kind": "lambda",
-      "symbol": "bridge::https_json(const std::string &origin, const std::string &path, const Json &request, const std::string &token, const std::string &ca_pem)::<lambda@145>"
+      "symbol": "bridge::https_json(const std::string &origin, const std::string &path, const Json &request, const std::string &token, const std::string &ca_pem)::<lambda@150>"
     },
     {
       "path": "bridge/profile_exchange.cpp",
-      "line": 151,
+      "line": 156,
       "kind": "declaration",
       "symbol": "bridge::https_json(const std::string &origin, const std::string &path, const Json &request, const std::string &token, const std::string &ca_pem)::handle(curl_easy_init(), curl_easy_cleanup)"
     },

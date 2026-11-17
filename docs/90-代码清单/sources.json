@@ -29,7 +29,7 @@
     "bridge/peer.cpp": "bbc9a98d9a0cd1be569138f3c9acbaa73f5a13fb6fa67bdd47101d038f2ef674",
     "bridge/peer_health.cpp": "ffb38d2adaf8a21758127d6957fc676ba9d7f5af9258178a6141e21cc3d899f9",
     "bridge/peer_heartbeat.hpp": "62002f5980c39d3921f9a784f0761efdbd8a01c31071d7519a25c3fe3b77355f",
-    "bridge/profile_exchange.cpp": "5f097a26fa6333fcba29f30eb556993d1f0ffc2a7777ddc948e398926428b13e",
+    "bridge/profile_exchange.cpp": "b17268364cffe86c991c0f57353617d63978c13a9ca9c562c8926d82037f660a",
     "bridge/profile_exchange.hpp": "526cf3a14c3c8ee1721f8d7e01ef340c281a0dd5fb51e797ecfe7ee89bb884ca",
     "bridge/progress.hpp": "48986c88302028c8a23af302e2a3334f72b9b4bb56bfa68fc624c6823376520d",
     "bridge/route_score.hpp": "49271295fa03a282b660794fa92f310655359a120077a726fddfc415a7c921db",
@@ -177,7 +177,7 @@
     "web/tunnel/social_delivery.py": "afffa33a6c649c72e72d4b7471cea6e5f4dcaab46f64466e49f4bc0f339711f7",
     "web/tunnel/storage.py": "0a9e6b3ec906b861db21136197363bbf9eda9498edcc5066e8d3cdd47eb223df",
     "web/tunnel/stun.py": "e81fc3ae01e92ff2a592fe84cbd89ccb858336aff1dfd34ce0a8a58207e30244",
-    "web/tunnel/web/account.html": "702f1644efe5102f182d6bcd9ee71b42418995c8fc9257456bdfe17c56f1b56b",
-    "web/tunnel/web/feedback.html": "4ff5fb45c65de07031569b8039e91d48d54e2256013398bc57b3be23468a37c0"
+    "web/tunnel/web/account.html": "d5ebe0a0ef2554591a400706427a9276134a4f8f71358a3cee1234746eb6c7b5",
+    "web/tunnel/web/feedback.html": "b6f0ed50ed32f5c51f2e6539c2327551deee9e37e4b776485d54d77d11867a79"
   }
 }

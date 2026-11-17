@@ -5907,6 +5907,13 @@
       "path": "web/tunnel/web/account.html",
       "line": 1,
       "tag": "link",
+      "attributes": {},
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/account.html",
+      "line": 1,
+      "tag": "link",
       "attributes": {
         "data-page-style": ""
       },
@@ -6099,6 +6106,16 @@
       "tag": "script",
       "attributes": {
         "data-cfasync": "false"
+      },
+      "directives": []
+    },
+    {
+      "path": "web/tunnel/web/feedback.html",
+      "line": 1,
+      "tag": "script",
+      "attributes": {
+        "data-cfasync": "false",
+        "data-usage-script": ""
       },
       "directives": []
     },

@@ -38,6 +38,11 @@ size_t append_response(char *data, size_t size, size_t count, void *target) {
   return length;
 }
 
+int request_ready(void *target, char *, char *, int, int) {
+  *static_cast<bool *>(target) = true;
+  return CURL_PREREQFUNC_OK;
+}
+
 std::string issuer_url(const std::string &encoded) {
   auto url = decode_base64url(encoded);
   if (url.size() > 1024 ||
@@ -199,6 +204,9 @@ Json https_json(const std::string &origin, const std::string &path,
   const auto deadline = Clock::now() + std::chrono::milliseconds(timeout_ms);
   CURLcode result = CURLE_OK;
   long request_bytes = 0;
+  bool ready_to_send = false;
+  set_option(handle.get(), CURLOPT_PREREQFUNCTION, request_ready);
+  set_option(handle.get(), CURLOPT_PREREQDATA, &ready_to_send);
   for (int attempt = 0; attempt != 3; ++attempt) {
     const auto remaining =
         std::chrono::duration_cast<std::chrono::milliseconds>(deadline -
@@ -216,9 +224,9 @@ Json https_json(const std::string &origin, const std::string &path,
         result == CURLE_COULDNT_CONNECT || result == CURLE_SSL_CONNECT_ERROR ||
         result == CURLE_OPERATION_TIMEDOUT || result == CURLE_SEND_ERROR ||
         result == CURLE_RECV_ERROR;
-    // A POST may have committed once any HTTP bytes were sent. Never replay
-    // that operation, nor retry certificate, protocol or response failures.
-    if (!transient || request_bytes != 0 || !response.empty())
+    // Some curl backends report zero request size after a response reset.
+    // Once TLS completes and curl prepares HTTP, conservatively forbid replay.
+    if (!transient || ready_to_send || request_bytes != 0 || !response.empty())
       break;
   }
   long status = 0;
@@ -227,10 +235,10 @@ Json https_json(const std::string &origin, const std::string &path,
     double dns = 0, connected = 0;
     curl_easy_getinfo(handle.get(), CURLINFO_NAMELOOKUP_TIME, &dns);
     curl_easy_getinfo(handle.get(), CURLINFO_CONNECT_TIME, &connected);
-    const auto phase = request_bytes != 0 ? "response"
-                       : connected != 0   ? "tls"
-                       : dns != 0         ? "connect"
-                                          : "dns";
+    const auto phase = ready_to_send || request_bytes != 0 ? "response"
+                       : connected != 0                    ? "tls"
+                       : dns != 0                          ? "connect"
+                                                           : "dns";
     throw Failure(-32032,
                   "HTTPS " + path + " failed: " + curl_easy_strerror(result) +
                       " (curl=" + std::to_string(static_cast<int>(result)) +
